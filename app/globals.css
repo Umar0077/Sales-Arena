@@ -1,0 +1,313 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #070B16;
+  --color-elevated: #0D1426;
+  --color-surface: #121C32;
+  --color-surface-hover: #1A2945;
+  --color-surface-border: rgba(117, 104, 255, 0.15);
+  
+  --color-primary: #7568FF;
+  --color-primary-hover: #8B80FF;
+  --color-secondary: #27D5FF;
+  --color-success: #36E0B5;
+  --color-gold: #FFC857;
+  --color-warning: #FFB85C;
+  --color-error: #FF647C;
+  
+  --color-text-primary: #F5F7FF;
+  --color-text-secondary: #A6B3CC;
+  --color-text-muted: #7483A0;
+
+}
+
+/* Sora everywhere. --font-sora is injected by next/font in app/layout.tsx.
+   "mono" also maps to Sora; numeric alignment comes from tabular figures instead. */
+@theme inline {
+  --font-heading: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  min-height: 100vh;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  font-feature-settings: "ss01" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Sora is wide; tighten large headings slightly and keep numbers aligned. */
+h1, h2, h3, .font-heading { letter-spacing: -0.02em; line-height: 1.15; }
+.font-mono, .tabular, [data-numeric] { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+button, input, select, textarea { font-family: inherit; }
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070B16;
+}
+::-webkit-scrollbar-thumb {
+  background: #1A2945;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7568FF;
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 25px -5px rgba(117, 104, 255, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(39, 213, 255, 0.35);
+}
+
+.glow-gold {
+  box-shadow: 0 0 30px -5px rgba(255, 200, 87, 0.4);
+}
+
+.glow-success {
+  box-shadow: 0 0 25px -5px rgba(54, 224, 181, 0.35);
+}
+
+/* Glass panel */
+.glass-panel {
+  background: rgba(18, 28, 50, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(117, 104, 255, 0.15);
+}
+
+.glass-panel-elevated {
+  background: rgba(13, 20, 38, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Broadcast grid background */
+.arena-grid-bg {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(117, 104, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(117, 104, 255, 0.04) 1px, transparent 1px);
+}
+
+/* ---------- Stadium backdrop (components/layout/ArenaBackdrop.tsx) ---------- */
+.arena-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, #2a1660 0%, transparent 55%),
+    radial-gradient(ellipse 90% 70% at 100% 100%, #062a44 0%, transparent 55%),
+    linear-gradient(180deg, #0b0a24 0%, #070b1c 45%, #050813 100%);
+}
+
+.arena-backdrop__aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.arena-backdrop__aurora--violet {
+  width: 55vw; height: 55vw; left: -12vw; top: -18vw;
+  background: radial-gradient(circle, rgba(140, 82, 255, 0.75), transparent 65%);
+  animation: auroraDriftA 26s ease-in-out infinite alternate;
+}
+.arena-backdrop__aurora--cyan {
+  width: 48vw; height: 48vw; right: -14vw; top: 18vh;
+  background: radial-gradient(circle, rgba(39, 213, 255, 0.55), transparent 65%);
+  animation: auroraDriftB 32s ease-in-out infinite alternate;
+}
+.arena-backdrop__aurora--gold {
+  width: 40vw; height: 40vw; left: 30vw; bottom: -22vw;
+  background: radial-gradient(circle, rgba(255, 200, 87, 0.35), transparent 65%);
+  animation: auroraDriftA 38s ease-in-out infinite alternate-reverse;
+}
+
+/* Star field: tiny radial dots tiled at two scales, twinkling out of phase. */
+.arena-backdrop__stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 20px 30px, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 120px 80px, rgba(180, 200, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 200px 160px, rgba(39, 213, 255, 0.8), transparent),
+    radial-gradient(1px 1px at 60px 200px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1.5px 1.5px at 260px 40px, rgba(255, 200, 87, 0.8), transparent),
+    radial-gradient(1px 1px at 160px 260px, rgba(190, 150, 255, 0.8), transparent);
+  background-size: 300px 300px;
+  opacity: 0.45;
+  animation: starTwinkle 6s ease-in-out infinite alternate;
+}
+.arena-backdrop__stars--far {
+  background-size: 180px 180px;
+  opacity: 0.25;
+  animation-duration: 9s;
+  animation-delay: -3s;
+}
+
+/* Perspective grid floor fading into the horizon. */
+.arena-backdrop__floor {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -10%;
+  height: 60%;
+  background-image:
+    linear-gradient(to right, rgba(117, 104, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(39, 213, 255, 0.16) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(600px) rotateX(62deg);
+  transform-origin: center top;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 45%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 45%, black 100%);
+  animation: floorScroll 6s linear infinite;
+  opacity: 0.7;
+}
+
+.arena-backdrop__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 85% 75% at 50% 45%, transparent 55%, rgba(3, 5, 12, 0.85) 100%);
+}
+
+@keyframes auroraDriftA {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(8vw, 6vh, 0) scale(1.15); }
+}
+@keyframes auroraDriftB {
+  0% { transform: translate3d(0, 0, 0) scale(1.1); }
+  100% { transform: translate3d(-10vw, -8vh, 0) scale(0.95); }
+}
+@keyframes starTwinkle {
+  0% { opacity: 0.2; }
+  100% { opacity: 0.55; }
+}
+@keyframes floorScroll {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 64px; }
+}
+
+/* "subtle" effects and the admin console: dimmer glows, no motion. */
+.arena-backdrop[data-effects="subtle"] .arena-backdrop__aurora { opacity: 0.3; animation: none; }
+.arena-backdrop[data-effects="subtle"] .arena-backdrop__stars { animation: none; opacity: 0.2; }
+.arena-backdrop[data-effects="subtle"] .arena-backdrop__floor { animation: none; opacity: 0.4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .arena-backdrop__aurora,
+  .arena-backdrop__stars,
+  .arena-backdrop__floor {
+    animation: none;
+  }
+}
+
+/* Leaderboard: brief gold flash when an agent climbs. */
+@keyframes lbClimb {
+  0% { box-shadow: 0 0 0 0 rgba(255, 200, 87, 0.0); background-color: rgba(255, 200, 87, 0.18); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 200, 87, 0); }
+}
+.lb-climb { animation: lbClimb 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) { .lb-climb { animation: none; } }
+
+/* ---------- Spin flow ---------- */
+.spin-stage-bg {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 45%, rgba(139, 92, 255, 0.35), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 15% 85%, rgba(255, 61, 180, 0.18), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 80%, rgba(34, 211, 255, 0.18), transparent 70%),
+    linear-gradient(180deg, #0B0A24 0%, #060914 100%);
+}
+.achv-rays, .reveal-rays {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 200, 87, 0.22) 0deg 6deg, transparent 6deg 18deg);
+  mask-image: radial-gradient(circle, black 0%, transparent 60%);
+  -webkit-mask-image: radial-gradient(circle, black 0%, transparent 60%);
+  animation: raysSpin 24s linear infinite;
+}
+.reveal-rays {
+  background: repeating-conic-gradient(from 0deg, rgba(139, 92, 255, 0.18) 0deg 5deg, transparent 5deg 12deg, rgba(34, 211, 255, 0.12) 12deg 15deg, transparent 15deg 22deg);
+  animation-duration: 40s;
+}
+@keyframes raysSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.achv-rays { animation-name: raysSpinTop; }
+@keyframes raysSpinTop { to { transform: translateX(-50%) rotate(360deg); } }
+
+.spin-cta { animation: ctaPulse 2.2s ease-in-out infinite; }
+@keyframes ctaPulse {
+  0%, 100% { filter: brightness(1); box-shadow: 0 12px 40px -10px rgba(139, 92, 255, 0.8), 0 0 0 0 rgba(255, 200, 87, 0.0); }
+  50% { filter: brightness(1.12); box-shadow: 0 16px 50px -8px rgba(139, 92, 255, 1), 0 0 0 8px rgba(255, 200, 87, 0.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achv-rays, .reveal-rays, .spin-cta { animation: none; }
+}
+
+/* The spin stage is opaque and full screen: skip painting the arena behind it. */
+.spin-stage-open .arena-backdrop,
+.spin-stage-open main,
+.spin-stage-open header { visibility: hidden; }
+.spin-stage-open .arena-backdrop * { animation-play-state: paused; }
+
+/* Brand logo glow */
+.brand-glow {
+  filter: drop-shadow(0 0 10px rgba(117, 104, 255, 0.55)) drop-shadow(0 0 18px rgba(39, 213, 255, 0.25));
+}
+
+/* TV Display full screen mode adjustments */
+.tv-mode {
+  font-size: 110%;
+}
+.tv-mode .kpi-number {
+  font-size: 3.5rem !important;
+}
+
+/* Keyframes */
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.03); }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(1000%); }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+/* Accessibility: Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
