@@ -118,6 +118,8 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
           message: `${closerName} closed ${policyStr}${premiumStr}`,
           createdAt: sale.approvedAt || sale.createdAt,
           agentId: sale.agentId,
+          teamId: sale.teamId ?? null,
+          simulated: false,
         };
       });
   }, [dayMetrics?.sales]);
@@ -129,6 +131,8 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
       message: `${award.agentName} earned ${currency} ${award.amount.toLocaleString()} ${award.programName}!`,
       createdAt: award.createdAt,
       agentId: award.agentId,
+      teamId: null,
+      simulated: false,
     }));
   }, [todayAwards, currency]);
 

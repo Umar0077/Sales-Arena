@@ -154,8 +154,15 @@ export class RewardEngine {
         : DEFAULT_PROGRAMS.filter((p) => p.enabled);
 
       // 5. Evaluate bonus programs
+      const periodMap: Record<BonusKind, "day" | "week" | "month"> = {
+        daily: "day",
+        weekly: "week",
+        monthly: "month",
+      };
+
       for (const prog of programs) {
-        const pInfo = periodInfo(prog.kind, clock, saleDate);
+        const rewardPeriod = periodMap[prog.kind] || "day";
+        const pInfo = periodInfo(rewardPeriod, clock, saleDate);
         const periodKey = pInfo.key;
 
         // Check how many awards agent already earned for this program in this period

@@ -123,6 +123,8 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           message: `${closerName} closed ${policyStr}${premiumStr}`,
           createdAt: sale.approvedAt || sale.createdAt,
           agentId: sale.agentId,
+          teamId: sale.teamId ?? null,
+          simulated: false,
         };
       });
   }, [periodSales]);
