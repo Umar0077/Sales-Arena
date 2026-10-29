@@ -8,6 +8,30 @@ import type {
   Team,
   TargetRule,
 } from "@/types";
+import type { CloserRow } from "@/features/sales/leads";
+
+export interface PeriodMetrics {
+  summary: {
+    range: { from: string | null; to: string | null };
+    submitted: number;
+    validated: number;
+    closeRate: number;
+    returned: number;
+    rejected: number;
+    activeClosers: number;
+    premium: { total: number; average: number };
+  } | null;
+  closers: CloserRow[];
+  sales: Sale[];
+  dateRange: {
+    from: string;
+    to: string;
+    label: string;
+    detailedLabel: string;
+  };
+  status: "idle" | "loading" | "success" | "ready" | "error";
+  lastFetchedAt: string | null;
+}
 
 /**
  * Shape of the complete mock data set. Everything the UI displays is derived
@@ -27,6 +51,8 @@ export interface ArenaData {
    * Index 0 = yesterday, index 1 = two days ago, … (30 days).
    */
   history: Record<string, number[]>;
+  /** Submitted-lead counts per agent for the same past days (index 0 = yesterday). Demo data. */
+  historySubmitted: Record<string, number[]>;
   targetRules: TargetRule[];
   rewards: Reward[];
   spins: SpinResult[];
@@ -39,9 +65,32 @@ export interface ArenaData {
   /** Team ids that already reached their daily target today. */
   teamTargetsHit: string[];
   lastSyncAt: string | null;
+  dataSourceMode?: "demo" | "production";
+  apiSyncStatus?: "connected" | "connecting" | "error" | "unconfigured";
+  apiSyncError?: string | null;
+  safeQuoteSummary?: {
+    range: { from: string | null; to: string | null };
+    submitted: number;
+    validated: number;
+    closeRate: number;
+    returned: number;
+    rejected: number;
+    activeClosers: number;
+    premium: { total: number; average: number };
+  } | null;
+  periodMetrics?: {
+    day: PeriodMetrics;
+    week: PeriodMetrics;
+    month: PeriodMetrics;
+    allTime?: {
+      summary: ArenaData["safeQuoteSummary"];
+      closers: CloserRow[];
+    };
+  };
 }
 
 // 4: leads include rejected and duplicate statuses.
-export const SCHEMA_VERSION = 4;
+// 5: submitted-lead history for weekly/monthly arenas.
+export const SCHEMA_VERSION = 5;
 export const HISTORY_DAYS = 30;
 export const ACTIVITY_LIMIT = 150;

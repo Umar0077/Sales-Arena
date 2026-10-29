@@ -273,12 +273,23 @@ button, input, select, textarea { font-family: inherit; }
   filter: drop-shadow(0 0 10px rgba(117, 104, 255, 0.55)) drop-shadow(0 0 18px rgba(39, 213, 255, 0.25));
 }
 
+/* Big numbers size themselves to their own card (container units), so they never
+   spill out when TV mode or browser zoom makes text larger. */
+:where(div, li):has(> .kpi-number) { container-type: inline-size; }
+.kpi-number {
+  font-size: clamp(1.35rem, 15cqi, 1.875rem);
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* TV Display full screen mode adjustments */
 .tv-mode {
   font-size: 110%;
 }
 .tv-mode .kpi-number {
-  font-size: 3.5rem !important;
+  font-size: clamp(1.6rem, 18cqi, 3.25rem);
 }
 
 /* Keyframes */

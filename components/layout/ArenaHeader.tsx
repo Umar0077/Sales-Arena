@@ -7,6 +7,7 @@ import { audioEngine } from "@/lib/audio/engine";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
 import { DemoSpinButton } from "@/components/arena/DemoSpinButton";
+import { ArenaModeSelector } from "@/components/layout/ArenaModeSelector";
 
 /** Public Live Arena header: branding plus display utilities only — no admin links. */
 export function ArenaHeader() {
@@ -52,7 +53,7 @@ export function ArenaHeader() {
       <div className="flex h-16 items-center justify-between gap-4 px-4 lg:px-8">
         <BrandLogo size={42} />
 
-        <div className="hidden sm:flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 shadow-[0_0_24px_-6px_rgba(117,104,255,0.6)]">
+        <div className="hidden xl:flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-primary/30 bg-primary/10 px-4 py-2 shadow-[0_0_24px_-6px_rgba(117,104,255,0.6)]">
           <Radio className="h-4 w-4 text-secondary" />
           <span className="font-heading text-sm font-bold tracking-[0.2em] text-white">LIVE ARENA</span>
           {online ? (
@@ -65,8 +66,9 @@ export function ArenaHeader() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2 rounded-xl border border-white/[0.06] bg-surface/60 px-3 py-2 text-sm font-semibold text-text-secondary tabular">
+        <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          <ArenaModeSelector />
+          <div className="hidden 2xl:flex items-center gap-2 rounded-xl border border-white/[0.06] bg-surface/60 px-3 py-2 text-sm font-semibold text-text-secondary tabular">
             <span className="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse" />
             <span suppressHydrationWarning>{time || "--:--:--"}</span>
           </div>

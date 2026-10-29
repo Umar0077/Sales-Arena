@@ -13,6 +13,7 @@ import { computeSpinCredit } from "@/features/targets/eligibility";
 import { audioEngine } from "@/lib/audio/engine";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
+import { closerCode } from "@/features/sales/leads";
 import type { Reward } from "@/types";
 
 type StageState = "ready" | "preparing" | "spinning" | "decelerating" | "result";
@@ -75,8 +76,26 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
     audioEngine.play("wheelActivate");
 
     setTimeout(
-      () => {
-        const res = useArenaStore.getState().startSpin(agent.id, { seeded, seed });
+      async () => {
+        let serverRewardId: string | undefined = undefined;
+        try {
+          const userCode = closerCode(agent);
+          const spinRes = await fetch("/api/arena/spin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userCode }),
+          });
+          if (spinRes.ok) {
+            const data = await spinRes.json();
+            if (data.ok && data.reward?.id) {
+              serverRewardId = data.reward.id;
+            }
+          }
+        } catch {
+          // If server API fails or in demo mode, fall back to client simulation
+        }
+
+        const res = useArenaStore.getState().startSpin(agent.id, { seeded, seed, serverRewardId });
         if (!res.ok) {
           setError(res.reason);
           setState("ready");
@@ -132,7 +151,7 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
   return (
     <div className="relative flex h-full flex-col">
       {/* Top bar: brand, agent, spins */}
-      <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-8">
+      <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-8">
         <BrandLogo size={40} subtitle="3D Spin Arena" />
         <button
           onClick={onClose}
@@ -144,13 +163,13 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
         </button>
       </div>
 
-      <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col items-center justify-center gap-4 px-4 pb-6 lg:flex-row lg:gap-10 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col items-center justify-center gap-4 px-4 pb-4 lg:flex-row lg:gap-8 lg:px-8">
         {/* Agent card */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.15 }}
-          className="order-1 w-full max-w-xs rounded-3xl border border-white/10 bg-[#0B1122]/80 p-5 text-center backdrop-blur-xl lg:order-none"
+          className="order-1 w-full max-w-xs shrink-0 rounded-3xl lg:max-w-[17rem] border border-white/10 bg-[#0B1122]/80 p-5 text-center backdrop-blur-xl lg:order-none"
         >
           <p className="text-[11px] font-bold tracking-[0.25em] text-secondary">NOW SPINNING</p>
           <div
@@ -168,7 +187,7 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
         </motion.div>
 
         {/* Wheel */}
-        <div className="order-0 w-full max-w-[min(78vh,760px)] lg:order-none">
+        <div className="order-0 w-full max-w-[min(92vh,1100px)] lg:min-w-0 lg:flex-1 lg:order-none">
           <WheelCanvas
             rewards={segments}
             activeSpinPlan={plan}
@@ -181,7 +200,7 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
         </div>
 
         {/* Spin control */}
-        <div className="order-2 flex w-full max-w-xs flex-col items-center gap-3 lg:order-none">
+        <div className="order-2 flex w-full max-w-xs shrink-0 flex-col items-center gap-3 lg:max-w-[17rem] lg:order-none">
           <button
             onClick={startSpin}
             disabled={busy || available <= 0}

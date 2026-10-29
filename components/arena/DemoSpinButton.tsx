@@ -6,6 +6,12 @@ import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { computeAllCredits } from "@/features/targets/eligibility";
 import { audioEngine } from "@/lib/audio/engine";
+import { useArenaMode } from "@/store/arena-mode-store";
+import { useRewardsStore, programFor } from "@/store/rewards-store";
+import { periodLeadCounts } from "@/features/sales/leads";
+import { periodInfo } from "@/lib/time/business";
+import { businessClock } from "@/lib/rewards/runner";
+import { KIND_PERIOD } from "@/lib/rewards/engine";
 
 /**
  * Presentation helper: runs the real spin journey on demand.
@@ -18,8 +24,38 @@ export function DemoSpinButton() {
   const spinEnabled = useSettingsStore((s) => s.spinFeatureEnabled);
   const online = useSettingsStore((s) => s.arenaEnabled);
   const busy = useSpinFlowStore((s) => s.stage !== "idle" || s.queue.length > 0);
+  const mode = useArenaMode();
+  const bonusMode = mode !== "spin";
+  const program = useRewardsStore((s) => (mode === "spin" ? undefined : programFor(s.programs, mode)));
 
-  if (!visible || !spinEnabled || !online) return null;
+  if (!visible || !online) return null;
+  if (!bonusMode && !spinEnabled) return null;
+  if (bonusMode && !program?.enabled) return null;
+
+  /** Bonus screens: send the validated sales the closest agent still needs for this program. */
+  const runBonus = () => {
+    if (!program) return;
+    audioEngine.unlock();
+    const store = useArenaStore.getState();
+    const data = pickData(store);
+    const info = periodInfo(KIND_PERIOD[program.kind], businessClock(useSettingsStore.getState()));
+    const counts = periodLeadCounts(data, info.daysBack);
+    const awarded = useRewardsStore.getState().awards.filter((a) => a.programId === program.id && a.periodKey === info.key);
+    const capped = new Set(
+      data.agents.filter((a) => awarded.filter((x) => x.agentId === a.id).length >= program.maxAwards).map((a) => a.id),
+    );
+    const candidates = data.agents
+      .filter((a) => a.active && !capped.has(a.id))
+      .map((a) => {
+        const v = counts.get(a.id)?.validated ?? 0;
+        return { id: a.id, need: program.salesRequired - (v % program.salesRequired) };
+      })
+      .sort((x, y) => x.need - y.need);
+    const pick = candidates[0];
+    if (!pick) return;
+    const n = Math.min(pick.need, 25);
+    for (let i = 0; i < n; i++) store.recordSale({ agentId: pick.id, status: "approved", source: "demo-simulator", celebrate: false });
+  };
 
   const run = () => {
     if (useSpinFlowStore.getState().stage !== "idle") return;
@@ -56,14 +92,18 @@ export function DemoSpinButton() {
 
   return (
     <button
-      onClick={run}
+      onClick={bonusMode ? runBonus : run}
       disabled={busy}
-      title="Shows the full spin journey: a demo agent hits their target, then SPIN NOW, the wheel and the prize reveal"
+      title={
+        bonusMode
+          ? "Sends demo validated sales for the agent closest to this bonus, so the bonus popup shows"
+          : "Shows the full spin journey: a demo agent hits their target, then SPIN NOW, the wheel and the prize reveal"
+      }
       data-testid="demo-spin"
-      className="inline-flex h-10 items-center gap-2 rounded-xl border border-gold/40 bg-gold/10 px-3.5 text-sm font-semibold text-gold shadow-[0_6px_20px_-8px_rgba(255,200,87,0.6)] transition-all hover:bg-gold/20 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+      className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-gold/40 bg-gold/10 px-3.5 text-sm font-semibold text-gold shadow-[0_6px_20px_-8px_rgba(255,200,87,0.6)] transition-all hover:bg-gold/20 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
     >
       <Sparkles className="h-4 w-4" />
-      <span className="hidden sm:inline">Demo spin</span>
+      <span className="hidden sm:inline">{bonusMode ? "Demo sale" : "Demo spin"}</span>
     </button>
   );
 }

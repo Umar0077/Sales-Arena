@@ -12,6 +12,8 @@ export interface ArenaEventMap {
   "spin:unlocked": { agentId: string; available: number; reason?: "target" | "bonus"; periodSales?: number };
   /** Ask the Live Arena display to open the spin stage for an agent (admin → arena). */
   "spin:launch": { agentId: string };
+  /** Ask Live Arena displays to switch screen (Admin → Reward Programs). */
+  "arena:mode": { mode: import("@/types").ArenaMode };
   "spin:started": { spin: SpinResult };
   "spin:completed": { spin: SpinResult };
   "celebration:enqueue": { event: CelebrationEvent };

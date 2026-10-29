@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { frameMonitor, type FrameStats } from "@/lib/performance/frame-monitor";
 import { usePerfStore } from "@/lib/performance/perf-store";
 import { useSettingsStore } from "@/store/settings-store";
+import { useArenaStore } from "@/store/arena-store";
 import { QUALITY_PRESETS } from "@/lib/performance/quality";
 import { Activity, X, Gauge, Layers, RefreshCcw } from "lucide-react";
 import type { QualitySetting } from "@/types";
@@ -24,6 +25,8 @@ export function DiagnosticsPanel() {
   const canvases = usePerfStore((s) => s.canvases);
   const spins = usePerfStore((s) => s.spins);
   const settings = useSettingsStore();
+  const dataSourceMode = useArenaStore((s) => s.dataSourceMode ?? "demo");
+  const apiStatus = useArenaStore((s) => s.apiSyncStatus ?? "unconfigured");
 
   useEffect(() => {
     return frameMonitor.subscribe((s) => setStats(s));
@@ -102,6 +105,22 @@ export function DiagnosticsPanel() {
           <span className="text-muted">Active WebGL:</span>
           <span className="text-secondary font-semibold">
             {activeCanvases.length} canvas{activeCanvases.length === 1 ? "" : "es"}
+          </span>
+        </div>
+      </div>
+
+      {/* Live Environment Diagnostics */}
+      <div className="mt-3 border-t border-white/5 pt-2 text-[10px] space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-muted">Data Engine:</span>
+          <span className={dataSourceMode === "production" ? "text-emerald-400 font-bold" : "text-purple-400 font-bold"}>
+            {dataSourceMode === "production" ? "PRODUCTION (LIVE)" : "DEMO (SIMULATED)"}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-muted">Safe Quote API:</span>
+          <span className={apiStatus === "connected" ? "text-emerald-400" : "text-amber-400"}>
+            {apiStatus.toUpperCase()}
           </span>
         </div>
       </div>

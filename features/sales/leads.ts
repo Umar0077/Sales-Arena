@@ -41,6 +41,29 @@ export function leadCountsByAgent(sales: Sale[]): Map<string, LeadCounts> {
   return map;
 }
 
+/**
+ * Lead counts for a period: today's records plus the past `daysBack` days of history.
+ * Same rules as today: only validated (approved) sales count as validated.
+ */
+export function periodLeadCounts(
+  data: Pick<ArenaData, "sales" | "history" | "historySubmitted">,
+  daysBack: number,
+): Map<string, LeadCounts> {
+  const map = leadCountsByAgent(data.sales);
+  if (daysBack <= 0) return map;
+  const ids = new Set([...Object.keys(data.history ?? {}), ...map.keys()]);
+  for (const id of ids) {
+    const v = (data.history?.[id] ?? []).slice(0, daysBack).reduce((t, n) => t + n, 0);
+    const sub = (data.historySubmitted?.[id] ?? []).slice(0, daysBack).reduce((t, n) => t + n, 0);
+    if (v === 0 && sub === 0) continue;
+    const c = map.get(id) ?? empty();
+    c.validated += v;
+    c.submitted += Math.max(sub, v);
+    map.set(id, c);
+  }
+  return map;
+}
+
 /** Policy closed rate: validated ÷ submitted × 100 (0 when nothing was submitted). */
 export function closedRate(c: Pick<LeadCounts, "submitted" | "validated">): number {
   return c.submitted > 0 ? (c.validated / c.submitted) * 100 : 0;
@@ -66,11 +89,18 @@ export interface CloserFilter {
   teamId?: string | null;
   campaignId?: string | null;
   limit?: number;
+  /** Past days to include before today (0 = today only). */
+  daysBack?: number;
 }
 
-/** Today's closers: validated sales first, then submitted leads, then name. Agents with no leads are left out. */
-export function rankClosers(data: Pick<ArenaData, "agents" | "sales">, filter: CloserFilter = {}): CloserRow[] {
-  const counts = leadCountsByAgent(data.sales);
+/** Closers for today (or a longer period via daysBack): validated sales first, then submitted leads, then name. Agents with no leads are left out. */
+export function rankClosers(
+  data: Pick<ArenaData, "agents" | "sales"> & Partial<Pick<ArenaData, "history" | "historySubmitted">>,
+  filter: CloserFilter = {},
+): CloserRow[] {
+  const counts = filter.daysBack
+    ? periodLeadCounts({ sales: data.sales, history: data.history ?? {}, historySubmitted: data.historySubmitted ?? {} }, filter.daysBack)
+    : leadCountsByAgent(data.sales);
   const rows = data.agents
     .filter(
       (a) =>

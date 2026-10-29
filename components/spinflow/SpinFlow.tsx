@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
+import { useBonusFlowStore } from "@/store/bonus-flow-store";
 import { useArenaStore } from "@/store/arena-store";
 import { useCelebrationStore } from "@/store/celebration-store";
 import { audioEngine } from "@/lib/audio/engine";
@@ -27,9 +28,12 @@ export function SpinFlow() {
   const [outcome, setOutcome] = useState<SpinOutcome | null>(null);
 
   // Start the next queued unlock when the arena is free.
+  const bonusBusy = useBonusFlowStore((s) => s.active !== null || s.queue.length > 0);
   useEffect(() => {
-    if (stage !== "idle" || queueLength === 0) return;
+    if (stage !== "idle" || queueLength === 0 || bonusBusy) return;
     const t = setTimeout(() => {
+      const b = useBonusFlowStore.getState();
+      if (b.active || b.queue.length) return; // bonus popups go first
       const next = useSpinFlowStore.getState().next();
       if (next && next.reason !== "launch") {
         audioEngine.play("spinUnlocked");
@@ -37,7 +41,7 @@ export function SpinFlow() {
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [stage, queueLength]);
+  }, [stage, queueLength, bonusBusy]);
 
   // While the full-screen spin stage covers the arena, stop painting what's underneath.
   const covering = stage === "spin" || stage === "transition";

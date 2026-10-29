@@ -75,6 +75,17 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   revealHeadline: "CONGRATULATIONS, {agent}!",
   revealMessage: "YOU WON {prize}!",
   revealStyle: "cinematic",
+
+  arenaModes: { daily: true, weekly: true, monthly: true, spin: true },
+  defaultArenaMode: "spin",
+  showModeSelector: true,
+  // Opt-in: by default only the default screen's bonus program awards.
+  programsConcurrent: false,
+  businessTimezone: "America/New_York",
+  weekStartDay: 1,
+  weeklyFloorTarget: 3500,
+  monthlyFloorTarget: 16000,
+  currencyLabel: "Rs.",
 };
 
 /** Fills a message template such as "CONGRATULATIONS, {agent}!". */
@@ -106,10 +117,15 @@ export const useSettingsStore = create<SettingsStore>()(
     {
       name: SETTINGS_STORAGE_KEY,
       // v2: leaderboard became "Top 10 closers" (old default was 8).
-      version: 2,
+      // v3: realistic weekly/monthly floor targets (old defaults 2500 / 10000).
+      version: 3,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Partial<DisplaySettings>;
         if (version < 2 && (p.leaderboardCount === undefined || p.leaderboardCount === 8)) p.leaderboardCount = 10;
+        if (version < 3) {
+          if (p.weeklyFloorTarget === 2500) p.weeklyFloorTarget = 3500;
+          if (p.monthlyFloorTarget === 10000) p.monthlyFloorTarget = 16000;
+        }
         return p as unknown as SettingsStore;
       },
       storage: createJSONStorage(() =>
@@ -132,6 +148,7 @@ export const useSettingsStore = create<SettingsStore>()(
           ...current,
           ...p,
           soundCategories: { ...DEFAULT_SOUND_CATEGORIES, ...(p.soundCategories ?? {}) },
+          arenaModes: { ...DEFAULT_SETTINGS.arenaModes, ...(p.arenaModes ?? {}) },
         };
       },
       onRehydrateStorage: () => () => {

@@ -7,6 +7,8 @@ import { SpinFlow } from "@/components/spinflow/SpinFlow";
 import { HydrationGate } from "@/components/common/HydrationGate";
 import { ArenaContent, WhenArenaOnline } from "@/components/arena/ArenaSwitch";
 import { PoweredBy } from "@/components/brand/PoweredBy";
+import { RewardRuntime } from "@/components/rewards/RewardRuntime";
+import { LiveApiSync } from "@/components/arena/LiveApiSync";
 
 /** Public Live Arena shell (TV display). No admin navigation here. */
 export default function ArenaLayout({ children }: { children: React.ReactNode }) {
@@ -22,9 +24,11 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       {/* Live runtime: stops entirely while the admin has the Live Arena switched off. */}
       <WhenArenaOnline>
         <ArenaEventBridge />
+        <LiveApiSync />
         <AutoSimulator />
         <CelebrationOverlay />
         <SpinFlow />
+        <RewardRuntime />
       </WhenArenaOnline>
       <PoweredBy />
     </div>

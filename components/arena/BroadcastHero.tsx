@@ -99,7 +99,7 @@ export function BroadcastHero({
                 Arena Floor Ready
               </h2>
               <p className="text-muted text-sm mt-1">
-                Awaiting incoming dialer sales approvals. Use the Demo Cockpit to simulate live calls.
+                Awaiting incoming validated sales from Safe Quote API.
               </p>
             </div>
           )}

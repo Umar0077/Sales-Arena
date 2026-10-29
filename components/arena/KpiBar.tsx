@@ -2,6 +2,7 @@
 
 import { AnimatedCounter } from "./AnimatedCounter";
 import type { ArenaStatistics } from "@/types";
+import { useArenaStore } from "@/store/arena-store";
 import { 
   CheckCircle2, 
   Target, 
@@ -13,7 +14,22 @@ import {
 } from "lucide-react";
 
 export function KpiBar({ stats }: { stats: ArenaStatistics }) {
-  const percentStr = `${Math.round(stats.completion * 100)}%`;
+  const summary = useArenaStore((s) => s.periodMetrics?.day?.summary ?? s.safeQuoteSummary);
+
+  const approvedCount = summary ? summary.validated : stats.approvedToday;
+  const volumeStr = summary?.premium?.total
+    ? `+$${Math.round(summary.premium.total).toLocaleString()} total premium`
+    : `+$${(stats.approvedToday * 95).toLocaleString()} est. volume`;
+  const completionRate = stats.targetToday > 0
+    ? approvedCount / stats.targetToday
+    : summary
+      ? summary.closeRate / 100
+      : stats.completion;
+  const percentStr = `${Math.round(completionRate * 100)}%`;
+  const remainingCount = Math.max(0, stats.targetToday - approvedCount);
+  const activeCount = summary ? summary.activeClosers : stats.activeAgents;
+  const activeSub = summary ? `${summary.submitted} submitted leads` : `${stats.totalAgents} on roster`;
+  const remainingSub = summary ? `${summary.returned} returned · ${summary.rejected} rejected` : "To floor victory";
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
@@ -24,10 +40,10 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
         </div>
         <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          <AnimatedCounter value={stats.approvedToday} />
+          <AnimatedCounter value={approvedCount} />
         </div>
         <div className="text-[11px] font-mono text-emerald-400 mt-1">
-          +${(stats.approvedToday * 95).toLocaleString()} est. volume
+          {volumeStr}
         </div>
       </div>
 
@@ -57,9 +73,14 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
         <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(100, stats.completion * 100)}%` }}
+            style={{ width: `${Math.min(100, completionRate * 100)}%` }}
           />
         </div>
+        {summary && (
+          <div className="text-[11px] font-mono text-muted mt-1">
+            {summary.closeRate.toFixed(1)}% close rate
+          </div>
+        )}
       </div>
 
       {/* 4. Remaining Sales to Target */}
@@ -69,10 +90,10 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
           <Flame className="w-4 h-4 text-gold" />
         </div>
         <div className="font-heading text-3xl font-black text-gold tracking-tight kpi-number">
-          <AnimatedCounter value={stats.remaining} />
+          <AnimatedCounter value={summary ? remainingCount : stats.remaining} />
         </div>
         <div className="text-[11px] font-mono text-muted mt-1">
-          To floor victory
+          {remainingSub}
         </div>
       </div>
 
@@ -97,10 +118,10 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
           <Users className="w-4 h-4 text-text-secondary" />
         </div>
         <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          <AnimatedCounter value={stats.activeAgents} />
+          <AnimatedCounter value={activeCount} />
         </div>
         <div className="text-[11px] font-mono text-muted mt-1">
-          {stats.totalAgents} on roster
+          {activeSub}
         </div>
       </div>
     </div>

@@ -18,7 +18,8 @@ import type {
   Team,
   TargetRule,
 } from "@/types";
-import { ACTIVITY_LIMIT, SCHEMA_VERSION, type ArenaData } from "@/lib/mock-api/schema";
+import { ACTIVITY_LIMIT, SCHEMA_VERSION, type ArenaData, type PeriodMetrics } from "@/lib/mock-api/schema";
+import type { CloserRow } from "@/features/sales/leads";
 import { createSeedData } from "@/lib/mock-api/seed";
 import { arenaBus } from "@/lib/events/bus";
 import { buildCreditContext, computeSpinCredit, ruleForTeam, teamTarget } from "@/features/targets/eligibility";
@@ -73,14 +74,24 @@ export interface ArenaActions {
   logActivity: (type: ActivityType, message: string, extra?: Partial<ActivityEvent>) => void;
   markSynced: () => void;
   resetDemo: () => void;
+  syncRealData: (payload: {
+    agents?: Agent[];
+    sales?: Sale[];
+    summary?: ArenaData["safeQuoteSummary"];
+    mode?: "demo" | "production";
+  }) => void;
+  setApiStatus: (status: "connected" | "connecting" | "error" | "unconfigured", error?: string | null) => void;
+  setDataSourceMode: (mode: "demo" | "production") => void;
+  setPeriodMetrics: (period: "day" | "week" | "month", metrics: Partial<PeriodMetrics>) => void;
+  setAllTimeMetrics: (data: { summary: ArenaData["safeQuoteSummary"]; closers?: CloserRow[] }) => void;
 }
 
 export type ArenaStore = ArenaData & ArenaActions;
 
 const DATA_KEYS: Array<keyof ArenaData> = [
-  "schemaVersion", "dayKey", "campaigns", "teams", "agents", "sales", "history", "targetRules",
+  "schemaVersion", "dayKey", "campaigns", "teams", "agents", "sales", "history", "historySubmitted", "targetRules",
   "rewards", "spins", "bonusCredits", "activity", "currentAgentId", "celebratedMilestones",
-  "teamTargetsHit", "lastSyncAt",
+  "teamTargetsHit", "lastSyncAt", "dataSourceMode", "apiSyncStatus", "apiSyncError", "safeQuoteSummary", "periodMetrics",
 ];
 
 export function pickData(s: ArenaStore | ArenaData): ArenaData {
@@ -451,6 +462,7 @@ export const useArenaStore = create<ArenaStore>()(
           set({
             agents: [...s.agents, agent],
             history: { ...s.history, [agent.id]: Array.from({ length: 30 }, () => 0) },
+            historySubmitted: { ...s.historySubmitted, [agent.id]: Array.from({ length: 30 }, () => 0) },
             activity: prependActivity(s.activity, [makeActivity("admin-change", `Agent ${agent.name} added`)]),
           });
           return agent;
@@ -569,6 +581,69 @@ export const useArenaStore = create<ArenaStore>()(
         resetDemo: () => {
           set({ ...createSeedData() });
           arenaBus.emit("data:reset", {});
+        },
+
+        syncRealData: ({ agents, sales, summary, mode }) => {
+          const s = get();
+          const patch: Partial<ArenaData> = {
+            lastSyncAt: new Date().toISOString(),
+            apiSyncStatus: "connected",
+            apiSyncError: null,
+          };
+          if (mode) patch.dataSourceMode = mode;
+          if (summary) patch.safeQuoteSummary = summary;
+          if (agents && agents.length > 0) patch.agents = agents;
+          if (sales) patch.sales = sales;
+          set(patch);
+        },
+
+        setApiStatus: (status, error = null) => {
+          set({ apiSyncStatus: status, apiSyncError: error });
+        },
+
+        setDataSourceMode: (mode) => {
+          set({ dataSourceMode: mode });
+        },
+
+        setPeriodMetrics: (period, metrics) => {
+          const s = get();
+          const existing = s.periodMetrics ?? {
+            day: { summary: null, closers: [], sales: [], dateRange: { from: "", to: "", label: "Today", detailedLabel: "" }, status: "idle", lastFetchedAt: null },
+            week: { summary: null, closers: [], sales: [], dateRange: { from: "", to: "", label: "This Week", detailedLabel: "" }, status: "idle", lastFetchedAt: null },
+            month: { summary: null, closers: [], sales: [], dateRange: { from: "", to: "", label: "This Month", detailedLabel: "" }, status: "idle", lastFetchedAt: null },
+          };
+
+          const updatedPeriod: PeriodMetrics = {
+            ...existing[period],
+            ...metrics,
+            lastFetchedAt: new Date().toISOString(),
+          };
+
+          set({
+            periodMetrics: {
+              ...existing,
+              [period]: updatedPeriod,
+            },
+          });
+        },
+
+        setAllTimeMetrics: (data) => {
+          const s = get();
+          const existing = s.periodMetrics ?? {
+            day: { summary: null, closers: [], sales: [], dateRange: { from: "", to: "", label: "Today", detailedLabel: "" }, status: "idle", lastFetchedAt: null },
+            week: { summary: null, closers: [], sales: [], dateRange: { from: "", to: "", label: "This Week", detailedLabel: "" }, status: "idle", lastFetchedAt: null },
+            month: { summary: null, closers: [], sales: [], dateRange: { from: "", to: "", label: "This Month", detailedLabel: "" }, status: "idle", lastFetchedAt: null },
+          };
+
+          set({
+            periodMetrics: {
+              ...existing,
+              allTime: {
+                summary: data.summary,
+                closers: data.closers ?? existing.allTime?.closers ?? [],
+              },
+            },
+          });
         },
       };
     },

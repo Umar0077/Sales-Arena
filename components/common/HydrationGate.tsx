@@ -2,6 +2,7 @@
 
 import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
+import { useRewardsStore } from "@/store/rewards-store";
 
 /**
  * Demo data and settings live in the browser (localStorage), so the server cannot
@@ -11,7 +12,8 @@ import { useSettingsStore } from "@/store/settings-store";
 export function HydrationGate({ children, fallback }: { children: React.ReactNode; fallback?: React.ReactNode }) {
   const arenaReady = useArenaStore((s) => s.hydrated);
   const settingsReady = useSettingsStore((s) => s.hydrated);
-  const ready = arenaReady && settingsReady;
+  const rewardsReady = useRewardsStore((s) => s.hydrated);
+  const ready = arenaReady && settingsReady && rewardsReady;
   if (!ready) {
     if (fallback !== undefined) return <>{fallback}</>;
     return (

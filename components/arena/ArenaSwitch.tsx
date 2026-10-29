@@ -5,6 +5,7 @@ import { MonitorOff } from "lucide-react";
 import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useCelebrationStore } from "@/store/celebration-store";
+import { useBonusFlowStore } from "@/store/bonus-flow-store";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
 /** True when the admin has switched the Live Arena on (Admin → Live Arena Controls). */
@@ -22,6 +23,7 @@ export function WhenArenaOnline({ children }: { children: React.ReactNode }) {
     if (hydrated && !online) {
       useSpinFlowStore.getState().clear();
       useCelebrationStore.getState().clear();
+      useBonusFlowStore.getState().clear();
     }
   }, [online, hydrated]);
 

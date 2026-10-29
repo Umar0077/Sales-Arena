@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   LayoutDashboard, MonitorPlay, Users, Shield, BarChart3, Target, Gift, Trophy, PartyPopper, History,
-  Palette, Webhook, ExternalLink, Menu, X,
+  Palette, Webhook, ExternalLink, Menu, X, Award,
 } from "lucide-react";
 import { ArenaBackdrop } from "@/components/layout/ArenaBackdrop";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Overview Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/programs", label: "Reward Programs", icon: Award },
   { href: "/admin/arena", label: "Live Arena Controls", icon: MonitorPlay },
   { href: "/admin/agents", label: "Agent Management", icon: Users },
   { href: "/admin/teams", label: "Team Management", icon: Shield },

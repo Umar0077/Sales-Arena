@@ -41,7 +41,7 @@ export interface Agent {
 
 /** "approved" = validated sale. All other statuses are submitted leads that never earn spins. */
 export type SaleStatus = "approved" | "pending" | "rejected" | "duplicate";
-export type SaleSource = "seed" | "demo-simulator" | "integration-preview";
+export type SaleSource = "seed" | "demo-simulator" | "integration-preview" | "safequote-api";
 
 export interface Sale {
   id: ID;
@@ -54,6 +54,11 @@ export interface Sale {
   createdAt: ISODate;
   approvedAt: ISODate | null;
   source: SaleSource;
+  carrier?: string;
+  state?: string;
+  coverage?: string | number;
+  closerName?: string;
+  closerCode?: string;
 }
 
 export type TargetPeriod = "daily" | "weekly";
@@ -165,6 +170,7 @@ export type ActivityType =
   | "special"
   | "spin-completed"
   | "admin-change"
+  | "bonus-awarded"
   | "integration";
 
 export interface ActivityEvent {
@@ -210,6 +216,9 @@ export type SoundCategory =
   | "reveal"
   | "ui"
   | "special";
+
+/** Live Arena screens. "spin" is the original Spin & Win screen. */
+export type ArenaMode = "daily" | "weekly" | "monthly" | "spin";
 
 export type SpinnerTheme = "neon" | "royal" | "aurora" | "sunset";
 export type SegmentColorMode = "theme" | "prize";
@@ -296,6 +305,22 @@ export interface DisplaySettings {
   revealHeadline: string;
   revealMessage: string;
   revealStyle: RevealStyle;
+
+  // ---- Arena screens & reward programs ----
+  /** Which Live Arena screens are available. */
+  arenaModes: Record<ArenaMode, boolean>;
+  defaultArenaMode: ArenaMode;
+  /** Show the screen selector on the Live Arena display. */
+  showModeSelector: boolean;
+  /** Off (default): a validated sale only counts for the bonus program of the default screen. Spin & Win is separate. */
+  programsConcurrent: boolean;
+  /** IANA timezone for day/week/month boundaries; "" = this device's timezone. */
+  businessTimezone: string;
+  /** 0 = Sunday … 6 = Saturday. */
+  weekStartDay: number;
+  weeklyFloorTarget: number;
+  monthlyFloorTarget: number;
+  currencyLabel: string;
 }
 
 export type LeaderboardPeriod = "daily" | "weekly" | "monthly";

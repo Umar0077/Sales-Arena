@@ -90,6 +90,7 @@ test("only validated sales unlock spins; status changes update the leaderboard",
 });
 
 test("leaderboard shows the reference columns, top 10, Today", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 }); // all five columns show when the panel is wide
   await open(page, "/");
   const board = page.getByRole("region", { name: "Leaderboard" });
   await expect(board.getByText("Top Performer Leaderboard")).toBeVisible();

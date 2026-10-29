@@ -122,6 +122,7 @@ export function createSeedData(options: SeedOptions = {}): ArenaData {
 
   const sales: Sale[] = [];
   const history: Record<string, number[]> = {};
+  const historySubmitted: Record<string, number[]> = {};
   let saleIdx = 0;
 
   for (const agent of agents) {
@@ -129,6 +130,8 @@ export function createSeedData(options: SeedOptions = {}): ArenaData {
     history[agent.id] = Array.from({ length: HISTORY_DAYS }, () =>
       agent.active ? Math.max(0, Math.round(s * 9 * between(0.55, 1.25))) : 0,
     );
+    // Past days: submitted leads = validated + some that were not validated.
+    historySubmitted[agent.id] = history[agent.id].map((v) => v + Math.round(v * between(0.25, 0.85)) + (rng() < 0.3 ? 1 : 0));
     if (!agent.active) continue;
     const today = Math.max(0, Math.round(s * elapsedHours * between(0.6, 1.2)));
     // Submitted leads that are not (yet) validated.
@@ -258,6 +261,7 @@ export function createSeedData(options: SeedOptions = {}): ArenaData {
     agents,
     sales,
     history,
+    historySubmitted,
     targetRules,
     rewards,
     spins,
@@ -267,6 +271,10 @@ export function createSeedData(options: SeedOptions = {}): ArenaData {
     celebratedMilestones,
     teamTargetsHit,
     lastSyncAt: null,
+    dataSourceMode: "demo",
+    apiSyncStatus: "unconfigured",
+    apiSyncError: null,
+    safeQuoteSummary: null,
   };
 }
 

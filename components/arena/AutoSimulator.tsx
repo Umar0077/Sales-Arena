@@ -12,15 +12,18 @@ import { useSpinFlowStore } from "@/store/spin-flow-store";
 export function AutoSimulator() {
   const enabled = useSettingsStore((s) => s.autoSimulate);
   const every = useSettingsStore((s) => s.autoSimulateEverySec);
+  const dataSourceMode = useArenaStore((s) => s.dataSourceMode);
 
   useEffect(() => {
-    if (!enabled) return;
+    // Strictly disable auto simulator when in production mode
+    if (!enabled || dataSourceMode === "production") return;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
       const jitter = 0.6 + Math.random() * 0.8;
       timer = setTimeout(tick, Math.max(2, every) * 1000 * jitter);
     };
     const tick = () => {
+      if (useArenaStore.getState().dataSourceMode === "production") return;
       if (useSpinFlowStore.getState().stage === "idle") {
         const s = useArenaStore.getState();
         const pending = s.sales.filter((x) => x.status === "pending");
@@ -41,7 +44,7 @@ export function AutoSimulator() {
     };
     schedule();
     return () => clearTimeout(timer);
-  }, [enabled, every]);
+  }, [enabled, every, dataSourceMode]);
 
   return null;
 }

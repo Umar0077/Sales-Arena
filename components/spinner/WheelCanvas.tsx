@@ -127,7 +127,7 @@ export function WheelCanvas({
     return () => unregisterCanvas(canvasId);
   }, [registerCanvas, unregisterCanvas, canvasId]);
 
-  const box = cn("relative w-full aspect-[1/1.08] max-h-[78vh] mx-auto select-none", className);
+  const box = cn("relative w-full aspect-[1/1.08] max-h-[86vh] mx-auto select-none", className);
 
   const fallback = (
     <div className={box}>
@@ -154,7 +154,7 @@ export function WheelCanvas({
           // Cap resolution: the wheel is large, and >1.5× costs a lot of fill rate on integrated GPUs.
           dpr={[q.dpr[0], Math.min(q.dpr[1], 1.5)]}
           gl={{ antialias: q.antialias, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
-          camera={{ position: [0, 0.5, 12.6], fov: 40 }}
+          camera={{ position: [0, 0.35, 11.7], fov: 40 }}
           onCreated={({ camera }) => camera.lookAt(0, -0.25, 0)}
           frameloop="always"
         >
