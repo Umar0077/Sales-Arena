@@ -144,19 +144,45 @@ export function WheelCanvas({
     </div>
   );
 
+  const spinnerFallback2D = useSettingsStore((s) => s.spinnerFallback2D);
+  const activeQuality = quality === "auto" ? autoQuality : quality;
+  const isPerformance = activeQuality === "low" || activeQuality === "performance";
+
+  const [tabVisible, setTabVisible] = useState(true);
+
+  useEffect(() => {
+    const handleVis = () => {
+      setTabVisible(document.visibilityState === "visible");
+    };
+    document.addEventListener("visibilitychange", handleVis);
+    return () => document.removeEventListener("visibilitychange", handleVis);
+  }, []);
+
   if (hasWebGL === null) return <div className={box} />;
-  if (hasWebGL === false) return fallback;
+  if (hasWebGL === false || (spinnerFallback2D && isPerformance)) return fallback;
+
+  // Demand-based rendering: pause completely when tab hidden, demand when idle, always when spinning/active
+  const frameloop = !tabVisible
+    ? "never"
+    : phase === "spinning" || phase === "preparing" || (look.lights && !look.reducedMotion && q.ambientMotion)
+    ? "always"
+    : "demand";
 
   return (
     <div ref={containerRef} className={box} data-wheel="3d">
       <WebGLErrorBoundary fallback={fallback}>
         <Canvas
-          // Cap resolution: the wheel is large, and >1.5× costs a lot of fill rate on integrated GPUs.
-          dpr={[q.dpr[0], Math.min(q.dpr[1], 1.5)]}
-          gl={{ antialias: q.antialias, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+          // Cap resolution: in performance mode max 1.0; on high max 1.5 to save integrated GPU fill rate.
+          dpr={[q.dpr[0], isPerformance ? 1.0 : Math.min(q.dpr[1], 1.5)]}
+          gl={{
+            antialias: q.antialias,
+            powerPreference: isPerformance ? "default" : "high-performance",
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.1,
+          }}
           camera={{ position: [0, 0.35, 11.7], fov: 40 }}
           onCreated={({ camera }) => camera.lookAt(0, -0.25, 0)}
-          frameloop="always"
+          frameloop={frameloop}
         >
           <ambientLight intensity={0.35} />
           <spotLight position={[0, 7, 8]} angle={0.6} penumbra={0.7} intensity={60} color="#ffffff" />

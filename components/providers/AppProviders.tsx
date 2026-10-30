@@ -18,6 +18,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const volume = useSettingsStore((s) => s.volume);
   const soundCategories = useSettingsStore((s) => s.soundCategories);
+  const quality = useSettingsStore((s) => s.quality);
+  const autoQuality = useSettingsStore((s) => s.autoQuality);
+
+  // Sync performance mode attribute to html root for zero-overhead CSS optimizations
+  useEffect(() => {
+    const activeQuality = quality === "auto" ? autoQuality : quality;
+    const isPerf = activeQuality === "low" || activeQuality === "performance";
+    document.documentElement.dataset.perfMode = isPerf ? "performance" : "high";
+  }, [quality, autoQuality]);
 
   // Runs once on mount. It reads the stores directly instead of depending on
   // settings, because the work below changes settings and would re-trigger itself.

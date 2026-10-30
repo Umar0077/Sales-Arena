@@ -16,7 +16,7 @@ export interface TierMeta {
 }
 
 export const TIERS: Record<CelebrationTier, TierMeta> = {
-  sale: { tier: "sale", label: "Approved Sale", priority: 1, color: "#36E0B5", durationFactor: 0.75, particles: 0.35, sound: "sale", fullscreen: false },
+  sale: { tier: "sale", label: "Approved Sale", priority: 1, color: "#36E0B5", durationFactor: 0.9, particles: 0.35, sound: "sale", fullscreen: false },
   "spin-unlocked": { tier: "spin-unlocked", label: "Spin Unlocked", priority: 2, color: "#7568FF", durationFactor: 1, particles: 0.6, sound: "spinUnlocked", fullscreen: false },
   milestone: { tier: "milestone", label: "Target Milestone", priority: 3, color: "#27D5FF", durationFactor: 1.15, particles: 0.75, sound: "target", fullscreen: false },
   "top-performer": { tier: "top-performer", label: "New #1", priority: 4, color: "#FFC857", durationFactor: 1.25, particles: 0.85, sound: "special", fullscreen: false },

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
 import { errorResponse, readJson } from "@/lib/server/spins/http";
 import { parsePrize } from "@/lib/server/spins/prizes";
+import { publishCatalogUpdated } from "@/lib/server/rewards/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,9 @@ export async function POST(req: NextRequest) {
     );
     await writeAudit(client, { adminId: auth.ctx.admin.id, action: "prize.created", targetType: "reward", targetId: id, details: { ...p }, ip: requestIp(req), userAgent: requestUserAgent(req) });
     await client.query("COMMIT");
-    return NextResponse.json({ ok: true, id });
+    // Committed: now tell every Live Arena display (never before the save is confirmed).
+    const revision = await publishCatalogUpdated(auth.pool);
+    return NextResponse.json({ ok: true, id, revision });
   } catch (err) {
     await client.query("ROLLBACK");
     return errorResponse(err);

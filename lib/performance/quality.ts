@@ -32,13 +32,13 @@ export const QUALITY_PRESETS: Record<QualityPreset, QualityConfig> = {
     ambientMotion: true,
   },
   high: {
-    label: "High",
-    description: "Premium quality with optimised effects.",
-    dpr: [1, 1.75],
+    label: "High Quality",
+    description: "Full premium visual styling and smooth 3D animations.",
+    dpr: [1, 1.5],
     antialias: true,
     particles: 0.8,
     shadows: true,
-    motionBlur: true,
+    motionBlur: false,
     envResolution: 128,
     curveSegments: 36,
     ambientMotion: true,
@@ -46,21 +46,33 @@ export const QUALITY_PRESETS: Record<QualityPreset, QualityConfig> = {
   balanced: {
     label: "Balanced",
     description: "Reduced particles and simplified effects.",
-    dpr: [1, 1.5],
+    dpr: [1, 1.25],
     antialias: true,
     particles: 0.5,
-    shadows: true,
+    shadows: false,
     motionBlur: false,
     envResolution: 64,
     curveSegments: 24,
     ambientMotion: true,
   },
   low: {
-    label: "Low",
-    description: "Minimum effects, maximum responsiveness.",
+    label: "Performance",
+    description: "Maximum speed for low-end laptops, integrated GPUs, and office PCs.",
     dpr: [0.75, 1],
     antialias: false,
-    particles: 0.25,
+    particles: 0.2,
+    shadows: false,
+    motionBlur: false,
+    envResolution: 32,
+    curveSegments: 16,
+    ambientMotion: false,
+  },
+  performance: {
+    label: "Performance",
+    description: "Optimized for low-spec PCs, minimal GPU overhead, and instant response.",
+    dpr: [0.75, 1],
+    antialias: false,
+    particles: 0.2,
     shadows: false,
     motionBlur: false,
     envResolution: 32,
@@ -69,18 +81,58 @@ export const QUALITY_PRESETS: Record<QualityPreset, QualityConfig> = {
   },
 };
 
-export const QUALITY_ORDER: QualityPreset[] = ["low", "balanced", "high", "ultra"];
+export const QUALITY_ORDER: QualityPreset[] = ["performance", "low", "balanced", "high", "ultra"];
 
-/** Heuristic starting point for "auto" quality. The runtime monitor can lower it further. */
+/**
+ * Intelligent hardware detection:
+ * Checks CPU cores, memory, mobile user agent, AND queries the WebGL
+ * unmasked renderer string to detect low-end or integrated GPUs.
+ */
 export function detectDeviceQuality(): QualityPreset {
-  if (typeof navigator === "undefined") return "high";
+  if (typeof navigator === "undefined" || typeof window === "undefined") return "high";
+
+  // 1. Check for reduced motion preference
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    return "performance";
+  }
+
   const cores = navigator.hardwareConcurrency ?? 4;
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
   const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  if (mobile) return cores >= 8 && memory >= 6 ? "balanced" : "low";
-  if (cores >= 8 && memory >= 8) return "ultra";
-  if (cores >= 4) return "high";
-  return "balanced";
+
+  // 2. Inspect WebGL GPU renderer string if available
+  let isLowEndGpu = false;
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    if (gl) {
+      const debugInfo = (gl as WebGLRenderingContext).getExtension("WEBGL_debug_renderer_info");
+      if (debugInfo) {
+        const renderer = String((gl as WebGLRenderingContext).getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "").toLowerCase();
+        if (
+          renderer.includes("intel hd") ||
+          renderer.includes("intel uhd") ||
+          renderer.includes("intel iris") ||
+          renderer.includes("mali") ||
+          renderer.includes("adreno") ||
+          renderer.includes("powervr") ||
+          renderer.includes("llvmpipe") ||
+          renderer.includes("swiftshader") ||
+          renderer.includes("microsoft basic")
+        ) {
+          isLowEndGpu = true;
+        }
+      }
+    }
+  } catch {
+    // Ignore context failure
+  }
+
+  if (mobile || isLowEndGpu || cores <= 4 || memory <= 4) {
+    return "performance";
+  }
+
+  return "high";
 }
 
 export function lowerQuality(q: QualityPreset): QualityPreset {

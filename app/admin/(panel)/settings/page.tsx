@@ -115,11 +115,21 @@ export default function AppearanceSoundPage() {
 
       <Section title="Rendering & performance">
         <SelectField<QualitySetting>
-          label="3D quality"
-          hint="Auto picks a level from the device. Lower levels reduce resolution and particles."
+          label="Performance Mode"
+          hint="Auto adapts rendering quality to device capabilities. Performance mode disables heavy GPU blurs and shadows for call center PCs."
           value={s.quality}
-          options={[{ value: "auto", label: `Auto (${QUALITY_PRESETS[s.autoQuality].label})` }, ...(["ultra", "high", "balanced", "low"] as const).map((q) => ({ value: q, label: QUALITY_PRESETS[q].label }))]}
+          options={[
+            { value: "auto", label: `Auto (Detected: ${QUALITY_PRESETS[s.autoQuality]?.label ?? "High Quality"})` },
+            { value: "high", label: "High Quality (Full 3D effects & smooth graphics)" },
+            { value: "performance", label: "Performance (Fastest for low-end laptops & integrated GPUs)" },
+          ]}
           onChange={(v) => update({ quality: v })}
+        />
+        <Toggle
+          label="2D spinner fallback"
+          hint="Use lightweight 2D canvas wheel instead of 3D WebGL on low-end systems."
+          checked={s.spinnerFallback2D ?? false}
+          onChange={(v) => update({ spinnerFallback2D: v })}
         />
         <Toggle label="Performance diagnostics" hint="Shows a frame-rate panel on screen." checked={s.diagnostics} onChange={(v) => update({ diagnostics: v })} />
         <Toggle label="Seeded test spins" hint="Same agent and spin number always gives the same prize (for QA)." checked={s.seededSpins} onChange={(v) => update({ seededSpins: v })} />

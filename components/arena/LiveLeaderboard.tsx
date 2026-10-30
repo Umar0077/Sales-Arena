@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, memo } from "react";
 import { motion, LayoutGroup } from "motion/react";
 import { Trophy, Crown } from "lucide-react";
 import { useArenaStore } from "@/store/arena-store";
@@ -60,7 +60,7 @@ export function useCloserRows(period: RewardPeriod = "day", countOverride?: numb
   }, [dataSourceMode, periodMetrics, period, agents, sales, history, historySubmitted, count, teamId, campaignId, daysBack]);
 }
 
-export function LiveLeaderboard({ period = "day", count: countOverride }: { period?: RewardPeriod; count?: number } = {}) {
+export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", count: countOverride }: { period?: RewardPeriod; count?: number } = {}) {
   const rows = useCloserRows(period, countOverride);
   const info = usePeriodInfo(period);
   const animate = useSettingsStore((s) => s.leaderboardAnimations);
@@ -203,4 +203,4 @@ export function LiveLeaderboard({ period = "day", count: countOverride }: { peri
       </LayoutGroup>
     </section>
   );
-}
+});

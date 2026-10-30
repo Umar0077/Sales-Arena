@@ -21,10 +21,10 @@ export function PoweredByBadge({ className }: { className?: string }) {
   );
 }
 
-/** Floating version, bottom centre (Live Arena and its spin screens). */
+/** Floating version, bottom-right, stacked directly above the Safe Quote Live status pill. */
 export function PoweredBy({ className }: { className?: string }) {
   return (
-    <div className={cn("pointer-events-none fixed bottom-3 left-1/2 z-[95] -translate-x-1/2", className)}>
+    <div className={cn("pointer-events-none fixed bottom-12 right-4 z-[95]", className)}>
       <PoweredByBadge />
     </div>
   );

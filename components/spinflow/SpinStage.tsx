@@ -14,7 +14,7 @@ import { computeSpinCredit } from "@/features/targets/eligibility";
 import { audioEngine } from "@/lib/audio/engine";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
-import type { Reward, RewardIcon } from "@/types";
+import type { Agent, Reward, RewardIcon } from "@/types";
 
 interface ServerSegment {
   id: string;
@@ -37,6 +37,8 @@ export interface SpinOutcome {
 
 interface Props {
   agentId: string;
+  /** Agent shown when it is not on the loaded roster (live spin events). */
+  agent?: Agent;
   /** Presentation run: local random result, nothing recorded anywhere. */
   demo?: boolean;
   reducedMotion: boolean;
@@ -46,10 +48,10 @@ interface Props {
 }
 
 /** The 3D Spin Arena screen for one agent. */
-export function SpinStage({ agentId, demo = false, reducedMotion, onResult, onClose }: Props) {
+export function SpinStage({ agentId, agent: agentProp, demo = false, reducedMotion, onResult, onClose }: Props) {
   const rewards = useArenaStore((s) => s.rewards);
   const storeAgent = useArenaStore((s) => s.agents.find((a) => a.id === agentId));
-  const agent = demo ? DEMO_AGENT : storeAgent;
+  const agent = demo ? DEMO_AGENT : (storeAgent ?? agentProp);
   const team = useArenaStore((s) => s.teams.find((t) => t.id === agent?.teamId));
   const sales = useArenaStore((s) => s.sales);
   const spins = useArenaStore((s) => s.spins);
@@ -84,7 +86,7 @@ export function SpinStage({ agentId, demo = false, reducedMotion, onResult, onCl
         if (!alive) return;
         if (!j.ok) return setError("Spins are unavailable right now (database offline).");
         setServer({ authorized: Boolean(j.authorized), available: Number(j.available ?? 0), segments: (j.segments ?? []).map(toReward) });
-        if (!j.authorized) setError("This display isn't authorised to run spins. An admin can pair it in Admin → Spin Management → Displays.");
+        if (!j.authorized) setError("This display isn't authorised to run spins. Pair it once: an admin creates a code in Admin → Spin Management → Displays, then enter it at /pair on this screen.");
       })
       .catch(() => alive && setError("Couldn't reach the server to check spins."));
     return () => {
@@ -93,7 +95,8 @@ export function SpinStage({ agentId, demo = false, reducedMotion, onResult, onCl
   }, [live, userCode]);
 
   const demoSegments = useMemo(() => wheelRewards(rewards), [rewards]);
-  const liveSegments = live && server?.segments.length ? server.segments : demoSegments;
+  // Live: the PostgreSQL catalog synced by LiveApiSync (updates without reload); the server's status list is only a fallback.
+  const liveSegments = live && demoSegments.length === 0 && server?.segments.length ? server.segments : demoSegments;
   const segments = spinSegments ?? liveSegments;
   const demoAvailable = useMemo(
     () => (agent ? computeSpinCredit(pickData(useArenaStore.getState()), agent.id).available : 0),
@@ -268,7 +271,7 @@ export function SpinStage({ agentId, demo = false, reducedMotion, onResult, onCl
         </motion.div>
 
         {/* Wheel */}
-        <div className="order-0 w-full max-w-[min(92vh,1100px)] lg:min-w-0 lg:flex-1 lg:order-none">
+        <div className="order-0 w-full max-w-[min(92vh,1100px)] lg:min-w-0 lg:flex-1 lg:order-none" data-testid="spin-wheel" data-segments={segments.map((s) => `${s.title}|${s.color}`).join(";")}>
           <WheelCanvas
             rewards={segments}
             activeSpinPlan={plan}

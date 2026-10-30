@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Agent } from "@/types";
+import { useArenaModeStore } from "@/store/arena-mode-store";
+
+const initialsOf = (name: string) =>
+  name.split(/s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase() || "FE";
 import { AnimatePresence, motion } from "motion/react";
 import { useSpinFlowStore, DEMO_AGENT } from "@/store/spin-flow-store";
 import { useBonusFlowStore } from "@/store/bonus-flow-store";
@@ -8,9 +13,21 @@ import { useArenaStore } from "@/store/arena-store";
 import { useCelebrationStore } from "@/store/celebration-store";
 import { audioEngine } from "@/lib/audio/engine";
 import { useReducedMotion } from "@/lib/performance/reduced-motion";
+import dynamic from "next/dynamic";
 import { AchievementPopup } from "./AchievementPopup";
-import { SpinStage, type SpinOutcome } from "./SpinStage";
+import type { SpinOutcome } from "./SpinStage";
 import { PrizeReveal } from "./PrizeReveal";
+
+const SpinStage = dynamic(() => import("./SpinStage").then((m) => m.SpinStage), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070B16]/95">
+      <div className="font-heading text-sm font-bold tracking-wider text-secondary animate-pulse">
+        PREPARING 3D PRIZE WHEEL...
+      </div>
+    </div>
+  ),
+});
 
 /**
  * Runs the Live Arena spin journey:
@@ -23,7 +40,15 @@ export function SpinFlow() {
   const setStage = useSpinFlowStore((s) => s.setStage);
   const finish = useSpinFlowStore((s) => s.finish);
   const storeAgent = useArenaStore((s) => s.agents.find((a) => a.id === active?.agentId));
-  const agent = active?.demo ? DEMO_AGENT : storeAgent;
+  // A live event for a closer not yet on the loaded roster still gets a popup (name + userCode from the server).
+  const eventAgent = useMemo<Agent | undefined>(
+    () =>
+      active?.userCode && active.agentName
+        ? { id: active.agentId, name: active.agentName, userCode: active.userCode, initials: initialsOf(active.agentName), teamId: "", campaignId: "cmp_fe", active: true, title: "Closer", hue: 200, joinedAt: new Date(0).toISOString() }
+        : undefined,
+    [active],
+  );
+  const agent = active?.demo ? DEMO_AGENT : (storeAgent ?? eventAgent);
   const team = useArenaStore((s) => s.teams.find((t) => t.id === agent?.teamId));
   const reducedMotion = useReducedMotion();
   const [outcome, setOutcome] = useState<SpinOutcome | null>(null);
@@ -68,10 +93,12 @@ export function SpinFlow() {
   }, [stage]);
 
   const close = useCallback(() => {
+    // After a real spin result, go back to Daily Arena (queued popups still follow).
+    if (outcome && !useSpinFlowStore.getState().active?.demo) useArenaModeStore.getState().setPicked("daily");
     setOutcome(null);
     setStage("closing");
     setTimeout(() => finish(), reducedMotion ? 150 : 450);
-  }, [finish, reducedMotion, setStage]);
+  }, [finish, reducedMotion, setStage, outcome]);
 
   const goSpin = useCallback(() => {
     audioEngine.unlock();
@@ -101,6 +128,8 @@ export function SpinFlow() {
             periodSales={active.periodSales}
             available={active.available}
             reason={active.reason}
+            eyebrow={active.origin === "manual" ? "BONUS SPIN AWARDED" : active.origin === "automatic" ? "SPIN UNLOCKED!" : undefined}
+            messageOverride={active.message}
             reducedMotion={reducedMotion}
             onSpin={goSpin}
             onLater={close}
@@ -124,7 +153,7 @@ export function SpinFlow() {
           >
             <div className="spin-stage-bg absolute inset-0" />
             <div className="relative min-h-full">
-              <SpinStage agentId={agent.id} demo={Boolean(active.demo)} reducedMotion={reducedMotion} onResult={onResult} onClose={close} />
+              <SpinStage agentId={agent.id} agent={agent} demo={Boolean(active.demo)} reducedMotion={reducedMotion} onResult={onResult} onClose={close} />
             </div>
           </motion.div>
         )}

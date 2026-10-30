@@ -17,6 +17,17 @@ export function AnimatedCounter({
   const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // If target value equals display value, avoid starting an animation loop
+    if (value === displayValue) return;
+
+    // Check if tab is hidden or user prefers reduced motion
+    const prefersReducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const isHidden = typeof document !== "undefined" && document.hidden;
+    if (prefersReducedMotion || isHidden || duration <= 0) {
+      const raf = requestAnimationFrame(() => setDisplayValue(value));
+      return () => cancelAnimationFrame(raf);
+    }
+
     startRef.current = displayValue;
     endRef.current = value;
     startTimeRef.current = performance.now();
@@ -41,7 +52,7 @@ export function AnimatedCounter({
     animId = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animId);
-  }, [value, duration]);
+  }, [value, duration, displayValue]);
 
   return <span>{formatter(displayValue)}</span>;
 }

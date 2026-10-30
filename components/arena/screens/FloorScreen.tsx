@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import type { ActivityEvent } from "@/types";
 import { useArenaStore, pickData } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { computeArenaStatistics } from "@/features/sales/stats";
@@ -16,6 +17,8 @@ import { ScreenTitle } from "./parts";
 import { useRewardsStore, programFor } from "@/store/rewards-store";
 import { formatReward } from "@/lib/rewards/engine";
 import { usePeriodInfo } from "@/components/arena/LiveLeaderboard";
+
+const EMPTY_ACTIVITY: ActivityEvent[] = [];
 
 /**
  * Live floor: KPIs, latest sale, feeds, and today's leaderboard on the right.
@@ -48,7 +51,8 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
   const spins = useArenaStore((s) => s.spins);
   const targetRules = useArenaStore((s) => s.targetRules);
   const bonusCredits = useArenaStore((s) => s.bonusCredits);
-  const activity = useArenaStore((s) => s.activity);
+  // Avoid unnecessary re-renders in production mode when activity is updated
+  const activity = useArenaStore((s) => (s.dataSourceMode === "production" ? EMPTY_ACTIVITY : s.activity));
 
   const showKpis = useSettingsStore((s) => s.showKpis);
   const showHero = useSettingsStore((s) => s.showHero);
@@ -143,7 +147,7 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
         showBoard && "xl:grid-cols-[minmax(0,1fr)_440px] 2xl:grid-cols-[minmax(0,1fr)_540px]",
       )}
     >
-      <div className="min-w-0 space-y-5">
+      <div className="min-w-0 space-y-4">
         {daily && program && (
           <ScreenTitle
             eyebrow="DAILY BONUS ARENA"
@@ -208,7 +212,7 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
       </div>
 
       {showBoard && (
-        <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] min-h-[560px]">
+        <aside className="min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-11rem)] min-h-[560px]">
           <LiveLeaderboard />
         </aside>
       )}

@@ -17,6 +17,10 @@ interface LiveState {
   refreshing: boolean;
   refreshError: string | null;
   lastSuccessAt: string | null;
+  /** PostgreSQL prize catalog revision currently on this display's wheel. */
+  catalogRevision: string | null;
+  catalogSyncedAt: string | null;
+  setCatalogRevision: (revision: string, at: string) => void;
   setLive: (live: boolean) => void;
   setTargets: (t: Record<TargetPeriod, number | null>) => void;
   requestRefresh: () => void;
@@ -32,6 +36,9 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
   refreshing: false,
   refreshError: null,
   lastSuccessAt: null,
+  catalogRevision: null,
+  catalogSyncedAt: null,
+  setCatalogRevision: (catalogRevision, catalogSyncedAt) => set({ catalogRevision, catalogSyncedAt }),
   setLive: (live) => set({ live }),
   setTargets: (targets) => set({ targets, targetsLoaded: true }),
   requestRefresh: () => {

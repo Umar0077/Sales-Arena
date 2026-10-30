@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/lib/server/auth/guard";
 import { allocateManualSpins } from "@/lib/server/spins/ledger";
 import { errorResponse, readJson } from "@/lib/server/spins/http";
+import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,18 @@ export async function POST(req: NextRequest) {
       ip: requestIp(req),
       userAgent: requestUserAgent(req),
     });
+    // Tell connected Live Arena displays right away (only for a new grant, never for a retry).
+    if (!res.replayed) {
+      const name = (await auth.pool.query(`SELECT name FROM agents WHERE user_code = $1`, [res.userCode]).catch(() => ({ rows: [] as Array<{ name: string }> }))).rows[0]?.name ?? res.userCode;
+      arenaBroadcaster.broadcast("spin.unlocked", {
+        eventId: `tx:${res.transactionId}`,
+        origin: "manual",
+        userCode: res.userCode,
+        closerName: name,
+        quantity: Number(body.quantity),
+        spinsAvailable: res.balanceAfter,
+      });
+    }
     return NextResponse.json({ ok: true, ...res });
   } catch (err) {
     return errorResponse(err);

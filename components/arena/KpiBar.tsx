@@ -1,5 +1,6 @@
 "use client";
 
+import React, { memo } from "react";
 import { AnimatedCounter } from "./AnimatedCounter";
 import type { ArenaStatistics } from "@/types";
 import { useArenaStore } from "@/store/arena-store";
@@ -10,12 +11,11 @@ import {
   Target, 
   TrendingUp, 
   Users, 
-  Sparkles, 
   Disc3, 
   Flame 
 } from "lucide-react";
 
-export function KpiBar({ stats }: { stats: ArenaStatistics }) {
+export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }) {
   const summary = useArenaStore((s) => s.periodMetrics?.day?.summary ?? s.safeQuoteSummary);
   const serverSpinBalance = useArenaStore((s) => s.serverSpinBalance);
 
@@ -37,7 +37,7 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
   const availableCount = serverSpinBalance ? serverSpinBalance.available : stats.spinsAvailable;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
       {/* 1. Total Approved Sales */}
       <div className="rounded-2xl border border-emerald-500/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-success">
         <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
@@ -131,4 +131,4 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
       </div>
     </div>
   );
-}
+});

@@ -303,7 +303,7 @@ export function createLiveData(now: Date = new Date()): ArenaData {
     history: {},
     historySubmitted: {},
     targetRules: [{ id: "rule_default", teamId: null, salesPerSpin: 2, period: "daily", enabled: true, teamDailyTarget: 0, agentDailyTarget: 0 }],
-    rewards: DEFAULT_REWARDS,
+    rewards: [], // live wheel = PostgreSQL catalog (loaded by LiveApiSync), never seed prizes
     spins: [],
     bonusCredits: {},
     activity: [],

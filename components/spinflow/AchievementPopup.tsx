@@ -12,13 +12,16 @@ interface Props {
   periodSales: number;
   available: number;
   reason: "target" | "bonus" | "launch";
+  /** Live events: small label above the headline and the reason line. */
+  eyebrow?: string;
+  messageOverride?: string;
   reducedMotion: boolean;
   onSpin: () => void;
   onLater: () => void;
 }
 
 /** "Target completed → SPIN NOW" popup. Clearly bigger than a normal sale toast. */
-export function AchievementPopup({ agent, team, periodSales, available, reason, reducedMotion, onSpin, onLater }: Props) {
+export function AchievementPopup({ agent, team, periodSales, available, reason, eyebrow, messageOverride, reducedMotion, onSpin, onLater }: Props) {
   const headlineT = useSettingsStore((s) => s.achievementHeadline);
   const messageT = useSettingsStore((s) => s.achievementMessage);
   const rewardT = useSettingsStore((s) => s.achievementReward);
@@ -43,7 +46,7 @@ export function AchievementPopup({ agent, team, periodSales, available, reason, 
   const firstName = agent.name.split(" ")[0].toUpperCase();
   const spinsLabel = `${Math.max(1, available)} Spin${available > 1 ? "s" : ""}`;
   const vals = { agent: firstName, sales: periodSales, spins: spinsLabel, prize: "" };
-  const message = reason === "bonus" ? "You've been awarded a bonus spin!" : fillTemplate(messageT, vals);
+  const message = messageOverride ? messageOverride : reason === "bonus" ? "You've been awarded a bonus spin!" : fillTemplate(messageT, vals);
 
   return (
     <motion.div
@@ -76,7 +79,7 @@ export function AchievementPopup({ agent, team, periodSales, available, reason, 
           <Sparkles className="absolute -right-3 -top-3 h-6 w-6 text-secondary" />
         </motion.div>
 
-        <p className="relative mb-2 text-xs font-bold tracking-[0.3em] text-secondary">TARGET COMPLETED</p>
+        <p className="relative mb-2 text-xs font-bold tracking-[0.3em] text-secondary">{eyebrow ?? "TARGET COMPLETED"}</p>
         <h2 id="achievement-title" className="relative font-heading text-3xl font-extrabold text-white sm:text-4xl">
           {fillTemplate(headlineT, vals)}
         </h2>

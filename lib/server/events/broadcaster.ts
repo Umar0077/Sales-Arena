@@ -3,6 +3,8 @@ export type ArenaBroadcastEventType =
   | "bonus.awarded"
   | "spin.unlocked"
   | "spin.completed"
+  | "rewards.catalog.updated"
+  | "target.updated"
   | "stats.updated"
   | "connection.status"
   | "heartbeat";

@@ -204,6 +204,10 @@ export interface AutoGrant {
   thresholdN: number;
   quantity: number;
   balanceAfter: number;
+  /** Ledger transaction id (stable event id for the Live Arena). */
+  transactionId: number;
+  /** Eligible validated sales that earned this grant (threshold × sales per spin). */
+  salesCounted: number;
 }
 
 /**
@@ -266,7 +270,7 @@ export async function grantAutomaticSpins(
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [res.transactionId, args.userCode, rule.id, win.key, n, n * rule.salesPerSpin, args.triggerSaleId, rule.spinsPerThreshold],
     );
-    out.push({ ruleId: rule.id, periodKey: win.key, thresholdN: n, quantity: rule.spinsPerThreshold, balanceAfter: res.balanceAfter });
+    out.push({ ruleId: rule.id, periodKey: win.key, thresholdN: n, quantity: rule.spinsPerThreshold, balanceAfter: res.balanceAfter, transactionId: res.transactionId, salesCounted: n * rule.salesPerSpin });
   }
   return out;
 }

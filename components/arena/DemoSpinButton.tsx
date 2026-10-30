@@ -1,23 +1,15 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { useArenaStore, pickData } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore, DEMO_AGENT } from "@/store/spin-flow-store";
-import { computeAllCredits } from "@/features/targets/eligibility";
 import { audioEngine } from "@/lib/audio/engine";
 import { useArenaMode } from "@/store/arena-mode-store";
-import { useRewardsStore, programFor } from "@/store/rewards-store";
-import { periodLeadCounts } from "@/features/sales/leads";
-import { periodInfo } from "@/lib/time/business";
-import { businessClock } from "@/lib/rewards/runner";
-import { KIND_PERIOD } from "@/lib/rewards/engine";
 
 /**
- * Presentation helper: runs the real spin journey on demand.
- * Picks the active agent closest to their target and records the demo sales they
- * still need, so the genuine "target completed → SPIN NOW" popup opens.
- * Hide it in Admin → Live Arena Controls.
+ * Showcase only, and only on the Spin & Win screen: runs the full popup → wheel → prize
+ * journey for a labelled "Demo Spin". It records no sale, grants no credit, touches no
+ * prize stock and sends nothing to the server. Hide it in Admin → Live Arena Controls.
  */
 export function DemoSpinButton() {
   const visible = useSettingsStore((s) => s.showDemoSpinButton);
@@ -25,90 +17,25 @@ export function DemoSpinButton() {
   const online = useSettingsStore((s) => s.arenaEnabled);
   const busy = useSpinFlowStore((s) => s.stage !== "idle" || s.queue.length > 0);
   const mode = useArenaMode();
-  const bonusMode = mode !== "spin";
-  const program = useRewardsStore((s) => (mode === "spin" ? undefined : programFor(s.programs, mode)));
 
-  if (!visible || !online) return null;
-  if (!bonusMode && !spinEnabled) return null;
-  if (bonusMode && !program?.enabled) return null;
-
-  /** Bonus screens: send the validated sales the closest agent still needs for this program. */
-  const runBonus = () => {
-    if (!program) return;
-    audioEngine.unlock();
-    const store = useArenaStore.getState();
-    const data = pickData(store);
-    const info = periodInfo(KIND_PERIOD[program.kind], businessClock(useSettingsStore.getState()));
-    const counts = periodLeadCounts(data, info.daysBack);
-    const awarded = useRewardsStore.getState().awards.filter((a) => a.programId === program.id && a.periodKey === info.key);
-    const capped = new Set(
-      data.agents.filter((a) => awarded.filter((x) => x.agentId === a.id).length >= program.maxAwards).map((a) => a.id),
-    );
-    const candidates = data.agents
-      .filter((a) => a.active && !capped.has(a.id))
-      .map((a) => {
-        const v = counts.get(a.id)?.validated ?? 0;
-        return { id: a.id, need: program.salesRequired - (v % program.salesRequired) };
-      })
-      .sort((x, y) => x.need - y.need);
-    const pick = candidates[0];
-    if (!pick) return;
-    const n = Math.min(pick.need, 25);
-    for (let i = 0; i < n; i++) store.recordSale({ agentId: pick.id, status: "approved", source: "demo-simulator", celebrate: false });
-  };
+  if (!visible || !online || !spinEnabled || mode !== "spin") return null;
 
   const run = () => {
     if (useSpinFlowStore.getState().stage !== "idle") return;
     audioEngine.unlock();
-    const store = useArenaStore.getState();
-    if (store.dataSourceMode === "production" || !store.agents.some((a) => a.active)) {
-      // Live data: run a labelled, visual-only demo. No fake sale is added and no real closer is named.
-      useSpinFlowStore.getState().push({ agentId: DEMO_AGENT.id, periodSales: 2, available: 1, reason: "target", demo: true });
-      return;
-    }
-    const data = pickData(store);
-    const credits = computeAllCredits(data);
-    const candidates = data.agents
-      .filter((a) => a.active)
-      .map((a) => credits.get(a.id)!)
-      .filter((c) => c && c.ruleEnabled && c.salesToNext !== null);
-    const push = useSpinFlowStore.getState().push;
-
-    if (candidates.length === 0) {
-      // Spin rules are switched off: fall back to a bonus spin for someone.
-      const agent = data.agents.find((a) => a.active);
-      if (!agent) return;
-      store.addBonusCredits(agent.id, 1);
-      const c = computeAllCredits(pickData(useArenaStore.getState())).get(agent.id)!;
-      push({ agentId: agent.id, periodSales: c.periodSales, available: c.available, reason: "bonus" });
-      return;
-    }
-
-    const fewest = Math.min(...candidates.map((c) => c.salesToNext!));
-    const pool = candidates.filter((c) => c.salesToNext === fewest);
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    for (let i = 0; i < fewest; i++) {
-      store.recordSale({ agentId: pick.agentId, status: "approved", source: "demo-simulator", celebrate: false });
-    }
-    // The arena's unlock detector queues the popup too; the queue merges duplicates.
-    const after = computeAllCredits(pickData(useArenaStore.getState())).get(pick.agentId)!;
-    push({ agentId: pick.agentId, periodSales: after.periodSales, available: after.available, reason: "target" });
+    useSpinFlowStore.getState().push({ agentId: DEMO_AGENT.id, periodSales: 2, available: 1, reason: "target", demo: true });
   };
 
   return (
     <button
-      onClick={bonusMode ? runBonus : run}
+      onClick={run}
       disabled={busy}
-      title={
-        bonusMode
-          ? "Sends demo validated sales for the agent closest to this bonus, so the bonus popup shows"
-          : "Shows the full spin journey: a demo agent hits their target, then SPIN NOW, the wheel and the prize reveal"
-      }
+      title="Demonstration only: shows the spin journey with a demo identity. Nothing is saved."
       data-testid="demo-spin"
       className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-gold/40 bg-gold/10 px-3.5 text-sm font-semibold text-gold shadow-[0_6px_20px_-8px_rgba(255,200,87,0.6)] transition-all hover:bg-gold/20 active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
     >
       <Sparkles className="h-4 w-4" />
-      <span className="hidden sm:inline">{bonusMode ? "Demo sale" : "Demo spin"}</span>
+      <span className="hidden sm:inline">Demo spin</span>
     </button>
   );
 }

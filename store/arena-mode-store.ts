@@ -22,8 +22,10 @@ export const useArenaModeStore = create<ModeState>()((set) => ({ picked: null, s
 /** Resolves the screen to show: picked → default → first enabled → Spin & Win. */
 export function resolveMode(picked: ArenaMode | null, s: Pick<DisplaySettings, "arenaModes" | "defaultArenaMode">): ArenaMode {
   if (picked && s.arenaModes[picked]) return picked;
-  if (s.arenaModes[s.defaultArenaMode]) return s.defaultArenaMode;
-  return ARENA_MODE_ORDER.find((m) => s.arenaModes[m]) ?? "spin";
+  // Opening screen: the admin default, but never Spin & Win (that is reached via SPIN NOW or the tab).
+  if (s.defaultArenaMode !== "spin" && s.arenaModes[s.defaultArenaMode]) return s.defaultArenaMode;
+  if (s.arenaModes.daily) return "daily";
+  return ARENA_MODE_ORDER.find((m) => m !== "spin" && s.arenaModes[m]) ?? ARENA_MODE_ORDER.find((m) => s.arenaModes[m]) ?? "daily";
 }
 
 export function useArenaMode(): ArenaMode {

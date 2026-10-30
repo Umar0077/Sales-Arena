@@ -1,8 +1,9 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "motion/react";
 import type { Sale, Agent, Team, Campaign } from "@/types";
-import { Sparkles, TrendingUp, Flame, CheckCircle, Disc3 } from "lucide-react";
+import { Flame, CheckCircle, Disc3 } from "lucide-react";
 
 interface BroadcastHeroProps {
   latestSale: Sale | null;
@@ -10,25 +11,25 @@ interface BroadcastHeroProps {
   team: Team | null;
   campaign: Campaign | null;
   topAgent: { agent: Agent; sales: number; team?: Team } | null;
-  completionRate: number;
+  completionRate?: number;
 }
 
-export function BroadcastHero({
+export const BroadcastHero = memo(function BroadcastHero({
   latestSale,
   agent,
   team,
   campaign,
   topAgent,
-  completionRate,
+  completionRate: _completionRate,
 }: BroadcastHeroProps) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-[#0D1426] via-[#121C32] to-[#070B16] p-6 lg:p-8 shadow-2xl">
+    <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-[#0D1426] via-[#121C32] to-[#070B16] p-4 lg:p-5 shadow-2xl">
       {/* Dynamic ambient background glows */}
       <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-secondary/15 blur-3xl" />
 
       {/* Top Banner Tag */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 border-b border-white/5 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-white/5 pb-3">
         <div className="flex items-center gap-2">
           <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="font-heading text-xs font-bold tracking-widest text-emerald-400 uppercase">
@@ -47,7 +48,7 @@ export function BroadcastHero({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
         {/* Left: Latest Approval Spotlight */}
         <div className="lg:col-span-7 flex flex-col justify-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-surface border border-white/5 w-fit mb-3">
@@ -62,7 +63,7 @@ export function BroadcastHero({
               animate={{ opacity: 1, x: 0 }}
               className="space-y-3"
             >
-              <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
+              <h2 className="font-heading text-3xl xl:text-4xl 2xl:text-5xl font-black text-white tracking-tight">
                 {agent.name}
               </h2>
 
@@ -108,7 +109,7 @@ export function BroadcastHero({
         {/* Right: Top Performer Podium Card */}
         <div className="lg:col-span-5">
           {topAgent ? (
-            <div className="rounded-2xl border border-gold/30 bg-gradient-to-b from-[#1A2945]/70 to-[#0D1426]/90 p-5 glow-gold backdrop-blur-md">
+            <div className="rounded-2xl border border-gold/30 bg-gradient-to-b from-[#1A2945]/70 to-[#0D1426]/90 p-5 glow-gold backdrop-blur-md !p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1.5 text-gold text-xs font-bold tracking-wider uppercase font-heading">
                   <Flame className="w-4 h-4 fill-gold" />
@@ -138,7 +139,7 @@ export function BroadcastHero({
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+              <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
                 <span className="text-xs text-muted">Approved Sales Today:</span>
                 <span className="font-heading text-2xl font-black text-gold">
                   {topAgent.sales}
@@ -150,4 +151,4 @@ export function BroadcastHero({
       </div>
     </div>
   );
-}
+});

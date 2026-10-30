@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion, LayoutGroup } from "motion/react";
 import { Crown, Trophy, Medal } from "lucide-react";
 import type { CloserRow } from "@/features/sales/leads";
@@ -13,7 +14,7 @@ const PLACES = [
 ];
 
 /** Gold / silver / bronze podium for the top 3 closers of a period. */
-export function TopPerformersPodium({ rows, title, subtitle, testId }: { rows: CloserRow[]; title: string; subtitle: string; testId?: string }) {
+export const TopPerformersPodium = memo(function TopPerformersPodium({ rows, title, subtitle, testId }: { rows: CloserRow[]; title: string; subtitle: string; testId?: string }) {
   const animate = useSettingsStore((s) => s.leaderboardAnimations);
   const top = rows.slice(0, 3);
   // Display order on wide screens: 2nd, 1st, 3rd.
@@ -97,4 +98,4 @@ export function TopPerformersPodium({ rows, title, subtitle, testId }: { rows: C
       )}
     </section>
   );
-}
+});

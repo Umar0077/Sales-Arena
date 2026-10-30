@@ -7,7 +7,7 @@ import { Section, Field, Toggle, SelectField, PrimaryButton, GhostButton, inputC
 import { Notice, Table, td } from "./shared";
 import type { RewardIcon } from "@/types";
 
-interface Prize {
+export interface Prize {
   id: string;
   title: string;
   description: string;
@@ -22,17 +22,22 @@ interface Prize {
 const ICONS: RewardIcon[] = ["trophy", "gift", "package", "headphones", "badge", "sparkles", "coffee", "ticket", "star", "crown", "rocket", "medal"];
 const blank = { id: "", title: "", description: "", icon: "gift" as RewardIcon, color: "#FFC857", active: true, quantity: "", weight: "1", displayOrder: 0 };
 
-export function PrizesTab() {
+/** The one prize manager (PostgreSQL rewards_catalog), used by Spin Management → Prizes and Spin & Rewards. */
+export function PrizesTab({ onCatalog }: { onCatalog?: (prizes: Prize[]) => void } = {}) {
   const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [form, setForm] = useState(blank);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     const r = await adminApi<{ prizes: Prize[] }>("/api/admin/catalog");
-    if (r.ok) setPrizes(r.data.prizes);
-    else setMsg({ kind: "error", text: r.error });
-  }, []);
+    if (r.ok) {
+      setPrizes(r.data.prizes);
+      setSyncedAt(new Date().toISOString());
+      onCatalog?.(r.data.prizes);
+    } else setMsg({ kind: "error", text: r.error });
+  }, [onCatalog]);
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
@@ -48,7 +53,8 @@ export function PrizesTab() {
       active: form.active,
       quantity: form.quantity === "" ? null : Number(form.quantity),
       weight: Number(form.weight),
-      displayOrder: Number(form.displayOrder),
+      // New prizes go to the end of the wheel unless an order was typed.
+      displayOrder: form.id || Number(form.displayOrder) > 0 ? Number(form.displayOrder) : Math.max(0, ...prizes.map((p) => p.display_order)) + 1,
     };
     const r = form.id
       ? await adminApi(`/api/admin/catalog/${form.id}`, { method: "PATCH", body })
@@ -68,15 +74,33 @@ export function PrizesTab() {
     void load();
   };
 
+  // Wheel order (clockwise). Saved first; the list only changes after PostgreSQL confirms.
+  const move = async (idx: number, dir: -1 | 1) => {
+    const j = idx + dir;
+    if (j < 0 || j >= prizes.length) return;
+    const ids = prizes.map((p) => p.id);
+    [ids[idx], ids[j]] = [ids[j], ids[idx]];
+    setBusy(true);
+    const r = await adminApi("/api/admin/catalog/reorder", { method: "POST", body: { ids } });
+    setBusy(false);
+    setMsg(r.ok ? { kind: "ok", text: "Wheel order saved." } : { kind: "error", text: r.error });
+    void load();
+  };
+
   const active = prizes.filter((p) => p.active);
+  // Odds come only from weights (and stock); wheel position never changes them.
+  const eligible = active.filter((p) => Number(p.weight) > 0 && (p.quantity === null || p.quantity > 0));
+  const totalWeight = eligible.reduce((s, p) => s + Number(p.weight), 0);
+  const odds = (p: Prize) => (eligible.includes(p) && totalWeight > 0 ? `${((Number(p.weight) / totalWeight) * 100).toFixed(1)}%` : "—");
   return (
     <div className="space-y-6">
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      {syncedAt && <p className="text-xs text-text-muted" data-testid="catalog-synced">Catalog loaded from PostgreSQL at {new Date(syncedAt).toLocaleTimeString()}. Saved changes reach Live Arena wheels automatically.</p>}
       {active.length < 2 && <Notice kind="info">The wheel needs at least 2 active prizes before spins can run. ({active.length} active)</Notice>}
       <Section title="Eligible spin prizes" description="Stored in PostgreSQL. The server picks prizes by weight; prizes with stock 0 drop off the wheel.">
-        <Table head={["", "Prize", "Stock", "Weight", "Order", "Won", "Status", ""]} empty={!prizes.length} testId="prizes">
-          {prizes.map((p) => (
-            <tr key={p.id}>
+        <Table head={["", "Prize", "Stock", "Weight", "Chance", "Order", "Won", "Status", ""]} empty={!prizes.length} testId="prizes">
+          {prizes.map((p, idx) => (
+            <tr key={p.id} data-prize={p.title}>
               <td className={td}>
                 <span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: `${p.color}33`, color: p.color }}>
                   <RewardIconView icon={p.icon} className="h-4 w-4" />
@@ -88,7 +112,11 @@ export function PrizesTab() {
               </td>
               <td className={`${td} tabular`}>{p.quantity === null ? "Unlimited" : p.quantity}</td>
               <td className={`${td} tabular`}>{Number(p.weight)}</td>
-              <td className={`${td} tabular`}>{p.display_order}</td>
+              <td className={`${td} tabular`} data-col="chance">{odds(p)}</td>
+              <td className={`${td} tabular whitespace-nowrap`}>
+                <button aria-label={`Move ${p.title} up`} disabled={busy || idx === 0} onClick={() => move(idx, -1)} className="mr-1 rounded px-1.5 text-text-muted hover:text-white disabled:opacity-30">▲</button>
+                <button aria-label={`Move ${p.title} down`} disabled={busy || idx === prizes.length - 1} onClick={() => move(idx, 1)} className="rounded px-1.5 text-text-muted hover:text-white disabled:opacity-30">▼</button>
+              </td>
               <td className={`${td} tabular`}>{p.times_won}</td>
               <td className={td}>{p.active ? <span className="text-emerald-300">On wheel</span> : <span className="text-text-muted">Inactive</span>}</td>
               <td className={`${td} whitespace-nowrap`}>

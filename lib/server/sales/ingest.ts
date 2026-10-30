@@ -150,7 +150,15 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
     arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString() });
     if (result.spinGrants.length) {
       const last = result.spinGrants[result.spinGrants.length - 1];
-      arenaBroadcaster.broadcast("spin.unlocked", { userCode, closerName, spinsAvailable: last.balanceAfter });
+      arenaBroadcaster.broadcast("spin.unlocked", {
+        eventId: `tx:${last.transactionId}`,
+        origin: "automatic",
+        userCode,
+        closerName,
+        quantity: result.spinGrants.reduce((n, g) => n + g.quantity, 0),
+        salesCounted: last.salesCounted,
+        spinsAvailable: last.balanceAfter,
+      });
     }
     for (const b of result.bonuses) arenaBroadcaster.broadcast("bonus.awarded", { awardId: b.id, closer: { userCode, name: closerName }, amount: b.amount, prizeLabel: b.prizeLabel, programName: b.programName, kind: b.kind });
   }

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
 import { errorResponse, readJson } from "@/lib/server/spins/http";
 import { parsePrize } from "@/lib/server/spins/prizes";
+import { publishCatalogUpdated } from "@/lib/server/rewards/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       userAgent: requestUserAgent(req),
     });
     await client.query("COMMIT");
-    return NextResponse.json({ ok: true });
+    // Committed: now tell every Live Arena display (never before the save is confirmed).
+    const revision = await publishCatalogUpdated(auth.pool);
+    return NextResponse.json({ ok: true, revision });
   } catch (err) {
     await client.query("ROLLBACK");
     return errorResponse(err);
@@ -76,7 +79,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
     await writeAudit(client, { adminId: auth.ctx.admin.id, action: `prize.${outcome}`, targetType: "reward", targetId: id, ip: requestIp(req), userAgent: requestUserAgent(req) });
     await client.query("COMMIT");
-    return NextResponse.json({ ok: true, outcome });
+    // Committed: now tell every Live Arena display (never before the save is confirmed).
+    const revision = await publishCatalogUpdated(auth.pool);
+    return NextResponse.json({ ok: true, outcome, revision });
   } catch (err) {
     await client.query("ROLLBACK");
     return errorResponse(err);

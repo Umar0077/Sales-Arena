@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   soundCategories: DEFAULT_SOUND_CATEGORIES,
   celebrationDuration: 5,
   quality: "auto",
+  spinnerFallback2D: false,
   motion: "system",
   accent: "violet",
   diagnostics: false,
@@ -77,7 +78,7 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   revealStyle: "cinematic",
 
   arenaModes: { daily: true, weekly: true, monthly: true, spin: true },
-  defaultArenaMode: "spin",
+  defaultArenaMode: "daily",
   showModeSelector: true,
   // Opt-in: by default only the default screen's bonus program awards.
   programsConcurrent: false,
@@ -119,9 +120,11 @@ export const useSettingsStore = create<SettingsStore>()(
       // v2: leaderboard became "Top 10 closers" (old default was 8).
       // v3: realistic weekly/monthly floor targets (old defaults 2500 / 10000).
       // v4: campaign rename to "FE SALES ARENA" (keeps any custom brand name).
-      version: 4,
+      // v5: the public arena always opens on Daily Arena (never a stored Spin & Win).
+      version: 5,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Partial<DisplaySettings>;
+        if (version < 5 && p.defaultArenaMode === "spin") p.defaultArenaMode = "daily";
         if (version < 4 && (!p.brandName || p.brandName === "SALES ARENA")) p.brandName = "FE SALES ARENA";
         if (version < 2 && (p.leaderboardCount === undefined || p.leaderboardCount === 8)) p.leaderboardCount = 10;
         if (version < 3) {

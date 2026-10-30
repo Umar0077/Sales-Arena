@@ -8,7 +8,7 @@ import { useRewardsStore } from "@/store/rewards-store";
 import { useLiveStore } from "@/store/live-store";
 import { arenaBus } from "@/lib/events/bus";
 import { getPeriodDateRange } from "@/lib/time/business";
-import type { Agent, Sale } from "@/types";
+import type { Agent, Reward, Sale } from "@/types";
 import type { CloserRow } from "@/features/sales/leads";
 
 export function LiveApiSync() {
@@ -30,6 +30,35 @@ export function LiveApiSync() {
   const sseRef = useRef<EventSource | null>(null);
   const isMountedRef = useRef(true);
   const syncSeqRef = useRef(0);
+
+  // Prize wheel = PostgreSQL rewards_catalog. Applied only when its revision changes, so the
+  // wheel textures rebuild only for a real change (and never mid-spin: the stage keeps its spin snapshot).
+  const catalogRevRef = useRef<string | null>(null);
+  const syncCatalog = useCallback(async () => {
+    try {
+      const res = await fetch("/api/arena/catalog", { cache: "no-store" });
+      const j = await res.json();
+      if (!res.ok || !j.ok || !Array.isArray(j.prizes)) return;
+      if (j.revision === catalogRevRef.current) return;
+      catalogRevRef.current = j.revision;
+      useArenaStore.setState({
+        rewards: j.prizes.map((p: { id: string; title: string; description: string; icon: string; color: string; quantity: number | null }, i: number) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          icon: p.icon as Reward["icon"],
+          color: p.color,
+          active: true,
+          quantity: p.quantity,
+          weight: 1, // odds live on the server only
+          order: i,
+        })),
+      });
+      useLiveStore.getState().setCatalogRevision(j.revision, j.fetchedAt);
+    } catch {
+      // keep the last verified catalog
+    }
+  }, []);
 
   const fetchLiveStats = useCallback(async (isInitial = false, manual = false) => {
     const currentSeq = ++syncSeqRef.current;
@@ -268,14 +297,50 @@ export function LiveApiSync() {
   // Connect to server-sent events for real-time sales and celebrations
   useEffect(() => {
     isMountedRef.current = true;
+    const seenSales = new Set<string>();
+    const seenSpinEvents = new Set<string>();
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let syncInterval: ReturnType<typeof setInterval> | null = null;
+
+    // Coalesce rapid live updates into a single efficient batch
+    const scheduleLiveSync = (delay = 800) => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (isMountedRef.current && document.visibilityState === "visible") {
+          fetchLiveStats();
+        }
+      }, delay);
+    };
 
     // Initial check (deferred a tick so it does not set state during the effect)
-    const initialCheck = setTimeout(() => void fetchLiveStats(true), 0);
+    const initialCheck = setTimeout(() => {
+      void fetchLiveStats(true);
+      void syncCatalog();
+    }, 0);
 
-    // Setup periodic sync every 30s as safety reconciliation
-    const syncInterval = setInterval(() => {
-      fetchLiveStats();
-    }, 30_000);
+    // Setup periodic sync every 30s as safety reconciliation (paused when tab hidden)
+    const startPeriodicSync = () => {
+      if (syncInterval) clearInterval(syncInterval);
+      syncInterval = setInterval(() => {
+        if (document.visibilityState === "visible") {
+          fetchLiveStats();
+          void syncCatalog(); // lightweight freshness check; applies only on a new revision
+        }
+      }, 30_000);
+    };
+
+    startPeriodicSync();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchLiveStats(); // Instant sync when user returns to tab
+        startPeriodicSync();
+      } else {
+        if (syncInterval) clearInterval(syncInterval);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
 
     // Setup internal SSE stream
     let eventSource: EventSource | null = null;
@@ -284,6 +349,7 @@ export function LiveApiSync() {
       sseRef.current = eventSource;
 
       eventSource.addEventListener("ready", (e) => {
+        void syncCatalog(); // (re)connected: pick up any catalog change missed while offline
         try {
           const payload = JSON.parse(e.data);
           // Show LIVE only once real data has actually loaded.
@@ -298,13 +364,23 @@ export function LiveApiSync() {
       eventSource.addEventListener("sale.validated", (e) => {
         try {
           const payload = JSON.parse(e.data);
+          const saleKey = String(payload.caseId || "");
+          if (saleKey && seenSales.has(saleKey)) return;
+          if (saleKey) {
+            seenSales.add(saleKey);
+            if (seenSales.size > 200) {
+              const first = seenSales.values().next().value;
+              if (first) seenSales.delete(first);
+            }
+          }
+
           // Broadcast celebratory announcement
           arenaBus.emit("celebration:enqueue", {
             event: {
               id: `celeb_sale_${payload.caseId || Date.now()}`,
               tier: "sale",
               headline: "SALE VALIDATED!",
-              subline: `${payload.closerName || payload.userCode} closed a policy!`,
+              subline: `${payload.closerName || payload.userCode} · +1 Validated Sale — great work!`,
               agentId: payload.userCode,
               agentName: payload.closerName || payload.userCode,
               teamName: "FE Sales Arena",
@@ -314,8 +390,8 @@ export function LiveApiSync() {
               preview: false,
             },
           });
-          // Refresh statistics
-          fetchLiveStats();
+          // Debounced batch refresh statistics
+          scheduleLiveSync(800);
         } catch (err) {
           console.error("[LiveApiSync] Failed to process sale event", err);
         }
@@ -349,21 +425,46 @@ export function LiveApiSync() {
           const payload = JSON.parse(e.data);
           // The popup looks agents up by id; map the server's userCode to the live agent.
           const code = String(payload.userCode ?? "").toUpperCase();
+          if (!code) return;
+          // One popup per ledger transaction, even if the event arrives twice.
+          const eventKey = String(payload.eventId ?? "");
+          if (eventKey) {
+            if (seenSpinEvents.has(eventKey)) return;
+            seenSpinEvents.add(eventKey);
+            if (seenSpinEvents.size > 200) seenSpinEvents.delete(seenSpinEvents.values().next().value as string);
+          }
           const agent = useArenaStore.getState().agents.find((a) => a.userCode === code);
-          if (!agent) return;
+          const name = String(payload.closerName || agent?.name || code);
+          const qty = Number(payload.quantity) || 1;
+          const manual = payload.origin === "manual";
           useSpinFlowStore.getState().push({
-            agentId: agent.id,
-            periodSales: payload.periodSales || 0,
-            available: payload.spinsAvailable || 1,
-            reason: "target",
+            agentId: agent?.id ?? `agt_${code}`,
+            userCode: code,
+            agentName: name,
+            periodSales: Number(payload.salesCounted) || 0,
+            available: Number(payload.spinsAvailable) || qty,
+            reason: manual ? "bonus" : "target",
+            origin: manual ? "manual" : "automatic",
+            message: manual
+              ? `Admin has awarded you ${qty} Spin${qty === 1 ? "" : "s"}!`
+              : `You have earned ${qty} Spin${qty === 1 ? "" : "s"}. ${Number(payload.salesCounted) || ""} validated sales completed.`.replace("  ", " "),
           });
         } catch (err) {
           console.error("[LiveApiSync] Failed to process spin unlock event", err);
         }
       });
 
+      eventSource.addEventListener("rewards.catalog.updated", (e) => {
+        try {
+          const rev = JSON.parse(e.data)?.revision;
+          if (!rev || rev !== catalogRevRef.current) void syncCatalog();
+        } catch {
+          void syncCatalog();
+        }
+      });
+
       eventSource.addEventListener("stats.updated", () => {
-        fetchLiveStats();
+        scheduleLiveSync(600);
       });
 
       eventSource.onerror = () => {
@@ -378,7 +479,9 @@ export function LiveApiSync() {
     return () => {
       isMountedRef.current = false;
       clearTimeout(initialCheck);
-      clearInterval(syncInterval);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (syncInterval) clearInterval(syncInterval);
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (eventSource) {
         eventSource.close();
       }
@@ -392,6 +495,7 @@ export function LiveApiSync() {
     if (refreshRequest === 0) return;
     // Deferred a tick (no state change inside the effect body). Always clears the spinner.
     setTimeout(() => {
+      void syncCatalog();
       void fetchLiveStats(false, true).then((ok) => {
       if (ok === false) {
         const err = useArenaStore.getState().apiSyncError;

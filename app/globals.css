@@ -31,6 +31,7 @@
 
 :root {
   color-scheme: dark;
+  --font-sora: "Sora", "Space Grotesk Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
@@ -124,7 +125,7 @@ button, input, select, textarea { font-family: inherit; }
 .arena-backdrop__aurora {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(90px);
+  filter: blur(45px);
   opacity: 0.55;
   mix-blend-mode: screen;
   will-change: transform;
@@ -213,6 +214,34 @@ button, input, select, textarea { font-family: inherit; }
 .arena-backdrop[data-effects="subtle"] .arena-backdrop__aurora { opacity: 0.3; animation: none; }
 .arena-backdrop[data-effects="subtle"] .arena-backdrop__stars { animation: none; opacity: 0.2; }
 .arena-backdrop[data-effects="subtle"] .arena-backdrop__floor { animation: none; opacity: 0.4; }
+
+/* Performance Mode: optimized for low-end call center PCs and integrated GPUs */
+[data-perf-mode="performance"] .arena-backdrop__aurora {
+  opacity: 0.25;
+  filter: none;
+  animation: none;
+}
+[data-perf-mode="performance"] .arena-backdrop__floor {
+  animation: none;
+  opacity: 0.35;
+}
+[data-perf-mode="performance"] .arena-backdrop__stars {
+  animation: none;
+  opacity: 0.25;
+}
+[data-perf-mode="performance"] .backdrop-blur-md,
+[data-perf-mode="performance"] .backdrop-blur-xl,
+[data-perf-mode="performance"] [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: rgba(13, 20, 38, 0.94) !important;
+}
+[data-perf-mode="performance"] .glow-success,
+[data-perf-mode="performance"] .glow-primary,
+[data-perf-mode="performance"] .glow-cyan,
+[data-perf-mode="performance"] .glow-gold {
+  box-shadow: none !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .arena-backdrop__aurora,
@@ -321,4 +350,16 @@ button, input, select, textarea { font-family: inherit; }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Performance Mode: no endless decorative loops (live dots stay visible, just static).
+   Measured: these loops were ~half of idle main-thread time on a 4x-throttled CPU. */
+[data-perf-mode="performance"] .animate-ping,
+[data-perf-mode="performance"] .animate-pulse,
+[data-perf-mode="performance"] .achv-rays,
+[data-perf-mode="performance"] .spin-cta {
+  animation: none !important;
+}
+[data-perf-mode="performance"] .animate-ping {
+  opacity: 0;
 }

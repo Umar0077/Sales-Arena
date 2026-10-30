@@ -202,8 +202,8 @@ export interface ArenaStatistics {
   activeTargets: number;
 }
 
-export type QualityPreset = "ultra" | "high" | "balanced" | "low";
-export type QualitySetting = QualityPreset | "auto";
+export type QualityPreset = "ultra" | "high" | "balanced" | "low" | "performance";
+export type QualitySetting = "auto" | "high" | "performance" | "ultra" | "balanced" | "low";
 export type VisualIntensity = "calm" | "standard" | "epic";
 export type MotionPreference = "system" | "reduced" | "full";
 export type AccentTheme = "violet" | "cyan" | "emerald" | "gold";
@@ -240,6 +240,7 @@ export interface DisplaySettings {
   /** Base celebration duration in seconds. */
   celebrationDuration: number;
   quality: QualitySetting;
+  spinnerFallback2D?: boolean;
   motion: MotionPreference;
   accent: AccentTheme;
   diagnostics: boolean;

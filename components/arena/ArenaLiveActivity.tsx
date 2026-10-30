@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { ActivityEvent } from "@/types";
 import { TimeAgo } from "@/components/common/TimeAgo";
 import { 
@@ -13,7 +14,7 @@ import {
   Clock 
 } from "lucide-react";
 
-export function ArenaLiveActivity({
+export const ArenaLiveActivity = memo(function ArenaLiveActivity({
   events,
   title = "LIVE TRANSACTION WIRE",
   badge = "STREAMING",
@@ -88,4 +89,4 @@ export function ArenaLiveActivity({
       </div>
     </div>
   );
-}
+});

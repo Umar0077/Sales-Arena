@@ -20,6 +20,12 @@ export interface SpinUnlock {
   reason: "target" | "bonus" | "launch";
   /** Presentation-only run: never touches sales, credits, the server or the database. */
   demo?: boolean;
+  /** Live events: who earned it (used when the closer is not on the loaded roster yet). */
+  userCode?: string;
+  agentName?: string;
+  /** Why the spin was granted, e.g. "2 validated sales completed" or "Manual award from Admin". */
+  message?: string;
+  origin?: "automatic" | "manual";
 }
 
 /**

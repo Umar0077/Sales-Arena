@@ -17,7 +17,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen flex flex-col">
       <ArenaBackdrop />
       <ArenaHeader />
-      <main className="flex-1 flex flex-col pb-14">
+      <main className="flex-1 flex flex-col pb-24">
         <HydrationGate fallback={<ArenaSkeleton />}>
           <ArenaContent>
             <LiveDataGate>{children}</LiveDataGate>

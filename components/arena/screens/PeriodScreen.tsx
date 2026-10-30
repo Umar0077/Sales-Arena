@@ -209,7 +209,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
       </div>
 
       {showBoard && (
-        <aside className="min-w-0 min-h-[560px] xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)]">
+        <aside className="min-w-0 min-h-[560px] xl:sticky xl:top-20 xl:h-[calc(100vh-11rem)]">
           <LiveLeaderboard period={cfg.period} count={program?.leaderboardCount} />
         </aside>
       )}

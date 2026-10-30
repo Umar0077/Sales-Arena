@@ -5,6 +5,7 @@ import { executeSpin } from "@/lib/server/spins/execute";
 import { SpinError } from "@/lib/server/spins/ledger";
 import { writeAudit, requestIp } from "@/lib/server/auth/guard";
 import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
+import { publishCatalogUpdated } from "@/lib/server/rewards/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,8 @@ export async function POST(req: NextRequest) {
         ip: requestIp(req),
       });
       arenaBroadcaster.broadcast("spin.completed", { spinId: result.spinId, userCode, reward: result.reward, availableLeft: result.availableLeft });
+      // Stock may have run out: displays refetch only if the wheel revision actually changed.
+      void publishCatalogUpdated(pool);
     }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
