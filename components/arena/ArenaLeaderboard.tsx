@@ -82,7 +82,7 @@ export function ArenaLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                     )}
                   </div>
                   <div className="text-[11px] text-text-muted truncate">
-                    {entry.team?.name || "Titans"}
+                    {entry.team?.name ?? "Final Expense"}
                   </div>
                 </div>
               </div>

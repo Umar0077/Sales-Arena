@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
 
   arenaEnabled: true,
   arenaOfflineMessage: "We'll be back on air shortly.",
-  brandName: "SALES ARENA",
+  brandName: "FE SALES ARENA",
   brandTagline: "Live Sales Broadcast",
   customLogo: null,
   backgroundEffects: "full",
@@ -118,9 +118,11 @@ export const useSettingsStore = create<SettingsStore>()(
       name: SETTINGS_STORAGE_KEY,
       // v2: leaderboard became "Top 10 closers" (old default was 8).
       // v3: realistic weekly/monthly floor targets (old defaults 2500 / 10000).
-      version: 3,
+      // v4: campaign rename to "FE SALES ARENA" (keeps any custom brand name).
+      version: 4,
       migrate: (persisted, version) => {
         const p = (persisted ?? {}) as Partial<DisplaySettings>;
+        if (version < 4 && (!p.brandName || p.brandName === "SALES ARENA")) p.brandName = "FE SALES ARENA";
         if (version < 2 && (p.leaderboardCount === undefined || p.leaderboardCount === 8)) p.leaderboardCount = 10;
         if (version < 3) {
           if (p.weeklyFloorTarget === 2500) p.weeklyFloorTarget = 3500;

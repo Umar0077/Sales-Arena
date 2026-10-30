@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useSpinFlowStore } from "@/store/spin-flow-store";
+import { useSpinFlowStore, DEMO_AGENT } from "@/store/spin-flow-store";
 import { useBonusFlowStore } from "@/store/bonus-flow-store";
 import { useArenaStore } from "@/store/arena-store";
 import { useCelebrationStore } from "@/store/celebration-store";
@@ -22,7 +22,8 @@ export function SpinFlow() {
   const queueLength = useSpinFlowStore((s) => s.queue.length);
   const setStage = useSpinFlowStore((s) => s.setStage);
   const finish = useSpinFlowStore((s) => s.finish);
-  const agent = useArenaStore((s) => s.agents.find((a) => a.id === active?.agentId));
+  const storeAgent = useArenaStore((s) => s.agents.find((a) => a.id === active?.agentId));
+  const agent = active?.demo ? DEMO_AGENT : storeAgent;
   const team = useArenaStore((s) => s.teams.find((t) => t.id === agent?.teamId));
   const reducedMotion = useReducedMotion();
   const [outcome, setOutcome] = useState<SpinOutcome | null>(null);
@@ -123,7 +124,7 @@ export function SpinFlow() {
           >
             <div className="spin-stage-bg absolute inset-0" />
             <div className="relative min-h-full">
-              <SpinStage agentId={agent.id} reducedMotion={reducedMotion} onResult={onResult} onClose={close} />
+              <SpinStage agentId={agent.id} demo={Boolean(active.demo)} reducedMotion={reducedMotion} onResult={onResult} onClose={close} />
             </div>
           </motion.div>
         )}

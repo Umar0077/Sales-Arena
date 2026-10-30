@@ -87,6 +87,10 @@ export interface ArenaData {
       closers: CloserRow[];
     };
   };
+  serverSpinBalance?: {
+    unlocked: number;
+    available: number;
+  } | null;
 }
 
 // 4: leads include rejected and duplicate statuses.

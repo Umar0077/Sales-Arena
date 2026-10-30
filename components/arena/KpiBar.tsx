@@ -3,6 +3,8 @@
 import { AnimatedCounter } from "./AnimatedCounter";
 import type { ArenaStatistics } from "@/types";
 import { useArenaStore } from "@/store/arena-store";
+import { useLiveStore } from "@/store/live-store";
+import { targetProgress, formatPercent } from "@/lib/live/targets";
 import { 
   CheckCircle2, 
   Target, 
@@ -15,21 +17,24 @@ import {
 
 export function KpiBar({ stats }: { stats: ArenaStatistics }) {
   const summary = useArenaStore((s) => s.periodMetrics?.day?.summary ?? s.safeQuoteSummary);
+  const serverSpinBalance = useArenaStore((s) => s.serverSpinBalance);
 
   const approvedCount = summary ? summary.validated : stats.approvedToday;
   const volumeStr = summary?.premium?.total
     ? `+$${Math.round(summary.premium.total).toLocaleString()} total premium`
     : `+$${(stats.approvedToday * 95).toLocaleString()} est. volume`;
-  const completionRate = stats.targetToday > 0
-    ? approvedCount / stats.targetToday
-    : summary
-      ? summary.closeRate / 100
-      : stats.completion;
-  const percentStr = `${Math.round(completionRate * 100)}%`;
-  const remainingCount = Math.max(0, stats.targetToday - approvedCount);
+  const liveMode = useArenaStore((s) => s.liveMode);
+  const liveTarget = useLiveStore((s) => s.targets.day);
+  // Live: target from PostgreSQL (Admin → Target Management). Demo: the simulated floor target.
+  const progress = targetProgress(approvedCount, liveMode ? liveTarget : stats.targetToday);
+  const completionRate = (progress.percent ?? 0) / 100;
+  const percentStr = formatPercent(progress.percent);
+  const remainingCount = progress.remaining;
   const activeCount = summary ? summary.activeClosers : stats.activeAgents;
   const activeSub = summary ? `${summary.submitted} submitted leads` : `${stats.totalAgents} on roster`;
   const remainingSub = summary ? `${summary.returned} returned · ${summary.rejected} rejected` : "To floor victory";
+  const unlockedCount = serverSpinBalance ? serverSpinBalance.unlocked : stats.spinsUnlocked;
+  const availableCount = serverSpinBalance ? serverSpinBalance.available : stats.spinsAvailable;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6 gap-3">
@@ -54,10 +59,10 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
           <Target className="w-4 h-4 text-secondary" />
         </div>
         <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          <AnimatedCounter value={stats.targetToday} />
+          {progress.target === null ? <span className="text-2xl text-text-muted" data-testid="target-not-set">Not set</span> : <AnimatedCounter value={progress.target} />}
         </div>
         <div className="text-[11px] font-mono text-muted mt-1">
-          Across {stats.teams} active teams
+          {progress.target === null ? "Set it in Admin → Targets" : "Validated sales goal"}
         </div>
       </div>
 
@@ -90,7 +95,7 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
           <Flame className="w-4 h-4 text-gold" />
         </div>
         <div className="font-heading text-3xl font-black text-gold tracking-tight kpi-number">
-          <AnimatedCounter value={summary ? remainingCount : stats.remaining} />
+          {remainingCount === null ? <span className="text-2xl text-text-muted">—</span> : <AnimatedCounter value={remainingCount} />}
         </div>
         <div className="text-[11px] font-mono text-muted mt-1">
           {remainingSub}
@@ -104,10 +109,10 @@ export function KpiBar({ stats }: { stats: ArenaStatistics }) {
           <Disc3 className="w-4 h-4 text-primary" />
         </div>
         <div className="font-heading text-3xl font-black text-primary tracking-tight kpi-number">
-          <AnimatedCounter value={stats.spinsUnlocked} />
+          <AnimatedCounter value={unlockedCount} />
         </div>
         <div className="text-[11px] font-mono text-secondary mt-1">
-          {stats.spinsAvailable} spins ready
+          {availableCount} spins ready
         </div>
       </div>
 

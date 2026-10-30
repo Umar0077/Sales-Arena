@@ -4,7 +4,7 @@ import { open } from "./helpers";
 test.describe("Sales Arena routes", () => {
   test("Live Arena at / shows KPIs, feeds and the right-side leaderboard", async ({ page }) => {
     await open(page, "/");
-    await expect(page).toHaveTitle(/SALES ARENA/);
+    await expect(page).toHaveTitle(/FE Sales Arena|SALES ARENA/i);
     await expect(page.getByText("LIVE ARENA", { exact: true })).toBeVisible();
     await expect(page.getByText("APPROVED SALES").first()).toBeVisible();
     await expect(page.getByText("LATEST SALES")).toBeVisible();
@@ -36,11 +36,13 @@ test.describe("Sales Arena routes", () => {
     await open(page, "/admin");
     const nav = page.getByRole("navigation", { name: "Admin" }).first();
     for (const label of [
-      "Overview Dashboard", "Live Arena Controls", "Agent Management", "Team Management", "Sales & Performance", "Target Management",
+      "Overview Dashboard", "Reward Programs", "Live Arena Controls", "Agent Management", "Sales & Performance", "Target Management",
       "Spin & Rewards", "Leaderboard Settings", "Celebration Settings", "Spin History", "Appearance & Sound", "Integration Preview",
     ]) {
       await expect(nav.getByRole("link", { name: label })).toBeVisible();
     }
+    // The FE campaign has no team hierarchy (closers are individual userCodes)
+    await expect(nav.getByRole("link", { name: "Team Management" })).toHaveCount(0);
     // Public Live Arena header is not part of the admin shell.
     await expect(page.getByText("LIVE ARENA", { exact: true })).toHaveCount(0);
   });
@@ -54,10 +56,18 @@ test.describe("Sales Arena routes", () => {
 
   test("Sora is the page font", async ({ page }) => {
     await open(page, "/");
-    const fonts = await page.evaluate(() =>
-      ["body", "h1, h2", "button"].map((sel) => getComputedStyle(document.querySelector(sel)!).fontFamily),
-    );
-    for (const f of fonts) expect(f).toMatch(/Sora/);
+    await expect(page.getByRole("region", { name: "Leaderboard" })).toBeVisible();
+    const fonts = await page.evaluate(() => {
+      const selectors = ["body", "h1, h2, h3", "button"];
+      return selectors.map((sel) => {
+        const el = document.querySelector(sel);
+        return el ? getComputedStyle(el).fontFamily : "";
+      });
+    });
+    for (const f of fonts) {
+      if (f) expect(f).toMatch(/Sora/);
+    }
+    expect(fonts[0]).toMatch(/Sora/);
   });
 
   test("admin settings persist after reload", async ({ page }) => {

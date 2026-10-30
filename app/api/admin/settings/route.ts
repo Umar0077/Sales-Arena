@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/server/admin/auth";
+import { requireAdmin } from "@/lib/server/auth/guard";
 import { dbQuery } from "@/lib/server/db/client";
 import { DEFAULT_SETTINGS } from "@/store/settings-store";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const res = await dbQuery("SELECT value FROM admin_settings WHERE key = 'display_settings'");
     if (res && res.rowCount && res.rowCount > 0) {
@@ -17,10 +19,8 @@ export async function GET(_req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = verifyAdminAuth(req);
-  if (!auth.authorized) {
-    return NextResponse.json({ ok: false, error: auth.reason }, { status: 401 });
-  }
+  const auth = await requireAdmin(req, { mutating: true });
+  if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();
@@ -38,9 +38,9 @@ export async function POST(req: NextRequest) {
 
     // Audit log
     await dbQuery(
-      `INSERT INTO audit_logs (actor, action, target_type, target_id, details)
-       VALUES ('admin', 'update_settings', 'display_settings', 'display_settings', $1)`,
-      [JSON.stringify({ updatedKeys: Object.keys(body) })]
+      `INSERT INTO audit_logs (actor, admin_id, action, target_type, target_id, details)
+       VALUES ('admin', $2, 'update_settings', 'display_settings', 'display_settings', $1)`,
+      [JSON.stringify({ updatedKeys: Object.keys(body) }), auth.ctx.admin.id]
     );
 
     return NextResponse.json({ ok: true, message: "Settings persisted successfully" });

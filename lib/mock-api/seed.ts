@@ -275,6 +275,7 @@ export function createSeedData(options: SeedOptions = {}): ArenaData {
     apiSyncStatus: "unconfigured",
     apiSyncError: null,
     safeQuoteSummary: null,
+    serverSpinBalance: null,
   };
 }
 
@@ -282,4 +283,39 @@ function hashDay(key: string): number {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
   return h >>> 0;
+}
+
+/** The Final Expense campaign the live floor runs (no team structure). */
+export const FE_CAMPAIGN: Campaign = { id: "cmp_fe", name: "Final Expense", color: "#FFC857", product: "Final Expense" };
+
+/**
+ * Initial state for live (Safe Quote) mode: no demo agents, teams, sales, spins or
+ * activity. Real data replaces it only after a verified API response.
+ */
+export function createLiveData(now: Date = new Date()): ArenaData {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    dayKey: dayKey(now),
+    campaigns: [FE_CAMPAIGN],
+    teams: [],
+    agents: [],
+    sales: [],
+    history: {},
+    historySubmitted: {},
+    targetRules: [{ id: "rule_default", teamId: null, salesPerSpin: 2, period: "daily", enabled: true, teamDailyTarget: 0, agentDailyTarget: 0 }],
+    rewards: DEFAULT_REWARDS,
+    spins: [],
+    bonusCredits: {},
+    activity: [],
+    currentAgentId: "",
+    celebratedMilestones: [],
+    teamTargetsHit: [],
+    lastSyncAt: null,
+    dataSourceMode: "production",
+    apiSyncStatus: "connecting",
+    apiSyncError: null,
+    safeQuoteSummary: null,
+    periodMetrics: undefined,
+    serverSpinBalance: null,
+  };
 }

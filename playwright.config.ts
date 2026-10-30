@@ -11,8 +11,10 @@ export default defineConfig({
     timeout: 10000,
   },
   reporter: "list",
+  globalSetup: "./tests/e2e/global-setup.ts",
   use: {
     baseURL: "http://127.0.0.1:3000",
+    storageState: "tests/e2e/.auth/admin.json",
     trace: "on-first-retry",
     viewport: { width: 1440, height: 900 },
     actionTimeout: 10000,

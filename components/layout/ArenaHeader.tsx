@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
 import { DemoSpinButton } from "@/components/arena/DemoSpinButton";
 import { ArenaModeSelector } from "@/components/layout/ArenaModeSelector";
+import { RefreshButton } from "@/components/layout/RefreshButton";
 
 /** Public Live Arena header: branding plus display utilities only — no admin links. */
 export function ArenaHeader() {
@@ -68,6 +69,7 @@ export function ArenaHeader() {
 
         <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
           <ArenaModeSelector />
+          <RefreshButton />
           <div className="hidden 2xl:flex items-center gap-2 rounded-xl border border-white/[0.06] bg-surface/60 px-3 py-2 text-sm font-semibold text-text-secondary tabular">
             <span className="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse" />
             <span suppressHydrationWarning>{time || "--:--:--"}</span>

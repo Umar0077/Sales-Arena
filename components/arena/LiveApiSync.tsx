@@ -5,6 +5,7 @@ import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useRewardsStore } from "@/store/rewards-store";
+import { useLiveStore } from "@/store/live-store";
 import { arenaBus } from "@/lib/events/bus";
 import { getPeriodDateRange } from "@/lib/time/business";
 import type { Agent, Sale } from "@/types";
@@ -15,6 +16,7 @@ export function LiveApiSync() {
   const setPeriodMetrics = useArenaStore((s) => s.setPeriodMetrics);
   const setAllTimeMetrics = useArenaStore((s) => s.setAllTimeMetrics);
   const setApiStatus = useArenaStore((s) => s.setApiStatus);
+  const setServerSpinBalance = useArenaStore((s) => s.setServerSpinBalance);
   const apiStatus = useArenaStore((s) => s.apiSyncStatus);
   const apiError = useArenaStore((s) => s.apiSyncError);
   const dataSourceMode = useArenaStore((s) => s.dataSourceMode);
@@ -29,8 +31,11 @@ export function LiveApiSync() {
   const isMountedRef = useRef(true);
   const syncSeqRef = useRef(0);
 
-  const fetchLiveStats = useCallback(async (isInitial = false) => {
+  const fetchLiveStats = useCallback(async (isInitial = false, manual = false) => {
     const currentSeq = ++syncSeqRef.current;
+    // Manual refresh bypasses the server's short upstream cache; the browser never caches.
+    const fresh = manual ? "&fresh=true" : "";
+    const opt: RequestInit = { cache: "no-store" };
     try {
       if (isInitial) {
         setApiStatus("connecting", null);
@@ -59,22 +64,26 @@ export function LiveApiSync() {
         allTimeSummaryRes,
         allTimeClosersRes,
         awardsRes,
+        targetsRes,
+        spinTotalsRes,
       ] = await Promise.allSettled([
-        fetch(`/api/arena/summary?from=${dayRange.from}&to=${dayRange.to}`),
-        fetch(`/api/arena/closers?from=${dayRange.from}&to=${dayRange.to}`),
-        fetch(`/api/arena/recent-sales?from=${dayRange.from}&to=${dayRange.to}`),
-        fetch(`/api/arena/summary?from=${weekRange.from}&to=${weekRange.to}`),
-        fetch(`/api/arena/closers?from=${weekRange.from}&to=${weekRange.to}`),
-        fetch(`/api/arena/recent-sales?from=${weekRange.from}&to=${weekRange.to}`),
-        fetch(`/api/arena/summary?from=${monthRange.from}&to=${monthRange.to}`),
-        fetch(`/api/arena/closers?from=${monthRange.from}&to=${monthRange.to}`),
-        fetch(`/api/arena/recent-sales?from=${monthRange.from}&to=${monthRange.to}`),
-        fetch("/api/arena/summary"),
-        fetch("/api/arena/closers"),
-        fetch("/api/arena/awards"),
+        fetch(`/api/arena/summary?from=${dayRange.from}&to=${dayRange.to}${fresh}`, opt),
+        fetch(`/api/arena/closers?from=${dayRange.from}&to=${dayRange.to}${fresh}`, opt),
+        fetch(`/api/arena/recent-sales?from=${dayRange.from}&to=${dayRange.to}${fresh}`, opt),
+        fetch(`/api/arena/summary?from=${weekRange.from}&to=${weekRange.to}${fresh}`, opt),
+        fetch(`/api/arena/closers?from=${weekRange.from}&to=${weekRange.to}${fresh}`, opt),
+        fetch(`/api/arena/recent-sales?from=${weekRange.from}&to=${weekRange.to}${fresh}`, opt),
+        fetch(`/api/arena/summary?from=${monthRange.from}&to=${monthRange.to}${fresh}`, opt),
+        fetch(`/api/arena/closers?from=${monthRange.from}&to=${monthRange.to}${fresh}`, opt),
+        fetch(`/api/arena/recent-sales?from=${monthRange.from}&to=${monthRange.to}${fresh}`, opt),
+        fetch(`/api/arena/summary${manual ? "?fresh=true" : ""}`, opt),
+        fetch(`/api/arena/closers${manual ? "?fresh=true" : ""}`, opt),
+        fetch("/api/arena/awards", opt),
+        fetch(`/api/arena/targets?day=${dayRange.from}&week=${weekRange.from}&month=${monthRange.from}`, opt),
+        fetch("/api/arena/spin/totals", opt),
       ]);
 
-      if (currentSeq !== syncSeqRef.current) return false;
+      if (currentSeq !== syncSeqRef.current) return null; // a newer sync superseded this one
 
       // Check daySummaryRes
       if (daySummaryRes.status === "fulfilled" && daySummaryRes.value.ok) {
@@ -205,13 +214,35 @@ export function LiveApiSync() {
             });
           }
 
-          // Sync real data into primary arena floor
+          // Targets from PostgreSQL (read-only). Keep the last known values if the DB is briefly unavailable.
+          if (targetsRes.status === "fulfilled" && targetsRes.value.ok) {
+            const tj = await targetsRes.value.json().catch(() => null);
+            if (tj?.ok) {
+              useLiveStore.getState().setTargets({
+                day: tj.targets?.day?.target ?? null,
+                week: tj.targets?.week?.target ?? null,
+                month: tj.targets?.month?.target ?? null,
+              });
+            }
+          }
+
+          // Authoritative spin totals from PostgreSQL ledger
+          if (spinTotalsRes.status === "fulfilled" && spinTotalsRes.value.ok) {
+            const st = await spinTotalsRes.value.json().catch(() => null);
+            if (st?.ok && typeof st.unlocked === "number" && typeof st.available === "number") {
+              setServerSpinBalance({ unlocked: st.unlocked, available: st.available });
+            }
+          }
+          if (currentSeq !== syncSeqRef.current) return null;
+
+          // Sync real data into primary arena floor (an empty day replaces old data too)
           syncRealData({
             summary: daySummaryData.data,
-            agents: liveAgents.length > 0 ? liveAgents : undefined,
-            sales: daySales.length > 0 ? daySales : undefined,
+            agents: liveAgents,
+            sales: daySales,
             mode: "production",
           });
+          useLiveStore.getState().markSuccess();
 
           return true;
         } else if (daySummaryData.mode === "unconfigured") {
@@ -222,7 +253,7 @@ export function LiveApiSync() {
         setApiStatus("unconfigured", "API not configured; demo mode active");
         return false;
       } else {
-        throw new Error("Unable to reach Sales Arena backend API");
+        throw new Error("Unable to reach FE Sales Arena backend API");
       }
     } catch (err) {
       if (!isMountedRef.current || currentSeq !== syncSeqRef.current) return false;
@@ -232,14 +263,14 @@ export function LiveApiSync() {
       return false;
     }
     return false;
-  }, [businessTimezone, weekStartDay, setApiStatus, setPeriodMetrics, setAllTimeMetrics, syncRealData]);
+  }, [businessTimezone, weekStartDay, setApiStatus, setPeriodMetrics, setAllTimeMetrics, syncRealData, setServerSpinBalance]);
 
   // Connect to server-sent events for real-time sales and celebrations
   useEffect(() => {
     isMountedRef.current = true;
 
-    // Initial check
-    fetchLiveStats(true);
+    // Initial check (deferred a tick so it does not set state during the effect)
+    const initialCheck = setTimeout(() => void fetchLiveStats(true), 0);
 
     // Setup periodic sync every 30s as safety reconciliation
     const syncInterval = setInterval(() => {
@@ -255,7 +286,8 @@ export function LiveApiSync() {
       eventSource.addEventListener("ready", (e) => {
         try {
           const payload = JSON.parse(e.data);
-          if (payload.health?.status === "connected") {
+          // Show LIVE only once real data has actually loaded.
+          if (payload.health?.status === "connected" && useArenaStore.getState().lastSyncAt) {
             setApiStatus("connected", null);
           }
         } catch {
@@ -275,7 +307,7 @@ export function LiveApiSync() {
               subline: `${payload.closerName || payload.userCode} closed a policy!`,
               agentId: payload.userCode,
               agentName: payload.closerName || payload.userCode,
-              teamName: "Sales Arena",
+              teamName: "FE Sales Arena",
               teamColor: "#36E0B5",
               value: payload.premium || null,
               createdAt: payload.validatedAt || new Date().toISOString(),
@@ -315,8 +347,12 @@ export function LiveApiSync() {
       eventSource.addEventListener("spin.unlocked", (e) => {
         try {
           const payload = JSON.parse(e.data);
+          // The popup looks agents up by id; map the server's userCode to the live agent.
+          const code = String(payload.userCode ?? "").toUpperCase();
+          const agent = useArenaStore.getState().agents.find((a) => a.userCode === code);
+          if (!agent) return;
           useSpinFlowStore.getState().push({
-            agentId: payload.userCode,
+            agentId: agent.id,
             periodSales: payload.periodSales || 0,
             available: payload.spinsAvailable || 1,
             reason: "target",
@@ -341,12 +377,32 @@ export function LiveApiSync() {
 
     return () => {
       isMountedRef.current = false;
+      clearTimeout(initialCheck);
       clearInterval(syncInterval);
       if (eventSource) {
         eventSource.close();
       }
     };
   }, [fetchLiveStats, setApiStatus]);
+
+  // Manual refresh (header button): one coordinated re-fetch of every live dataset. Read-only:
+  // it never opens another SSE stream and never writes sales, spins or rewards.
+  const refreshRequest = useLiveStore((s) => s.refreshRequest);
+  useEffect(() => {
+    if (refreshRequest === 0) return;
+    // Deferred a tick (no state change inside the effect body). Always clears the spinner.
+    setTimeout(() => {
+      void fetchLiveStats(false, true).then((ok) => {
+      if (ok === false) {
+        const err = useArenaStore.getState().apiSyncError;
+        useLiveStore.getState().setRefreshing(false, err ? `Refresh failed: ${err}` : "Refresh failed. Showing the last verified data.");
+      } else {
+        useLiveStore.getState().setRefreshing(false);
+      }
+      });
+    }, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshRequest]);
 
   // Status Indicator Badge in bottom corner
   return (

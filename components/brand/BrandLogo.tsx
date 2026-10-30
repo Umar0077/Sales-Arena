@@ -18,7 +18,10 @@ export function BrandLogo({
   const customLogo = useSettingsStore((s) => s.customLogo);
   const brandName = useSettingsStore((s) => s.brandName);
   const tagline = useSettingsStore((s) => s.brandTagline);
-  const [first, ...rest] = (brandName || "SALES ARENA").split(" ");
+  // Last word in gold: "FE SALES" + "ARENA".
+  const words = (brandName || "FE SALES ARENA").split(" ");
+  const rest = words.length > 1 ? [words[words.length - 1]] : [];
+  const first = (words.length > 1 ? words.slice(0, -1) : words).join(" ");
 
   return (
     <div className={cn("flex items-center gap-3 min-w-0", className)}>

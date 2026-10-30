@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/server/admin/auth";
+import { requireAdmin } from "@/lib/server/auth/guard";
 import { dbQuery } from "@/lib/server/db/client";
 import { DEFAULT_PROGRAMS, type BonusProgram } from "@/store/rewards-store";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
   try {
     const res = await dbQuery("SELECT * FROM reward_programs ORDER BY created_at ASC");
     if (res && res.rowCount && res.rowCount > 0) {
@@ -37,10 +39,8 @@ export async function GET(_req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = verifyAdminAuth(req);
-  if (!auth.authorized) {
-    return NextResponse.json({ ok: false, error: auth.reason }, { status: 401 });
-  }
+  const auth = await requireAdmin(req, { mutating: true });
+  if (!auth.ok) return auth.response;
 
   try {
     const body = await req.json();
@@ -93,6 +93,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    await dbQuery(
+      `INSERT INTO audit_logs (actor, admin_id, action, target_type, target_id, details)
+       VALUES ('admin', $1, 'reward_programs.update', 'reward_programs', NULL, $2)`,
+      [auth.ctx.admin.id, JSON.stringify({ count: Array.isArray(body?.programs) ? body.programs.length : undefined })],
+    );
     return NextResponse.json({ ok: true, message: "Programs saved successfully" });
   } catch (err) {
     return NextResponse.json(

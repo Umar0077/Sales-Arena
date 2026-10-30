@@ -13,6 +13,8 @@ import { TopPerformersPodium } from "@/components/arena/TopPerformersPodium";
 import { ArenaLiveActivity } from "@/components/arena/ArenaLiveActivity";
 import { ScreenTitle, StatGrid, CampaignCard, AwardFeed } from "./parts";
 import { cn } from "@/lib/utils";
+import { useLiveStore } from "@/store/live-store";
+import { targetProgress, formatPercent } from "@/lib/live/targets";
 
 const CONFIG = {
   weekly: { period: "week" as const, eyebrow: "WEEKLY BONUS ARENA", title: "This Week's Race", word: "this week", targetKey: "weeklyFloorTarget" as const },
@@ -32,7 +34,11 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
   const programs = useRewardsStore((s) => s.programs);
   const awards = useRewardsStore((s) => s.awards);
   const currency = useSettingsStore((s) => s.currencyLabel);
-  const floorTarget = useSettingsStore((s) => s[cfg.targetKey]);
+  const demoFloorTarget = useSettingsStore((s) => s[cfg.targetKey]);
+  const liveMode = useArenaStore((s) => s.liveMode);
+  const liveTarget = useLiveStore((s) => s.targets[cfg.period]);
+  // Live: the PostgreSQL target for this week/month (null = not set). Demo: the simulated floor target.
+  const floorTarget = liveMode ? liveTarget : demoFloorTarget;
   const showBoard = useSettingsStore((s) => s.leaderboardVisible);
   const info = usePeriodInfo(cfg.period);
   const program = programFor(programs, kind);
@@ -148,12 +154,16 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           stats={[
             { label: `Validated ${cfg.word}`, value: view.validated, icon: BadgeCheck, accent: "#36E0B5", testId: "period-validated" },
             {
-              label: "Floor target",
-              value: floorTarget,
+              label: `Target ${cfg.word}`,
+              value: targetProgress(view.validated, floorTarget).target ?? 0,
               icon: Target,
               accent: "#22D3FF",
-              progress: floorTarget > 0 ? view.validated / floorTarget : 0,
-              sub: `${Math.round(floorTarget > 0 ? (view.validated / floorTarget) * 100 : 0)}% reached`,
+              format: targetProgress(view.validated, floorTarget).target === null ? () => "Not set" : undefined,
+              progress: (targetProgress(view.validated, floorTarget).percent ?? 0) / 100,
+              sub: (() => {
+                const p = targetProgress(view.validated, floorTarget);
+                return p.target === null ? "Set it in Admin → Targets" : `${formatPercent(p.percent)} reached · ${p.remaining} to go`;
+              })(),
             },
             { label: "Submitted leads", value: view.submitted, icon: Send, accent: "#8B5CFF", testId: "period-submitted" },
             { label: "Closed rate", value: Math.round(view.closeRate), icon: Percent, accent: "#FFC857", format: (v) => `${Math.round(v)}%` },

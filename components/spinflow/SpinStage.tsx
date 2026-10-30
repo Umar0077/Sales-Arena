@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { X, Disc3, Loader2 } from "lucide-react";
 import { useArenaStore, pickData } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
+import { DEMO_AGENT } from "@/store/spin-flow-store";
 import { WheelCanvas } from "@/components/spinner/WheelCanvas";
 import type { WheelPhase } from "@/components/spinner/Wheel3D";
 import { planSpin, scaleProfile, DEFAULT_PROFILE, type SpinPlan } from "@/features/spins/wheel-math";
@@ -13,8 +14,19 @@ import { computeSpinCredit } from "@/features/targets/eligibility";
 import { audioEngine } from "@/lib/audio/engine";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { cn } from "@/lib/utils";
-import { closerCode } from "@/features/sales/leads";
-import type { Reward } from "@/types";
+import type { Reward, RewardIcon } from "@/types";
+
+interface ServerSegment {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+}
+const toReward = (s: ServerSegment, i: number): Reward => ({
+  id: s.id, title: s.title, description: s.description, icon: s.icon as RewardIcon, color: s.color, active: true, quantity: null, weight: 1, order: i,
+});
+const requestKey = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 type StageState = "ready" | "preparing" | "spinning" | "decelerating" | "result";
 
@@ -25,6 +37,8 @@ export interface SpinOutcome {
 
 interface Props {
   agentId: string;
+  /** Presentation run: local random result, nothing recorded anywhere. */
+  demo?: boolean;
   reducedMotion: boolean;
   /** Fired once the wheel has stopped and the spin is recorded. */
   onResult: (outcome: SpinOutcome) => void;
@@ -32,9 +46,10 @@ interface Props {
 }
 
 /** The 3D Spin Arena screen for one agent. */
-export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) {
+export function SpinStage({ agentId, demo = false, reducedMotion, onResult, onClose }: Props) {
   const rewards = useArenaStore((s) => s.rewards);
-  const agent = useArenaStore((s) => s.agents.find((a) => a.id === agentId));
+  const storeAgent = useArenaStore((s) => s.agents.find((a) => a.id === agentId));
+  const agent = demo ? DEMO_AGENT : storeAgent;
   const team = useArenaStore((s) => s.teams.find((t) => t.id === agent?.teamId));
   const sales = useArenaStore((s) => s.sales);
   const spins = useArenaStore((s) => s.spins);
@@ -53,13 +68,39 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
   const busyRef = useRef(false);
   const pending = useRef<{ spinId: string; reward: Reward; index: number } | null>(null);
 
-  const liveSegments = useMemo(() => wheelRewards(rewards), [rewards]);
+  // Live mode: the server is the source of truth for authorisation, balance, prizes and the result.
+  const live = useArenaStore((s) => s.dataSourceMode === "production") && !demo;
+  const [demoSpinsLeft, setDemoSpinsLeft] = useState(1);
+  const [server, setServer] = useState<{ authorized: boolean; available: number; segments: Reward[] } | null>(null);
+  const keyRef = useRef<string | null>(null);
+  const serverLeft = useRef(0);
+  const userCode = agent?.userCode;
+  useEffect(() => {
+    if (!live || !userCode) return;
+    let alive = true;
+    fetch(`/api/arena/spin/status?userCode=${encodeURIComponent(userCode)}`, { cache: "no-store", credentials: "same-origin" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        if (!j.ok) return setError("Spins are unavailable right now (database offline).");
+        setServer({ authorized: Boolean(j.authorized), available: Number(j.available ?? 0), segments: (j.segments ?? []).map(toReward) });
+        if (!j.authorized) setError("This display isn't authorised to run spins. An admin can pair it in Admin → Spin Management → Displays.");
+      })
+      .catch(() => alive && setError("Couldn't reach the server to check spins."));
+    return () => {
+      alive = false;
+    };
+  }, [live, userCode]);
+
+  const demoSegments = useMemo(() => wheelRewards(rewards), [rewards]);
+  const liveSegments = live && server?.segments.length ? server.segments : demoSegments;
   const segments = spinSegments ?? liveSegments;
-  const available = useMemo(
+  const demoAvailable = useMemo(
     () => (agent ? computeSpinCredit(pickData(useArenaStore.getState()), agent.id).available : 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [agent, sales, spins, bonus],
   );
+  const available = demo ? demoSpinsLeft : live ? (server?.available ?? 0) : demoAvailable;
 
   const phase: WheelPhase = state === "preparing" ? "preparing" : state === "spinning" || state === "decelerating" ? "spinning" : state === "result" ? "result" : "idle";
 
@@ -77,25 +118,57 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
 
     setTimeout(
       async () => {
-        let serverRewardId: string | undefined = undefined;
-        try {
-          const userCode = closerCode(agent);
-          const spinRes = await fetch("/api/arena/spin", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userCode }),
-          });
-          if (spinRes.ok) {
-            const data = await spinRes.json();
-            if (data.ok && data.reward?.id) {
-              serverRewardId = data.reward.id;
-            }
+        const profile = scaleProfile(DEFAULT_PROFILE, durationScale * (reducedMotion ? 0.6 : 1));
+        if (live) {
+          if (!userCode || !server?.authorized) {
+            setError("This display isn't authorised to run spins.");
+            setState("ready");
+            busyRef.current = false;
+            return;
           }
-        } catch {
-          // If server API fails or in demo mode, fall back to client simulation
+          // One key per attempt, reused if this attempt is retried, so it can't spend twice.
+          keyRef.current ??= requestKey();
+          try {
+            const res = await fetch("/api/arena/spin", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({ userCode, idempotencyKey: keyRef.current }),
+            });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok || !j.ok) {
+              if (res.status !== 503) keyRef.current = null; // a definite refusal: next press is a new attempt
+              setError(j.reason ?? "The spin could not be completed.");
+              setState("ready");
+              busyRef.current = false;
+              return;
+            }
+            keyRef.current = null;
+            const segs: Reward[] = (j.segments as ServerSegment[]).map(toReward);
+            serverLeft.current = Number(j.availableLeft ?? 0);
+            pending.current = { spinId: j.spinId, reward: segs[j.segmentIndex], index: j.segmentIndex };
+            setSpinSegments(segs);
+            setPlan(planSpin(rotationRef.current, j.segmentIndex, segs.length, 0, profile));
+            setState("spinning");
+          } catch {
+            setError("Network problem — no spin was used. Please try again.");
+            setState("ready");
+            busyRef.current = false;
+          }
+          return;
         }
 
-        const res = useArenaStore.getState().startSpin(agent.id, { seeded, seed, serverRewardId });
+        if (demo) {
+          // Visual only: pick a segment locally; no sale, credit or spin is stored.
+          const index = Math.floor(Math.random() * demoSegments.length);
+          pending.current = { spinId: "demo", reward: demoSegments[index], index };
+          setSpinSegments(demoSegments);
+          setPlan(planSpin(rotationRef.current, index, demoSegments.length, 0, profile));
+          setState("spinning");
+          return;
+        }
+
+        const res = useArenaStore.getState().startSpin(agent.id, { seeded, seed });
         if (!res.ok) {
           setError(res.reason);
           setState("ready");
@@ -104,7 +177,6 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
         }
         pending.current = { spinId: res.spin.id, reward: res.reward, index: res.segmentIndex };
         setSpinSegments(res.segments);
-        const profile = scaleProfile(DEFAULT_PROFILE, durationScale * (reducedMotion ? 0.6 : 1));
         setPlan(planSpin(rotationRef.current, res.segmentIndex, res.segments.length, 0, profile));
         setState("spinning");
       },
@@ -125,12 +197,21 @@ export function SpinStage({ agentId, reducedMotion, onResult, onClose }: Props) 
       setPlan(null);
       setWinner(p.index);
       setState("result");
-      useArenaStore.getState().completeSpin(p.spinId);
-      const left = computeSpinCredit(pickData(useArenaStore.getState()), agentId).available;
+      let left: number;
+      if (demo) {
+        left = 0;
+        setDemoSpinsLeft(0);
+      } else if (live) {
+        left = serverLeft.current;
+        setServer((sv) => (sv ? { ...sv, available: left } : sv));
+      } else {
+        useArenaStore.getState().completeSpin(p.spinId);
+        left = computeSpinCredit(pickData(useArenaStore.getState()), agentId).available;
+      }
       // Let the winning segment glow for a beat before the full reveal.
       setTimeout(() => onResult({ reward: p.reward, spinsLeft: left }), reducedMotion ? 300 : 1100);
     },
-    [agentId, onResult, reducedMotion],
+    [agentId, onResult, reducedMotion, live, demo],
   );
 
   if (!agent) {

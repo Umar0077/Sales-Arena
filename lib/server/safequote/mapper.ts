@@ -54,12 +54,13 @@ export function mapCloserToAgent(closer: SafeQuoteCloserItem): Agent {
     id,
     name: closer.name,
     initials,
-    teamId: "team_titans", // default or mapped team
-    campaignId: "cmp_fiber",
+    teamId: "", // FE campaign: no team structure
+    campaignId: "cmp_fe",
     active: true,
     title: closer.rank <= 3 ? "Top Closer" : "Senior Closer",
     hue,
     joinedAt: new Date().toISOString(),
+    userCode: userCode.trim().toUpperCase(),
   };
 }
 
@@ -103,8 +104,8 @@ export function mapRecentSaleToDomainSale(item: SafeQuoteSaleItem): Sale {
   return {
     id: `sale_${item.caseId}`,
     agentId,
-    teamId: "team_titans",
-    campaignId: "cmp_fiber",
+    teamId: "",
+    campaignId: "cmp_fe",
     status: "approved",
     product,
     value: item.premium,

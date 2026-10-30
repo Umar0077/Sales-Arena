@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { open } from "./helpers";
+import { open, liveDataConfigured } from "./helpers";
 
 /**
  * The full agent journey from the brief:
@@ -14,6 +14,9 @@ async function storedData(page: Page) {
 
 test("target completion → spin → prize → back to Live Arena", async ({ context }) => {
   test.setTimeout(120_000);
+  const probe = await context.newPage();
+  test.skip(await liveDataConfigured(probe), "Simulator spins only exist in browser demo-data mode; live spins come from the server ledger (covered by integration tests).");
+  await probe.close();
   const shots = process.env.SHOTS_DIR;
 
   const arena = await context.newPage();
@@ -140,6 +143,8 @@ test("target completion → spin → prize → back to Live Arena", async ({ con
 test("Demo spin button runs the whole journey from the Live Arena", async ({ page }) => {
   test.setTimeout(90_000);
   await open(page, "/");
+  // With Safe Quote configured, wait for live data so the click is not undone by the first sync.
+  if (await liveDataConfigured(page)) await expect(page.getByText("SAFE QUOTE LIVE")).toBeVisible({ timeout: 20_000 });
   await page.getByTestId("demo-spin").click();
   const popup = page.getByRole("dialog", { name: /CONGRATULATIONS/ });
   await expect(popup).toBeVisible({ timeout: 10_000 });

@@ -37,6 +37,8 @@ export interface Agent {
   /** Avatar gradient hue (0–360). */
   hue: number;
   joinedAt: ISODate;
+  /** Safe Quote userCode (live data only). Server spin APIs are keyed by it. */
+  userCode?: string;
 }
 
 /** "approved" = validated sale. All other statuses are submitted leads that never earn spins. */

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { open } from "./helpers";
+import { open, liveDataConfigured } from "./helpers";
 
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
@@ -18,6 +18,9 @@ async function clearPopups(arena: Page) {
 }
 
 test("Daily, Weekly, Monthly and Spin & Win arenas, driven from the Admin Panel", async ({ context }) => {
+  const probe = await context.newPage();
+  test.skip(await liveDataConfigured(probe), "Uses the browser demo-data simulator; live bonuses come from the server (integration tests).");
+  await probe.close();
   test.setTimeout(180_000);
   const shots = process.env.SHOTS_DIR;
   const arena = await context.newPage();

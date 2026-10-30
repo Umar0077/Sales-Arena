@@ -9,6 +9,7 @@ import { DiagnosticsPanel } from "@/components/performance/DiagnosticsPanel";
 import { REWARDS_STORAGE_KEY, useRewardsStore } from "@/store/rewards-store";
 import { arenaBus } from "@/lib/events/bus";
 import { processValidatedSale } from "@/lib/rewards/runner";
+import { useLiveStore } from "@/store/live-store";
 
 /** Shared by the Live Arena and the Admin Panel: store hydration, audio, cross-tab sync. */
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -21,10 +22,31 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   // Runs once on mount. It reads the stores directly instead of depending on
   // settings, because the work below changes settings and would re-trigger itself.
   useEffect(() => {
-    useArenaStore.persist.rehydrate();
     useSettingsStore.persist.rehydrate();
     useRewardsStore.persist.rehydrate();
-    useArenaStore.getState().ensureFreshDay();
+
+    // Decide the data source BEFORE any arena data renders. In live mode the arena starts
+    // empty (skeletons) and old demo records in localStorage are never restored.
+    let cancelled = false;
+    void (async () => {
+      let live = false;
+      try {
+        const res = await fetch("/api/arena/mode", { cache: "no-store" });
+        live = res.ok && (await res.json()).live === true;
+      } catch {
+        live = false;
+      }
+      if (cancelled) return;
+      useLiveStore.getState().setLive(live);
+      if (live) {
+        useArenaStore.getState().enterLiveMode();
+      } else {
+        await useArenaStore.persist.rehydrate();
+        useArenaStore.getState().ensureFreshDay();
+      }
+      // Signals that the app is interactive (used by the e2e tests).
+      document.documentElement.dataset.ready = "true";
+    })();
 
     // Bonus programs: evaluate validated sales recorded in this tab (remote copies are ignored,
     // so two open tabs never award the same sale twice).
@@ -47,16 +69,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     // Same-browser sync: an Admin tab and a Live Arena tab share localStorage,
     // so reload the store when the other tab writes. (Not cross-device.)
     const onStorage = (e: StorageEvent) => {
-      if (e.key === DATA_STORAGE_KEY) useArenaStore.persist.rehydrate();
+      // Live tabs fetch their own data; only demo mode shares records through localStorage.
+      if (e.key === DATA_STORAGE_KEY && !useArenaStore.getState().liveMode) useArenaStore.persist.rehydrate();
       if (e.key === SETTINGS_STORAGE_KEY) useSettingsStore.persist.rehydrate();
       if (e.key === REWARDS_STORAGE_KEY) useRewardsStore.persist.rehydrate();
     };
     window.addEventListener("storage", onStorage);
 
-    // Signals that the app is interactive (used by the e2e tests).
-    document.documentElement.dataset.ready = "true";
-
     return () => {
+      cancelled = true;
       window.removeEventListener("pointerdown", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
       window.removeEventListener("storage", onStorage);

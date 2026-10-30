@@ -110,3 +110,10 @@ export async function withTransaction<T>(
     client.release();
   }
 }
+
+/** Closes the pool (graceful shutdown, and tests that simulate a service restart). */
+export async function closeDbPool(): Promise<void> {
+  const p = pool;
+  pool = null;
+  if (p) await p.end();
+}

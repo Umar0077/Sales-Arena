@@ -1,7 +1,7 @@
 import { getSafeQuoteClient } from "./client";
 import { parseSseSaleEvent } from "./mapper";
-import { dbQuery } from "../db/client";
-import { getRewardEngine } from "../rewards/engine";
+import { getDbPool } from "../db/client";
+import { ingestValidatedSale, recordSaleStatus } from "../sales/ingest";
 import { arenaBroadcaster } from "../events/broadcaster";
 
 export type SseConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "error" | "stopped";
@@ -13,6 +13,11 @@ export interface SseHealthInfo {
   lastEventAt: string | null;
   lastError: string | null;
   eventsProcessed: number;
+  /** Validated sales actually written to PostgreSQL (not just received). */
+  salesPersisted: number;
+  lastPersistedAt: string | null;
+  persistFailures: number;
+  lastPersistError: string | null;
 }
 
 export class SafeQuoteSseConsumer {
@@ -27,6 +32,11 @@ export class SafeQuoteSseConsumer {
   private eventsProcessed = 0;
   private lastEventId: string | null = null;
   private isRunning = false;
+  private salesPersisted = 0;
+  private lastPersistedAt: string | null = null;
+  private persistFailures = 0;
+  private lastPersistError: string | null = null;
+  private checkpointSavedAt = 0;
 
   public getHealth(): SseHealthInfo {
     return {
@@ -36,13 +46,42 @@ export class SafeQuoteSseConsumer {
       lastEventAt: this.lastEventAt,
       lastError: this.lastError,
       eventsProcessed: this.eventsProcessed,
+      salesPersisted: this.salesPersisted,
+      lastPersistedAt: this.lastPersistedAt,
+      persistFailures: this.persistFailures,
+      lastPersistError: this.lastPersistError,
     };
   }
 
   public start(): void {
     if (this.isRunning) return;
     this.isRunning = true;
-    this.connect();
+    // Resume from the last event id saved before a restart (Last-Event-ID).
+    void this.loadCheckpoint().finally(() => this.connect());
+  }
+
+  private async loadCheckpoint(): Promise<void> {
+    try {
+      const { rows } = (await getDbPool()?.query(`SELECT last_event_id FROM sync_checkpoints WHERE id = 'sse'`)) ?? { rows: [] };
+      if (rows[0]?.last_event_id) this.lastEventId = rows[0].last_event_id;
+    } catch {
+      /* table missing or DB down: start from live */
+    }
+  }
+
+  private async saveCheckpoint(force = false): Promise<void> {
+    if (!this.lastEventId || (!force && Date.now() - this.checkpointSavedAt < 5_000)) return;
+    this.checkpointSavedAt = Date.now();
+    try {
+      await getDbPool()?.query(
+        `INSERT INTO sync_checkpoints (id, endpoint, last_sync_at, last_event_id, status, details, updated_at)
+         VALUES ('sse', '/events', NOW(), $1, 'connected', $2, NOW())
+         ON CONFLICT (id) DO UPDATE SET last_sync_at = NOW(), last_event_id = EXCLUDED.last_event_id, status = 'connected', details = EXCLUDED.details, updated_at = NOW()`,
+        [this.lastEventId, JSON.stringify({ salesPersisted: this.salesPersisted, persistFailures: this.persistFailures })],
+      );
+    } catch {
+      /* best effort */
+    }
   }
 
   public stop(): void {
@@ -229,57 +268,64 @@ export class SafeQuoteSseConsumer {
       return;
     }
 
-    // 1. Idempotent recording in PostgreSQL sales_events_inbox
-    try {
-      const inboxRes = await dbQuery(
-        `INSERT INTO sales_events_inbox (
-           event_id, event_type, case_id, user_code, payload, processed, received_at
-         ) VALUES ($1, $2, $3, $4, $5, false, NOW())
-         ON CONFLICT (event_id) DO NOTHING
-         RETURNING id`,
-        [
-          eventId || normalized.eventId || `evt_${normalized.caseId}_${Date.now()}`,
-          normalized.eventType,
-          normalized.caseId,
-          normalized.userCode,
-          JSON.stringify(normalized),
-        ]
-      );
+    // Deterministic id: the upstream id, else case + type (a redelivery maps to the same id).
+    const stableEventId = (eventId || normalized.eventId || `case:${normalized.caseId}:${normalized.eventType}`).slice(0, 128);
+    const pool = getDbPool();
 
-      // If duplicate event_id, do not process again
-      if (eventId && inboxRes && inboxRes.rowCount === 0) {
-        return;
-      }
-    } catch (dbErr) {
-      console.warn("[SafeQuote SSE Inbox Warning]", dbErr instanceof Error ? dbErr.message : dbErr);
-    }
-
-    // 2. Only confirmed validated sales trigger reward issuance
     if (normalized.eventType === "sale.validated") {
+      if (!pool) {
+        this.persistFailures++;
+        this.lastPersistError = "DATABASE_URL not configured: validated sale was NOT stored.";
+      } else {
+        try {
+          const r = await ingestValidatedSale(
+            pool,
+            {
+              caseId: normalized.caseId,
+              userCode: normalized.userCode,
+              closerName: normalized.closerName,
+              state: normalized.state,
+              carrier: normalized.carrier,
+              coverage: normalized.coverage,
+              premium: normalized.premium,
+              validatedAt: normalized.timestamp,
+              eventId: stableEventId,
+              eventType: normalized.eventType,
+            },
+            "sse",
+          );
+          if (r.status === "inserted") {
+            this.salesPersisted++;
+            this.lastPersistedAt = new Date().toISOString();
+          }
+          await this.saveCheckpoint();
+        } catch (err) {
+          // Not acknowledged: reconciliation (or a later redelivery) will store it.
+          this.persistFailures++;
+          this.lastPersistError = err instanceof Error ? err.message : String(err);
+          console.error("[SafeQuote SSE] Could not store validated sale; reconciliation will retry.", this.lastPersistError);
+        }
+      }
+    } else if ((normalized.eventType === "sale.returned" || normalized.eventType === "sale.rejected") && pool) {
       try {
-        const rewardEngine = getRewardEngine();
-        await rewardEngine.processValidatedSale({
+        await recordSaleStatus(pool, {
           caseId: normalized.caseId,
-          userCode: normalized.userCode,
-          closerName: normalized.closerName,
-          state: normalized.state,
-          carrier: normalized.carrier,
-          coverage: normalized.coverage,
-          premium: normalized.premium,
-          validatedAt: normalized.timestamp,
-          rawPayload: normalized.raw,
+          status: normalized.eventType === "sale.returned" ? "returned" : "rejected",
+          source: "sse",
+          eventId: stableEventId,
         });
       } catch (err) {
-        console.error("[SafeQuote SSE Reward Processing Error]", err);
+        this.persistFailures++;
+        this.lastPersistError = err instanceof Error ? err.message : String(err);
       }
-    } else {
-      // For general stats refresh or pending leads, broadcast to live clients
-      arenaBroadcaster.broadcast("stats.updated", {
-        type: normalized.eventType,
-        caseId: normalized.caseId,
-        userCode: normalized.userCode,
-      });
     }
+
+    // Live screens refresh their numbers from the Safe Quote API on any sale event.
+    arenaBroadcaster.broadcast("stats.updated", {
+      type: normalized.eventType,
+      caseId: normalized.caseId,
+      userCode: normalized.userCode,
+    });
   }
 }
 

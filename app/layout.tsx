@@ -11,8 +11,8 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "SALES ARENA — Live Sales Celebration & Rewards",
-  description: "Live sales broadcast, leaderboard and 3D reward spinner for call-center floors.",
+  title: "FE Sales Arena — Live Final Expense Sales & Rewards",
+  description: "FE Sales Arena: live Final Expense sales broadcast, leaderboard and 3D reward spinner."
 };
 
 export const viewport: Viewport = {

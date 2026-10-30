@@ -133,7 +133,7 @@ export function BroadcastHero({
                     {topAgent.agent.name}
                   </div>
                   <div className="text-xs text-text-secondary">
-                    {topAgent.team?.name || "Titans"} · {topAgent.agent.title}
+                    {topAgent.team?.name ?? "Final Expense"} · {topAgent.agent.title}
                   </div>
                 </div>
               </div>

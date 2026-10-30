@@ -20,7 +20,7 @@ import type {
 } from "@/types";
 import { ACTIVITY_LIMIT, SCHEMA_VERSION, type ArenaData, type PeriodMetrics } from "@/lib/mock-api/schema";
 import type { CloserRow } from "@/features/sales/leads";
-import { createSeedData } from "@/lib/mock-api/seed";
+import { createSeedData, createLiveData } from "@/lib/mock-api/seed";
 import { arenaBus } from "@/lib/events/bus";
 import { buildCreditContext, computeSpinCredit, ruleForTeam, teamTarget } from "@/features/targets/eligibility";
 import { issuedCounts, seededRandom, selectReward, wheelRewards } from "@/features/spins/selector";
@@ -52,6 +52,10 @@ export type StartSpinResult =
 
 export interface ArenaActions {
   hydrated: boolean;
+  /** Live Safe Quote mode: never seeded with demo records, never restored from old demo storage. Not persisted. */
+  liveMode: boolean;
+  /** Switch to live mode with an empty, real-data-only state. */
+  enterLiveMode: () => void;
   ensureFreshDay: () => void;
   recordSale: (input: RecordSaleInput) => RecordSaleResult | null;
   approvePendingSale: (saleId: string) => RecordSaleResult | null;
@@ -84,6 +88,7 @@ export interface ArenaActions {
   setDataSourceMode: (mode: "demo" | "production") => void;
   setPeriodMetrics: (period: "day" | "week" | "month", metrics: Partial<PeriodMetrics>) => void;
   setAllTimeMetrics: (data: { summary: ArenaData["safeQuoteSummary"]; closers?: CloserRow[] }) => void;
+  setServerSpinBalance: (balance: { unlocked: number; available: number } | null) => void;
 }
 
 export type ArenaStore = ArenaData & ArenaActions;
@@ -92,6 +97,7 @@ const DATA_KEYS: Array<keyof ArenaData> = [
   "schemaVersion", "dayKey", "campaigns", "teams", "agents", "sales", "history", "historySubmitted", "targetRules",
   "rewards", "spins", "bonusCredits", "activity", "currentAgentId", "celebratedMilestones",
   "teamTargetsHit", "lastSyncAt", "dataSourceMode", "apiSyncStatus", "apiSyncError", "safeQuoteSummary", "periodMetrics",
+  "serverSpinBalance",
 ];
 
 export function pickData(s: ArenaStore | ArenaData): ArenaData {
@@ -252,9 +258,12 @@ export const useArenaStore = create<ArenaStore>()(
       return {
         ...initialData(),
         hydrated: false,
+        liveMode: false,
+        enterLiveMode: () => set({ ...createLiveData(), liveMode: true, hydrated: true }),
 
         ensureFreshDay: () => {
           const s = get();
+          if (s.liveMode) return; // live data is never reseeded with demo records
           const today = dayKey();
           if (s.agents.length === 0 || s.schemaVersion !== SCHEMA_VERSION) {
             set({ ...createSeedData() });
@@ -579,6 +588,7 @@ export const useArenaStore = create<ArenaStore>()(
         markSynced: () => set({ lastSyncAt: new Date().toISOString() }),
 
         resetDemo: () => {
+          if (get().liveMode) return;
           set({ ...createSeedData() });
           arenaBus.emit("data:reset", {});
         },
@@ -592,7 +602,8 @@ export const useArenaStore = create<ArenaStore>()(
           };
           if (mode) patch.dataSourceMode = mode;
           if (summary) patch.safeQuoteSummary = summary;
-          if (agents && agents.length > 0) patch.agents = agents;
+          // Live mode: the API result replaces the roster and sales even when empty (an empty day is real).
+          if (agents && (agents.length > 0 || s.liveMode)) patch.agents = agents;
           if (sales) patch.sales = sales;
           set(patch);
         },
@@ -645,6 +656,10 @@ export const useArenaStore = create<ArenaStore>()(
             },
           });
         },
+
+        setServerSpinBalance: (balance) => {
+          set({ serverSpinBalance: balance });
+        },
       };
     },
     {
@@ -663,6 +678,7 @@ export const useArenaStore = create<ArenaStore>()(
       partialize: (s) => pickData(s),
       migrate: () => initialData() as unknown as ArenaStore,
       onRehydrateStorage: () => (state) => {
+        if (useArenaStore.getState().liveMode) return;
         state?.ensureFreshDay();
         useArenaStore.setState({ hydrated: true });
       },

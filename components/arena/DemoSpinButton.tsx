@@ -3,7 +3,7 @@
 import { Sparkles } from "lucide-react";
 import { useArenaStore, pickData } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
-import { useSpinFlowStore } from "@/store/spin-flow-store";
+import { useSpinFlowStore, DEMO_AGENT } from "@/store/spin-flow-store";
 import { computeAllCredits } from "@/features/targets/eligibility";
 import { audioEngine } from "@/lib/audio/engine";
 import { useArenaMode } from "@/store/arena-mode-store";
@@ -61,6 +61,11 @@ export function DemoSpinButton() {
     if (useSpinFlowStore.getState().stage !== "idle") return;
     audioEngine.unlock();
     const store = useArenaStore.getState();
+    if (store.dataSourceMode === "production" || !store.agents.some((a) => a.active)) {
+      // Live data: run a labelled, visual-only demo. No fake sale is added and no real closer is named.
+      useSpinFlowStore.getState().push({ agentId: DEMO_AGENT.id, periodSales: 2, available: 1, reason: "target", demo: true });
+      return;
+    }
     const data = pickData(store);
     const credits = computeAllCredits(data);
     const candidates = data.agents

@@ -8,3 +8,6 @@ test-results
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Playwright admin login state
+tests/e2e/.auth/

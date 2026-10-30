@@ -5,8 +5,9 @@ import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  // Ensure the single upstream SSE consumer is active
-  safeQuoteSseConsumer.start();
+  // Start the upstream consumer only where background sync is enabled (it writes to PostgreSQL).
+  const flag = process.env.SALES_ARENA_SYNC_ENABLED;
+  if (flag === "true" || (flag !== "false" && process.env.NODE_ENV === "production")) safeQuoteSseConsumer.start();
 
   const encoder = new TextEncoder();
   let pingInterval: NodeJS.Timeout | null = null;

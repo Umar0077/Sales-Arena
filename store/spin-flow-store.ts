@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { uid } from "@/lib/utils";
+import type { Agent } from "@/types";
 
 /**
  * Live Arena "target completed → SPIN NOW → wheel → prize → back" flow.
@@ -17,7 +18,25 @@ export interface SpinUnlock {
   /** Spins available at the time of the event. */
   available: number;
   reason: "target" | "bonus" | "launch";
+  /** Presentation-only run: never touches sales, credits, the server or the database. */
+  demo?: boolean;
 }
+
+/**
+ * Stand-in shown by the Demo spin button while the arena runs on live Safe Quote data,
+ * so a presentation never puts a fake win next to a real closer's name.
+ */
+export const DEMO_AGENT: Agent = {
+  id: "__demo_spin__",
+  name: "Demo Spin",
+  initials: "DS",
+  teamId: "",
+  campaignId: "",
+  active: true,
+  title: "Presentation demo",
+  hue: 268,
+  joinedAt: "2026-01-01T00:00:00.000Z",
+};
 
 export type SpinFlowStage = "idle" | "achievement" | "transition" | "spin" | "closing";
 

@@ -50,7 +50,7 @@ export function useCloserRows(period: RewardPeriod = "day", countOverride?: numb
     // In production mode with live Safe Quote data, use verified period closers
     if (dataSourceMode === "production" && periodMetrics?.[period]?.closers) {
       let rows = periodMetrics[period].closers;
-      if (teamId) rows = rows.filter((r) => r.teamId === teamId);
+      // FE campaign: no team structure, so no team filter.
       if (campaignId) rows = rows.filter((r) => r.agent.campaignId === campaignId);
       return rows.slice(0, Math.max(3, Math.min(15, count)));
     }
