@@ -6,6 +6,7 @@ import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useRewardsStore } from "@/store/rewards-store";
 import { useLiveStore } from "@/store/live-store";
+import { applyGlobalDisplay, fetchGlobalDisplay } from "@/lib/live/display-sync";
 import { arenaBus } from "@/lib/events/bus";
 import { getPeriodDateRange } from "@/lib/time/business";
 import type { Agent, Reward, Sale } from "@/types";
@@ -325,6 +326,7 @@ export function LiveApiSync() {
         if (document.visibilityState === "visible") {
           fetchLiveStats();
           void syncCatalog(); // lightweight freshness check; applies only on a new revision
+          void fetchGlobalDisplay(); // same for the admin's global performance mode
         }
       }, 30_000);
     };
@@ -350,6 +352,7 @@ export function LiveApiSync() {
 
       eventSource.addEventListener("ready", (e) => {
         void syncCatalog(); // (re)connected: pick up any catalog change missed while offline
+        void fetchGlobalDisplay(); // and any performance-mode change missed while offline
         try {
           const payload = JSON.parse(e.data);
           // Show LIVE only once real data has actually loaded.
@@ -454,6 +457,15 @@ export function LiveApiSync() {
         }
       });
 
+      eventSource.addEventListener("settings.performance.updated", (e) => {
+        try {
+          const p = JSON.parse(e.data);
+          applyGlobalDisplay({ performanceMode: p.mode, revision: Number(p.revision) });
+        } catch {
+          void fetchGlobalDisplay();
+        }
+      });
+
       eventSource.addEventListener("rewards.catalog.updated", (e) => {
         try {
           const rev = JSON.parse(e.data)?.revision;
@@ -496,6 +508,7 @@ export function LiveApiSync() {
     // Deferred a tick (no state change inside the effect body). Always clears the spinner.
     setTimeout(() => {
       void syncCatalog();
+      void fetchGlobalDisplay();
       void fetchLiveStats(false, true).then((ok) => {
       if (ok === false) {
         const err = useArenaStore.getState().apiSyncError;

@@ -1,13 +1,13 @@
 "use client";
 
+import { GlobalPerformanceCard } from "@/components/admin/GlobalPerformanceCard";
 import { Play, RotateCcw } from "lucide-react";
 import { useSettingsStore } from "@/store/settings-store";
 import { audioEngine } from "@/lib/audio/engine";
 import { WHEEL_THEMES } from "@/features/spins/wheel-theme";
-import { QUALITY_PRESETS } from "@/lib/performance/quality";
-import { Section, Toggle, Range, Choice, SelectField, GhostButton } from "@/components/admin/ui";
+import { Section, Toggle, Range, Choice, GhostButton } from "@/components/admin/ui";
 import { SpinnerPreview } from "@/components/admin/SpinnerPreview";
-import type { QualitySetting, SoundCategory, SpinnerTheme } from "@/types";
+import type { SoundCategory, SpinnerTheme } from "@/types";
 import { cn } from "@/lib/utils";
 
 const SOUND_LABELS: Record<SoundCategory, string> = {
@@ -113,18 +113,12 @@ export default function AppearanceSoundPage() {
         </div>
       </Section>
 
+      <div id="global-performance">
+        <GlobalPerformanceCard />
+      </div>
+
       <Section title="Rendering & performance">
-        <SelectField<QualitySetting>
-          label="Performance Mode"
-          hint="Auto adapts rendering quality to device capabilities. Performance mode disables heavy GPU blurs and shadows for call center PCs."
-          value={s.quality}
-          options={[
-            { value: "auto", label: `Auto (Detected: ${QUALITY_PRESETS[s.autoQuality]?.label ?? "High Quality"})` },
-            { value: "high", label: "High Quality (Full 3D effects & smooth graphics)" },
-            { value: "performance", label: "Performance (Fastest for low-end laptops & integrated GPUs)" },
-          ]}
-          onChange={(v) => update({ quality: v })}
-        />
+        <p className="text-sm text-text-secondary">Performance Mode is a global setting for every screen. Set it under <a href="#global-performance" className="text-secondary hover:underline">Global Display Performance</a> above.</p>
         <Toggle
           label="2D spinner fallback"
           hint="Use lightweight 2D canvas wheel instead of 3D WebGL on low-end systems."

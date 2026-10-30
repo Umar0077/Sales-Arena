@@ -10,6 +10,7 @@ import { REWARDS_STORAGE_KEY, useRewardsStore } from "@/store/rewards-store";
 import { arenaBus } from "@/lib/events/bus";
 import { processValidatedSale } from "@/lib/rewards/runner";
 import { useLiveStore } from "@/store/live-store";
+import { applyGlobalDisplay, type GlobalDisplay } from "@/lib/live/display-sync";
 
 /** Shared by the Live Arena and the Admin Panel: store hydration, audio, cross-tab sync. */
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -39,13 +40,18 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     void (async () => {
       let live = false;
+      let display: GlobalDisplay | null = null;
       try {
         const res = await fetch("/api/arena/mode", { cache: "no-store" });
-        live = res.ok && (await res.json()).live === true;
+        const j = res.ok ? await res.json() : null;
+        live = j?.live === true;
+        display = j?.display ?? null;
       } catch {
         live = false;
       }
       if (cancelled) return;
+      // Admin's global performance mode wins over this browser's saved preference, before heavy graphics start.
+      applyGlobalDisplay(display);
       useLiveStore.getState().setLive(live);
       if (live) {
         useArenaStore.getState().enterLiveMode();
@@ -64,7 +70,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     });
 
     const s = useSettingsStore.getState();
-    if (s.quality === "auto") s.setAutoQuality(detectDeviceQuality());
+    // Always measure this device: Auto may be chosen globally at any time.
+    s.setAutoQuality(detectDeviceQuality());
 
     // Browsers only allow audio after a user gesture.
     const unlockAudio = () => {

@@ -21,6 +21,9 @@ interface LiveState {
   catalogRevision: string | null;
   catalogSyncedAt: string | null;
   setCatalogRevision: (revision: string, at: string) => void;
+  /** Admin's global performance policy as last received from the server (null = not known yet). */
+  globalDisplay: { performanceMode: string; revision: number } | null;
+  setGlobalDisplay: (d: { performanceMode: string; revision: number }) => void;
   setLive: (live: boolean) => void;
   setTargets: (t: Record<TargetPeriod, number | null>) => void;
   requestRefresh: () => void;
@@ -39,6 +42,8 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
   catalogRevision: null,
   catalogSyncedAt: null,
   setCatalogRevision: (catalogRevision, catalogSyncedAt) => set({ catalogRevision, catalogSyncedAt }),
+  globalDisplay: null,
+  setGlobalDisplay: (globalDisplay) => set({ globalDisplay }),
   setLive: (live) => set({ live }),
   setTargets: (targets) => set({ targets, targetsLoaded: true }),
   requestRefresh: () => {

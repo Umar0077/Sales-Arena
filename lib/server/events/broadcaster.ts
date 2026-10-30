@@ -4,6 +4,7 @@ export type ArenaBroadcastEventType =
   | "spin.unlocked"
   | "spin.completed"
   | "rewards.catalog.updated"
+  | "settings.performance.updated"
   | "target.updated"
   | "stats.updated"
   | "connection.status"
