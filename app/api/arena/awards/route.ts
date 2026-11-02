@@ -87,7 +87,45 @@ export async function GET(req: NextRequest) {
         return [k, { periodKey: keys[k], earned: Number(r?.earned ?? 0), paid: Number(r?.paid ?? 0), count: Number(r?.count ?? 0), currency: r?.currency ?? progCurrency.get(k) ?? fallbackCurrency }];
       }),
     );
-    return NextResponse.json({ ok: true, mode: "production", awards, total: awards.length, summary }, { headers: { "Cache-Control": "no-store" } });
+
+    // Per-agent earned cash for the leaderboard / podium, in ONE grouped query (not one per row).
+    //   today      = daily awards for today
+    //   this week  = daily awards dated inside this business week + this week's weekly awards
+    //   this month = daily / weekly awards dated in this month + this month's monthly awards
+    const weekStart = keys.weekly.slice(2);
+    const weekEnd = new Date(Date.parse(`${weekStart}T00:00:00Z`) + 6 * 86400_000).toISOString().slice(0, 10);
+    const month = keys.monthly.slice(2);
+    const per = await pool.query(
+      `SELECT a.user_code,
+              COALESCE(SUM(a.amount) FILTER (WHERE a.kind = 'daily' AND a.period_key = $1), 0)::float AS day,
+              COUNT(*) FILTER (WHERE a.kind = 'daily' AND a.period_key = $1)::int AS day_n,
+              COALESCE(SUM(a.amount) FILTER (WHERE (a.kind = 'daily' AND substr(a.period_key, 3) BETWEEN $2 AND $3) OR (a.kind = 'weekly' AND a.period_key = $4)), 0)::float AS week,
+              COUNT(*) FILTER (WHERE (a.kind = 'daily' AND substr(a.period_key, 3) BETWEEN $2 AND $3) OR (a.kind = 'weekly' AND a.period_key = $4))::int AS week_n,
+              COALESCE(SUM(a.amount) FILTER (WHERE (a.kind IN ('daily', 'weekly') AND substr(a.period_key, 3, 7) = $5) OR (a.kind = 'monthly' AND a.period_key = $6)), 0)::float AS month,
+              COUNT(*) FILTER (WHERE (a.kind IN ('daily', 'weekly') AND substr(a.period_key, 3, 7) = $5) OR (a.kind = 'monthly' AND a.period_key = $6))::int AS month_n,
+              MIN(a.currency) AS currency
+         FROM bonus_awards a JOIN reward_programs p ON p.id = a.program_id
+        WHERE a.reward_type = 'cash' AND a.status NOT IN ('reversed', 'cancelled') AND p.show_on_arena AND a.kind = ANY($7)
+          AND (a.period_key IN ($1, $4, $6) OR substr(a.period_key, 3, 7) = $5 OR substr(a.period_key, 3) BETWEEN $2 AND $3)
+        GROUP BY a.user_code`,
+      [keys.daily, weekStart, weekEnd, keys.weekly, month, keys.monthly, visibleKinds],
+    );
+    const byAgent = Object.fromEntries(
+      per.rows
+        .filter((r) => r.day_n + r.week_n + r.month_n > 0)
+        .map((r) => [
+          String(r.user_code).toUpperCase(),
+          {
+            currency: r.currency ?? fallbackCurrency,
+            day: { earned: Number(r.day), count: r.day_n },
+            week: { earned: Number(r.week), count: r.week_n },
+            month: { earned: Number(r.month), count: r.month_n },
+          },
+        ]),
+    );
+    const agentBonus = { currency: progCurrency.get("daily") ?? progCurrency.get("weekly") ?? progCurrency.get("monthly") ?? fallbackCurrency, byAgent };
+
+    return NextResponse.json({ ok: true, mode: "production", awards, total: awards.length, summary, agentBonus }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ ok: false, error: "Awards are unavailable right now." }, { status: 503 });
   }

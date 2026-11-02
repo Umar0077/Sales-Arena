@@ -1,18 +1,18 @@
 import type { PoolClient } from "pg";
 import { periodWindow, type BusinessCalendar, type RulePeriod } from "../spins/rules";
-import { rowToProgram, type RewardProgram } from "./programs";
+import { duplicateProgramIds, rowToProgram, type RewardProgram } from "./programs";
 
 /**
  * Daily / weekly / monthly reward programs (server side). Any number of programs per category.
  *
- * Runs inside the transaction that recorded a NEW, reward-eligible validated sale (never for
+ * Runs inside the transaction that recorded a NEW live (SSE / reconciliation) validated sale (never for
  * historical backfill). Programs come only from reward_programs: no built-in amounts exist.
  *
  * For each Program-Active, non-archived program in an Active category whose date window and
  * eligibility scope include the sale:
- *   counted = reward-eligible, still-validated sales of this agent from the later of
- *             (period start in business time, reward activation cutoff, program active_since)
- *   earned  = min(maxAwards, floor(counted / salesRequired))
+ *   counted = live (non-backfill), still-validated sales of this agent from the later of
+ *             (period start in business time, spin activation cutoff if set, program active_since)
+ *   earned  = min(maxAwards, prior + floor(counted / salesRequired))   (prior = Owner-recovered or pre-activation awards)
  * Award ids are deterministic (program:userCode:periodKey:n) and the primary key makes them
  * unique, so duplicate deliveries / reconciliation overlap can never award twice.
  *
@@ -68,9 +68,12 @@ export async function evaluateBonusAwards(
     saleId: string;
     caseId?: string;
     validatedAt: Date;
-    cutoff: Date;
+    /** Spin activation cutoff; when set it is an extra floor for bonuses too. null = no extra floor. */
+    cutoff: Date | null;
     calendar: BusinessCalendar;
     config: RewardEngineConfig;
+    /** Evaluate only these programs (Owner-approved catch-up). Default: all active programs. */
+    onlyProgramIds?: string[];
   },
 ): Promise<BonusAwardRecord[]> {
   // One evaluation per agent at a time: a second concurrent sale waits here, then sees the first one.
@@ -90,6 +93,13 @@ export async function evaluateBonusAwards(
     )
   ).rows.map((r) => rowToProgram(r));
   if (!programs.length) return [];
+  // Duplicate protection: identical active programs (same period, threshold, eligibility and reward type)
+  // would pay the same milestone twice. Only the oldest one awards; the duplicates are skipped and shown
+  // to the Owner in Admin → Reward Programs. Program records are never modified here.
+  const dupes = duplicateProgramIds(programs);
+  for (let i = programs.length - 1; i >= 0; i--) if (dupes.has(programs[i].id)) programs.splice(i, 1);
+  // Owner-approved catch-up can limit evaluation to the programs the Owner selected.
+  if (args.onlyProgramIds) for (let i = programs.length - 1; i >= 0; i--) if (!args.onlyProgramIds.includes(programs[i].id)) programs.splice(i, 1);
 
   const campaignId = ((await client.query(`SELECT campaign_id FROM agents WHERE user_code = $1`, [args.userCode])).rows[0]?.campaign_id as string | null) ?? null;
   const saleDay = ymdInZone(args.validatedAt, args.calendar.timezone);
@@ -105,23 +115,24 @@ export async function evaluateBonusAwards(
     if (p.activeSince && args.validatedAt.getTime() < new Date(p.activeSince).getTime()) continue;
 
     const win = periodWindow(period, args.validatedAt, args.calendar);
-    const from = new Date(Math.max(win.start?.getTime() ?? 0, args.cutoff.getTime(), p.activeSince ? new Date(p.activeSince).getTime() : 0));
+    const from = new Date(Math.max(win.start?.getTime() ?? 0, args.cutoff?.getTime() ?? 0, p.activeSince ? new Date(p.activeSince).getTime() : 0));
     const ck = `${from.getTime()}|${win.end?.getTime()}`;
     let validated = countCache.get(ck);
     if (validated === undefined) {
       validated = (
         await client.query(
           `SELECT COUNT(*)::int AS n FROM validated_sales
-            WHERE user_code = $1 AND reward_eligible AND status = 'validated' AND validated_at >= $2 AND validated_at < $3`,
+            WHERE user_code = $1 AND source <> 'backfill' AND status = 'validated' AND validated_at >= $2 AND validated_at < $3`,
           [args.userCode, from, win.end],
         )
       ).rows[0].n as number;
       countCache.set(ck, validated);
     }
-    // Awards earned in this period before the program was (re)activated stay; sales since then add to them.
+    // Awards earned in this period before the program was (re)activated, and Owner-recovered awards (they
+    // stand for sales this engine never counts), stay; sales counted since activation add to them.
     const prior = (
       await client.query(
-        `SELECT COALESCE(MAX(n), 0)::int AS have, COUNT(*) FILTER (WHERE created_at < $4)::int AS before
+        `SELECT COALESCE(MAX(n), 0)::int AS have, COUNT(*) FILTER (WHERE created_at < $4 OR source = 'recovery')::int AS before
            FROM bonus_awards WHERE program_id = $1 AND user_code = $2 AND period_key = $3`,
         [p.id, args.userCode, win.key, p.activeSince ? new Date(p.activeSince) : new Date(0)],
       )

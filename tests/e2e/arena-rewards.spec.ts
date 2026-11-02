@@ -42,7 +42,7 @@ test("no bonus-tier sections on any screen; programs still exist in Admin and th
       await expect(page.getByTestId("bonus-tier")).toHaveCount(0);
       await expect(page.getByTestId("campaign-rule")).toHaveCount(0);
       const text = await page.locator("main").innerText();
-      expect(text, screen).not.toMatch(/BONUS TIERS|STACKABLE|EARN EVERY TIER|earned today|earned this (week|month)/i);
+      expect(text, screen).not.toMatch(/BONUS TIERS|STACKABLE|EARN EVERY TIER/i); // the compact per-agent "Earned …" indicators are allowed
       expect(text, screen).not.toMatch(/1 validated sale = Rs\.? ?1,000|Daily Validation Bonus/i);
       expect(text, screen).not.toContain(P); // configured program names / amounts are not shown permanently
     }

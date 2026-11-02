@@ -57,7 +57,7 @@ describe("migrations", () => {
     await p.query(`INSERT INTO validated_sales (id, case_id, user_code, agent_id, premium, validated_at) VALUES ('sale_c1', 'C1', 'OLD1', 'agt_old', 10, NOW())`);
 
     const res = await runMigrations(p);
-    expect(res.applied).toEqual(["002_admin_auth", "003_spin_credit_ledger", "004_sync_eligibility_devices", "005_sales_targets", "006_reward_programs_v2", "007_ip_perimeter_security"]);
+    expect(res.applied).toEqual(["002_admin_auth", "003_spin_credit_ledger", "004_sync_eligibility_devices", "005_sales_targets", "006_reward_programs_v2", "007_ip_perimeter_security", "008_bonus_award_recovery"]);
     const sale = await p.query(`SELECT source, reward_eligible, status FROM validated_sales WHERE case_id = 'C1'`);
     expect(sale.rows[0]).toEqual({ source: "backfill", reward_eligible: false, status: "validated" });
     const cs = await p.query(`SELECT checksum FROM schema_migrations WHERE version = '001_initial_schema'`);

@@ -128,7 +128,12 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
         `INSERT INTO sale_status_history (case_id, status, source, event_id) VALUES ($1, 'validated', $2, $3) ON CONFLICT DO NOTHING`,
         [caseId, source, input.eventId?.slice(0, 128) ?? null],
       );
-      if (rewardEligible && cutoff) {
+      // Every NEW live sale (SSE / reconciliation) goes to the bonus engine. Historical imports (backfill)
+      // never do. Bonus earning is controlled by each program's Program Active switch and activation time
+      // (sales validated before it never count); the spin activation cutoff, when set, is an extra floor.
+      // Before this fix bonuses also required the spin cutoff (reward_eligible), so with no cutoff set no
+      // bonus program could ever award even while shown as Active in Admin.
+      if (source !== "backfill") {
         const cfg = (await readArenaConfig(client)).values;
         const calendar = calendarFrom(cfg);
         const config = {
@@ -138,7 +143,8 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
           announceCash: cfg.announceCash !== false,
           announcePrizes: cfg.announcePrizes !== false,
         };
-        spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar });
+        // Spin credits: unchanged (automatic spins need the activation cutoff, i.e. reward_eligible).
+        if (rewardEligible && cutoff) spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar });
         bonuses = await evaluateBonusAwards(client, { userCode, agentId, closerName, saleId, caseId, validatedAt, cutoff, calendar, config });
       }
     }

@@ -51,6 +51,11 @@ export interface AwardRow {
   statusChangedAt: string | null;
   statusChangedBy: string | null;
   triggerCaseId: string | null;
+  /** "automatic" (reward engine) or "recovery" (Owner-approved historical recovery). */
+  source: "automatic" | "recovery";
+  recoveryReason: string | null;
+  recoveredBy: string | null;
+  recoveredAt: string | null;
   programRevision: number | null;
   announce: boolean;
   createdAt: string;
@@ -79,6 +84,10 @@ function map(r: Record<string, unknown>): AwardRow {
     statusChangedAt: iso(r.status_changed_at),
     statusChangedBy: (r.changed_by_email as string) ?? null,
     triggerCaseId: (r.trigger_case_id as string) ?? null,
+    source: (r.source as "automatic" | "recovery") ?? "automatic",
+    recoveryReason: (r.recovery_reason as string) ?? null,
+    recoveredBy: (r.recovered_by_email as string) ?? null,
+    recoveredAt: iso(r.recovered_at),
     programRevision: r.program_revision == null ? null : Number(r.program_revision),
     announce: Boolean(r.announce),
     createdAt: iso(r.created_at)!,
@@ -102,7 +111,7 @@ export async function listAwards(
   const w = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const limit = Math.min(500, Math.max(1, f.limit ?? 200));
   const { rows } = await db.query(
-    `SELECT a.*, u.email AS changed_by_email FROM bonus_awards a LEFT JOIN admin_users u ON u.id = a.status_changed_by
+    `SELECT a.*, u.email AS changed_by_email, ru.email AS recovered_by_email FROM bonus_awards a LEFT JOIN admin_users u ON u.id = a.status_changed_by LEFT JOIN admin_users ru ON ru.id = a.recovered_by
       ${w} ORDER BY a.created_at DESC, a.id LIMIT ${limit}`,
     params,
   );
@@ -141,7 +150,7 @@ export async function setAwardStatus(
       ip: actor.ip,
       userAgent: actor.userAgent,
     });
-    row = map((await client.query(`SELECT a.*, u.email AS changed_by_email FROM bonus_awards a LEFT JOIN admin_users u ON u.id = a.status_changed_by WHERE a.id = $1`, [id])).rows[0]);
+    row = map((await client.query(`SELECT a.*, u.email AS changed_by_email, ru.email AS recovered_by_email FROM bonus_awards a LEFT JOIN admin_users u ON u.id = a.status_changed_by LEFT JOIN admin_users ru ON ru.id = a.recovered_by WHERE a.id = $1`, [id])).rows[0]);
     await client.query("COMMIT");
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

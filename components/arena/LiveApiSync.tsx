@@ -202,7 +202,7 @@ export function LiveApiSync() {
             const awardsData = await awardsRes.value.json().catch(() => null);
             if (awardsData?.ok && Array.isArray(awardsData.awards)) {
               useRewardsStore.getState().setBackendAwards(awardsData.awards);
-              useLiveStore.getState().setAwardSummary(awardsData.summary ?? null, awardsData.summary ? "ok" : "error");
+              useLiveStore.getState().setAwardSummary(awardsData.summary ?? null, awardsData.summary ? "ok" : "error", awardsData.agentBonus ?? null);
             } else useLiveStore.getState().setAwardSummary(null, "error");
           } else useLiveStore.getState().setAwardSummary(null, "error");
 
@@ -367,7 +367,7 @@ export function LiveApiSync() {
           const j = await res.json().catch(() => null);
           if (res.ok && j?.ok && Array.isArray(j.awards)) {
             useRewardsStore.getState().setBackendAwards(j.awards);
-            useLiveStore.getState().setAwardSummary(j.summary ?? null, j.summary ? "ok" : "error");
+            useLiveStore.getState().setAwardSummary(j.summary ?? null, j.summary ? "ok" : "error", j.agentBonus ?? null);
           } else useLiveStore.getState().setAwardSummary(null, "error");
         } catch {
           useLiveStore.getState().setAwardSummary(null, "error");

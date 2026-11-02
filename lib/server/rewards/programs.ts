@@ -249,6 +249,8 @@ export async function createProgram(pool: Pool, input: Input, actor: Actor): Pro
   let p: RewardProgram;
   try {
     await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($$reward_programs$$))`); // serialise duplicate checks
+    if (n.enabled) await assertNoDuplicate(client, n);
     await client.query(
       `INSERT INTO reward_programs (id, kind, name, headline, message, reward_line, created_by, updated_by, revision, active_since)
        VALUES ($1, $2, $3, '', '', '', $4, $4, 1, CASE WHEN $5::boolean THEN NOW() END)`,
@@ -275,12 +277,14 @@ export async function updateProgram(pool: Pool, id: string, input: Input, actor:
   let action = "edited";
   try {
     await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($$reward_programs$$))`); // serialise duplicate checks
     const row = (await client.query(`SELECT ${COLS} FROM reward_programs WHERE id = $1 FOR UPDATE`, [id])).rows[0];
     if (!row) throw new ProgramError("Reward program not found.", 404);
     const cur = rowToProgram(row);
     const { archived, ...fields } = input;
     if (cur.archivedAt && archived !== false) throw new ProgramError("This program is archived. Restore it before editing.", 409);
     const n = normalizeProgram(fields, cur);
+    if (archived !== true && n.enabled) await assertNoDuplicate(client, n, id);
     let activeSinceSql = "active_since";
     let archivedSql = "archived_at";
     if (archived === true) {
@@ -324,4 +328,50 @@ export async function programHistory(db: Pool | PoolClient, id: string) {
     [id],
   );
   return rows.map((r) => ({ revision: r.revision, action: r.action, snapshot: r.snapshot, at: iso(r.created_at), by: r.email ?? null }));
+}
+
+/** Programs that would pay the same milestone twice: same period, threshold, eligibility and reward type. */
+export function programSignature(p: Pick<RewardProgram, "kind" | "salesRequired" | "scopeType" | "scopeIds" | "rewardType">): string {
+  return [p.kind, p.salesRequired, p.scopeType, [...p.scopeIds].sort().join(","), p.rewardType].join("|");
+}
+
+/** Ids of the newer copies among identical active programs (the oldest of each group is kept). */
+export function duplicateProgramIds(programs: RewardProgram[]): Set<string> {
+  const groups = new Map<string, RewardProgram[]>();
+  for (const p of programs) {
+    if (!p.enabled || p.archivedAt) continue;
+    const k = programSignature(p);
+    groups.set(k, [...(groups.get(k) ?? []), p]);
+  }
+  const out = new Set<string>();
+  for (const g of groups.values()) {
+    if (g.length < 2) continue;
+    g.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    for (const p of g.slice(1)) out.add(p.id);
+  }
+  return out;
+}
+
+/** Duplicate groups for the Admin warning (all members, oldest first). */
+export function duplicateProgramGroups(programs: RewardProgram[]) {
+  const groups = new Map<string, RewardProgram[]>();
+  for (const p of programs) {
+    if (!p.enabled || p.archivedAt) continue;
+    const k = programSignature(p);
+    groups.set(k, [...(groups.get(k) ?? []), p]);
+  }
+  return [...groups.values()]
+    .filter((g) => g.length > 1)
+    .map((g) => g.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).map((p) => ({ id: p.id, name: p.name, kind: p.kind, salesRequired: p.salesRequired, amount: p.amount, currency: p.currency, createdAt: p.createdAt })));
+}
+
+/** Refuses a second ACTIVE program that would pay the same milestone (kind, threshold, eligibility, reward type). */
+async function assertNoDuplicate(db: PoolClient, n: ReturnType<typeof normalizeProgram>, selfId?: string) {
+  const sig = programSignature({ kind: n.kind, salesRequired: n.salesRequired, scopeType: n.scopeType, scopeIds: n.scopeIds, rewardType: n.rewardType });
+  const clash = (await listPrograms(db)).find((p) => p.id !== selfId && p.enabled && programSignature(p) === sig);
+  if (clash)
+    throw new ProgramError(
+      `An active ${n.kind} program already pays for ${n.salesRequired} validated sales: "${clash.name}". Edit or pause that program instead, so the same milestone is never paid twice.`,
+      409,
+    );
 }

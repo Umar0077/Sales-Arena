@@ -6,6 +6,7 @@ import { Crown, Trophy, Medal } from "lucide-react";
 import type { CloserRow } from "@/features/sales/leads";
 import { useSettingsStore } from "@/store/settings-store";
 import { cn } from "@/lib/utils";
+import { EarnedBonus } from "@/components/arena/EarnedBonus";
 
 const PLACES = [
   { label: "1ST", icon: Crown, color: "#FFC857", ring: "rgba(255,200,87,0.6)", glow: "rgba(255,200,87,0.35)", grad: "linear-gradient(135deg, #FFE08A, #E8A317)", height: "" },
@@ -14,7 +15,7 @@ const PLACES = [
 ];
 
 /** Gold / silver / bronze podium for the top 3 closers of a period. */
-export const TopPerformersPodium = memo(function TopPerformersPodium({ rows, title, subtitle, testId }: { rows: CloserRow[]; title: string; subtitle: string; testId?: string }) {
+export const TopPerformersPodium = memo(function TopPerformersPodium({ rows, title, subtitle, testId, bonusPeriod }: { rows: CloserRow[]; title: string; subtitle: string; testId?: string; bonusPeriod?: "day" | "week" | "month" }) {
   const animate = useSettingsStore((s) => s.leaderboardAnimations);
   const top = rows.slice(0, 3);
   // Display order on wide screens: 2nd, 1st, 3rd.
@@ -51,6 +52,7 @@ export const TopPerformersPodium = memo(function TopPerformersPodium({ rows, tit
                   layout={animate ? "position" : false}
                   transition={{ type: "spring", stiffness: 320, damping: 30 }}
                   data-rank={idx + 1}
+                  data-code={r.code}
                   className={cn("@container relative flex min-w-0 flex-col items-center rounded-2xl border px-4 pb-3 text-center", idx === 0 ? "order-first pt-3 sm:order-none" : "pt-3", p.height)}
                   style={{
                     borderColor: p.ring,
@@ -77,6 +79,7 @@ export const TopPerformersPodium = memo(function TopPerformersPodium({ rows, tit
                     {r.counts.validated}
                   </div>
                   <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">VALIDATED</div>
+                  {bonusPeriod && <EarnedBonus code={r.code} period={bonusPeriod} variant="podium" />}
                   <div className="mt-2 grid w-full grid-cols-1 gap-2 text-left @[13rem]:grid-cols-2">
                     <div className="rounded-xl bg-white/[0.04] px-3 py-2">
                       <div className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Submitted</div>

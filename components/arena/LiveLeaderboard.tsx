@@ -9,6 +9,7 @@ import { rankClosers, type CloserRow } from "@/features/sales/leads";
 import { cn } from "@/lib/utils";
 import { periodInfo, type RewardPeriod } from "@/lib/time/business";
 import { businessClock } from "@/lib/rewards/runner";
+import { EarnedBonus } from "@/components/arena/EarnedBonus";
 
 const MEDALS = [
   { bg: "linear-gradient(135deg, #FFE08A, #E8A317)", ring: "rgba(255,200,87,0.55)", glow: "rgba(255,200,87,0.35)", text: "#2A1C00" },
@@ -130,6 +131,7 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
             return (
               <motion.li
                 key={r.agent.id}
+                data-code={r.code}
                 layout={animate ? "position" : false}
                 transition={{ type: "spring", stiffness: 380, damping: 34 }}
                 data-agent={r.agent.id}
@@ -163,6 +165,8 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
                   <div className="mt-0.5 text-[11px] text-text-secondary tabular @[32rem]:hidden">
                     {r.counts.submitted} submitted · <span className="text-emerald-300">{r.counts.validated} validated</span>
                   </div>
+                  {/* Real earned cash for this period (PostgreSQL bonus_awards); hidden when none. */}
+                  <EarnedBonus code={r.code} period={period} variant="row" />
                 </div>
 
                 {/* Submitted / Validated */}

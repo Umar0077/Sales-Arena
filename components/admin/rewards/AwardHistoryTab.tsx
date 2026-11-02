@@ -6,6 +6,7 @@ import { Notice, Table, td, fmtDate } from "@/components/admin/spins/shared";
 import { Section, Choice } from "@/components/admin/ui";
 import { useAdminSync } from "@/components/admin/AdminLiveSync";
 import { rewardText } from "./ProgramsTab";
+import { RecoveryPanel } from "./RecoveryPanel";
 
 type Status = "earned" | "pending_approval" | "approved" | "paid" | "reversed" | "cancelled";
 interface Award {
@@ -27,6 +28,10 @@ interface Award {
   statusChangedAt: string | null;
   statusChangedBy: string | null;
   triggerCaseId: string | null;
+  source: "automatic" | "recovery";
+  recoveryReason: string | null;
+  recoveredBy: string | null;
+  recoveredAt: string | null;
   createdAt: string;
 }
 
@@ -97,13 +102,14 @@ export function AwardHistoryTab() {
           onChange={setStatus}
         />
       </div>
+      <RecoveryPanel onCreated={() => void load()} />
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       {data && (
         <p className="text-sm text-text-secondary">
           {data.totals.count} award{data.totals.count === 1 ? "" : "s"} · cash earned (excluding cancelled / reversed) <b className="text-white">{data.totals.cash.toLocaleString("en-US")}</b>
         </p>
       )}
-      <Table head={["Agent", "Program", "Period", "Qualified with", "Reward", "Status", "When", "Action"]} empty={!!data && data.awards.length === 0} testId="award-history">
+      <Table head={["Agent", "Program", "Period", "Qualified with", "Reward", "Source", "Status", "When", "Action"]} empty={!!data && data.awards.length === 0} testId="award-history">
         {(data?.awards ?? []).map((a) => (
           <tr key={a.id} data-testid="award-row">
             <td className={`${td} font-medium text-white`}>
@@ -115,8 +121,16 @@ export function AwardHistoryTab() {
               <div className="text-xs capitalize text-text-muted">{a.kind}</div>
             </td>
             <td className={`${td} tabular text-text-muted`}>{a.periodKey} · #{a.n}</td>
-            <td className={`${td} text-text-muted`}>{a.validatedAtAward} validated (rule {a.salesRequired})</td>
+            <td className={`${td} text-text-muted`}>
+              {a.validatedAtAward} validated (rule {a.salesRequired})
+              {a.triggerCaseId && <div className="font-mono text-[10px]" title="Sale that reached the milestone">{a.triggerCaseId}</div>}
+            </td>
             <td className={`${td} font-semibold text-gold`}>{rewardText(a)}</td>
+            <td className={td} data-testid="award-source">
+              {a.source === "recovery" ? <span className="text-amber-200">Owner recovery</span> : a.recoveredBy ? <span className="text-sky-300">Automatic (Owner catch-up)</span> : <span className="text-text-secondary">Automatic</span>}
+              {a.recoveredBy && <div className="text-[10px] text-text-muted">by {a.recoveredBy}{a.recoveredAt ? ` · ${fmtDate(a.recoveredAt)}` : ""}</div>}
+              {a.recoveryReason && <div className="max-w-[14rem] truncate text-[10px] text-text-muted" title={a.recoveryReason}>“{a.recoveryReason}”</div>}
+            </td>
             <td className={td}>
               <span className="text-text-secondary" data-testid="award-status">{STATUS_LABEL[a.status]}</span>
               {a.statusChangedAt && <div className="text-xs text-text-muted">{fmtDate(a.statusChangedAt)}{a.statusChangedBy ? ` · ${a.statusChangedBy}` : ""}</div>}

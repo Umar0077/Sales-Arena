@@ -187,6 +187,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           title={kind === "weekly" ? "TOP PERFORMERS THIS WEEK" : "TOP PERFORMERS THIS MONTH"}
           subtitle={`${dateRangeLabel} · ranked by validated sales, then submitted leads`}
           testId={`top3-${kind}`}
+          bonusPeriod={kind === "weekly" ? "week" : "month"}
         />
 
         <div className="grid gap-5 md:grid-cols-2">

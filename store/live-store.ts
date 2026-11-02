@@ -16,6 +16,15 @@ export interface PeriodAwardSummary {
   currency: string;
 }
 export type AwardSummary = Record<"daily" | "weekly" | "monthly", PeriodAwardSummary>;
+export interface AgentPeriodBonus {
+  earned: number;
+  count: number;
+}
+export interface AgentBonus {
+  /** Currency of the active cash programs (used to label genuine zeros). */
+  currency: string;
+  byAgent: Record<string, { currency: string; day: AgentPeriodBonus; week: AgentPeriodBonus; month: AgentPeriodBonus }>;
+}
 
 interface LiveState {
   /** null until the server has said which mode it runs in. */
@@ -36,9 +45,11 @@ interface LiveState {
   setGlobalDisplay: (d: { performanceMode: string; revision: number }) => void;
   /** Earned cash bonuses for the current day / week / month (from bonus_awards). null = not loaded yet. */
   awardSummary: AwardSummary | null;
+  /** Earned cash per agent (user code, upper case) for today / this week / this month, from bonus_awards. */
+  agentBonus: AgentBonus | null;
   /** "error": the last load failed (keep showing the last verified values, or "unavailable"). */
   awardSummaryStatus: "loading" | "ok" | "error";
-  setAwardSummary: (s: AwardSummary | null, status: "ok" | "error") => void;
+  setAwardSummary: (s: AwardSummary | null, status: "ok" | "error", agentBonus?: AgentBonus | null) => void;
   programsStatus: "loading" | "ok" | "error";
   setProgramsStatus: (s: "ok" | "error") => void;
   setLive: (live: boolean) => void;
@@ -56,7 +67,8 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
   refreshing: false,
   awardSummary: null,
   awardSummaryStatus: "loading",
-  setAwardSummary: (s, status) => set((st) => ({ awardSummary: s ?? st.awardSummary, awardSummaryStatus: status })),
+  agentBonus: null,
+  setAwardSummary: (s, status, agentBonus) => set((st) => ({ awardSummary: s ?? st.awardSummary, awardSummaryStatus: status, agentBonus: agentBonus ?? st.agentBonus })),
   programsStatus: "loading",
   setProgramsStatus: (programsStatus) => set({ programsStatus }),
   refreshError: null,

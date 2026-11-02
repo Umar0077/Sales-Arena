@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/store/settings-store";
 import { cn } from "@/lib/utils";
 
 export type Kind = "daily" | "weekly" | "monthly";
+type DupGroup = Array<{ id: string; name: string; salesRequired: number; amount: number; currency: string }>;
 type RewardType = "cash" | "physical" | "voucher" | "badge" | "time_off" | "custom";
 export interface Program {
   id: string;
@@ -139,6 +140,7 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
   const currency = useSettingsStore((s) => s.currencyLabel);
   const programsRev = useAdminSync((s) => s.programsRev);
   const [programs, setPrograms] = useState<Program[] | null>(null);
+  const [duplicates, setDuplicates] = useState<DupGroup[]>([]);
   const [filter, setFilter] = useState<"current" | "active" | "inactive" | "archived" | "all">("current");
   const [editing, setEditing] = useState<Program | "new" | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -146,8 +148,11 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
   const [history, setHistory] = useState<{ id: string; rows: Array<{ revision: number; action: string; at: string; by: string | null }> } | null>(null);
 
   const load = useCallback(async () => {
-    const r = await adminApi<{ programs: Program[] }>(`/api/admin/programs?kind=${kind}&archived=1`);
-    if (r.ok) setPrograms(r.data.programs);
+    const r = await adminApi<{ programs: Program[]; duplicates?: DupGroup[] }>(`/api/admin/programs?kind=${kind}&archived=1`);
+    if (r.ok) {
+      setPrograms(r.data.programs);
+      setDuplicates(r.data.duplicates ?? []);
+    }
     else setMsg({ kind: "error", text: r.error });
   }, [kind]);
   useEffect(() => {
@@ -216,6 +221,18 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
         }
       >
         {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+        {duplicates.length > 0 && (
+          <div data-testid="duplicate-programs">
+            <Notice kind="error">
+              <b>Duplicate active programs:</b> these pay the same milestone. To prevent double cash awards only the oldest of each group awards; pause or archive the others.
+              <ul className="mt-1 list-disc pl-5">
+                {duplicates.map((g, i) => (
+                  <li key={i}>{g.map((p, j) => `${p.name} (${p.salesRequired} sales, ${p.currency} ${p.amount.toLocaleString("en-US")})${j === 0 ? " awards" : " skipped"}`).join(" · ")}</li>
+                ))}
+              </ul>
+            </Notice>
+          </div>
+        )}
         {editing && (
           <ProgramEditorForm
             kind={kind}
