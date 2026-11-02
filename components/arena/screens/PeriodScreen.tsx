@@ -10,7 +10,6 @@ import { LiveLeaderboard, useCloserRows, usePeriodInfo } from "@/components/aren
 import { TopPerformersPodium } from "@/components/arena/TopPerformersPodium";
 import { ArenaLiveActivity } from "@/components/arena/ArenaLiveActivity";
 import { ScreenTitle, StatGrid, AwardFeed } from "./parts";
-import { BonusTierStrip } from "@/components/arena/BonusTiers";
 import { cn } from "@/lib/utils";
 import { useLiveStore } from "@/store/live-store";
 import { targetProgress, formatPercent } from "@/lib/live/targets";
@@ -141,8 +140,6 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           accent={accent}
           inactiveNote={dateRangeLabel || `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
         />
-        {/* Real programs from Admin → Reward Programs and cash actually earned this period. */}
-        <BonusTierStrip kind={kind} />
 
         <StatGrid
           stats={[

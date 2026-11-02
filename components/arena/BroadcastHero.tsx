@@ -33,7 +33,7 @@ export const BroadcastHero = memo(function BroadcastHero({
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-secondary/15 blur-3xl" />
 
       {/* Top Banner Tag */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-white/5 pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 border-b border-white/5 pb-2.5">
         <div className="flex items-center gap-2">
           <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="font-heading text-xs font-bold tracking-widest text-emerald-400 uppercase">

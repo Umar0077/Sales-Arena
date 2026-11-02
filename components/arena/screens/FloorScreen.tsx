@@ -15,7 +15,6 @@ import { TopPerformersPodium } from "@/components/arena/TopPerformersPodium";
 import { useCloserRows } from "@/components/arena/LiveLeaderboard";
 import { ScreenTitle } from "./parts";
 import { useRewardsStore } from "@/store/rewards-store";
-import { BonusTierStrip } from "@/components/arena/BonusTiers";
 import { usePeriodInfo } from "@/components/arena/LiveLeaderboard";
 
 const EMPTY_ACTIVITY: ActivityEvent[] = [];
@@ -142,13 +141,7 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
       )}
     >
       <div className="min-w-0 space-y-4">
-        {daily && (
-          <>
-            <ScreenTitle eyebrow="DAILY BONUS ARENA" title="Today's Bonus Floor" accent="#FFC857" />
-            {/* Real Daily programs from Admin → Reward Programs, and cash actually earned today. */}
-            <BonusTierStrip kind="daily" />
-          </>
-        )}
+        {daily && <ScreenTitle eyebrow="DAILY BONUS ARENA" title="Today's Bonus Floor" accent="#FFC857" />}
         {showKpis && <KpiBar stats={stats} />}
 
         {showHero && (
