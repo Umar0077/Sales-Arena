@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, History, Pencil, Plus, Save, X } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarPlus, History, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { DeleteProgramDialog, ExtendProgramsDialog } from "./ProgramMaintenance";
 import { adminApi } from "@/components/admin/admin-api";
 import { Notice, fmtDate } from "@/components/admin/spins/shared";
 import { Section, Toggle, inputClass, PrimaryButton, GhostButton } from "@/components/admin/ui";
@@ -141,6 +142,10 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
   const programsRev = useAdminSync((s) => s.programsRev);
   const [programs, setPrograms] = useState<Program[] | null>(null);
   const [duplicates, setDuplicates] = useState<DupGroup[]>([]);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [extending, setExtending] = useState(false);
+  // Duplicate groups (oldest first): the oldest awards, the others are skipped by the engine.
+  const dupRole = useMemo(() => new Map(duplicates.flatMap((g) => g.map((p, i) => [p.id, i === 0 ? "awarding" : "skipped"] as const))), [duplicates]);
   const [filter, setFilter] = useState<"current" | "active" | "inactive" | "archived" | "all">("current");
   const [editing, setEditing] = useState<Program | "new" | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -215,9 +220,14 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
         title={`${meta.title} reward programs`}
         description={`Counted per ${meta.period} in the business timezone. Several programs can run at the same time. Edits apply from the next validated sale and never change awards already earned.`}
         actions={
-          <PrimaryButton onClick={() => setEditing("new")} data-testid="add-program">
-            <Plus className="h-4 w-4" /> Add reward
-          </PrimaryButton>
+          <div className="flex flex-wrap gap-2">
+            <GhostButton onClick={() => setExtending(true)} data-testid="extend-programs">
+              <CalendarPlus className="h-4 w-4" /> Extend rewards
+            </GhostButton>
+            <PrimaryButton onClick={() => setEditing("new")} data-testid="add-program">
+              <Plus className="h-4 w-4" /> Add reward
+            </PrimaryButton>
+          </div>
         }
       >
         {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
@@ -272,6 +282,8 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
                       <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider", STATUS_STYLE[p.status])} data-testid="program-status">{p.status}</span>
                       {!p.showOnArena && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">hidden on arena</span>}
                       {!p.stackable && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">non-stackable</span>}
+                      {dupRole.get(p.id) === "awarding" && <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300" data-testid="dup-awarding">duplicate · this one awards</span>}
+                      {dupRole.get(p.id) === "skipped" && <span className="rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[11px] font-semibold text-rose-300" data-testid="dup-skipped">duplicate · not awarding</span>}
                     </div>
                     <p className="mt-1 text-sm text-text-secondary">
                       <b className="text-gold">{rewardText(p)}</b> for {p.salesRequired} validated sale{p.salesRequired === 1 ? "" : "s"} {meta.word}
@@ -309,6 +321,9 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
                       <GhostButton disabled={busy === p.id} onClick={() => void patch(p, { archived: false }, `"${p.name}" restored (paused).`)}><ArchiveRestore className="h-4 w-4" /> Restore</GhostButton>
                     )}
                     <GhostButton onClick={() => (history?.id === p.id ? setHistory(null) : void showHistory(p))}><History className="h-4 w-4" /> History</GhostButton>
+                    <GhostButton onClick={() => setDeleting(p.id)} disabled={busy === p.id} data-testid="program-delete" className="border-rose-500/30 text-rose-300 hover:bg-rose-500/10">
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </GhostButton>
                   </div>
                 </div>
                 {history?.id === p.id && (
@@ -325,6 +340,29 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
           </ul>
         )}
       </Section>
+
+      {deleting && (
+        <DeleteProgramDialog
+          programId={deleting}
+          onClose={() => setDeleting(null)}
+          onDone={(text) => {
+            setDeleting(null);
+            setMsg({ kind: "ok", text });
+            void load();
+          }}
+        />
+      )}
+      {extending && (
+        <ExtendProgramsDialog
+          defaultKind={kind}
+          onClose={() => setExtending(false)}
+          onDone={(text) => {
+            setExtending(false);
+            setMsg({ kind: "ok", text });
+            void load();
+          }}
+        />
+      )}
     </div>
   );
 }

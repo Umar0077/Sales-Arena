@@ -15,7 +15,8 @@ import {
   Flame 
 } from "lucide-react";
 
-export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }) {
+/** `showSpinCredits` = false (Daily Arena) leaves out ONLY the Spin Credits card; spin data and Spin & Win are untouched. */
+export const KpiBar = memo(function KpiBar({ stats, showSpinCredits = true }: { stats: ArenaStatistics; showSpinCredits?: boolean }) {
   const summary = useArenaStore((s) => s.periodMetrics?.day?.summary ?? s.safeQuoteSummary);
   const serverSpinBalance = useArenaStore((s) => s.serverSpinBalance);
 
@@ -44,7 +45,7 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
   const dash = <span className="text-2xl text-text-muted">—</span>;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+    <div className={showSpinCredits ? "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"} data-testid="kpi-bar" data-cards={showSpinCredits ? 6 : 5}>
       {/* 1. Total Approved Sales */}
       <div className="rounded-2xl border border-emerald-500/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-success">
         <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
@@ -109,8 +110,9 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
         </div>
       </div>
 
-      {/* 5. Unlocked Spins */}
-      <div className="rounded-2xl border border-primary/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-primary">
+      {/* 5. Spin credits (Spin & Win screen only) */}
+      {showSpinCredits && (
+      <div data-testid="kpi-spin-credits" className="rounded-2xl border border-primary/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-primary">
         <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
           <span>SPIN CREDITS</span>
           <Disc3 className="w-4 h-4 text-primary" />
@@ -122,9 +124,10 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
           {availableCount === null ? "Spin credits unavailable" : `${availableCount} spin credit${availableCount === 1 ? "" : "s"} ready`}
         </div>
       </div>
+      )}
 
-      {/* 6. Active Agents on Floor */}
-      <div className="rounded-2xl border border-white/10 bg-[#0D1426]/80 p-4 backdrop-blur-md">
+      {/* 6. Active Agents on Floor (spans the last row when there are five cards, so no gap is left) */}
+      <div className={`rounded-2xl border border-white/10 bg-[#0D1426]/80 p-4 backdrop-blur-md${showSpinCredits ? "" : " col-span-2 sm:col-span-2 lg:col-span-1"}`}>
         <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
           <span>ACTIVE AGENTS</span>
           <Users className="w-4 h-4 text-text-secondary" />

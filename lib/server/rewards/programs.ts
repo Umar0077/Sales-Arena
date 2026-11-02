@@ -61,7 +61,7 @@ export class ProgramError extends Error {
   }
 }
 
-const COLS = `id, kind, name, description, reward_type, amount, currency, prize_label, sales_required, max_awards, max_total_awards,
+export const COLS = `id, kind, name, description, reward_type, amount, currency, prize_label, sales_required, max_awards, max_total_awards,
   to_char(start_date, 'YYYY-MM-DD') AS start_date, to_char(end_date, 'YYYY-MM-DD') AS end_date, scope_type, scope_ids, stackable,
   enabled, show_on_arena, headline, message, reward_line, sound, accent, popup_seconds, leaderboard_count, active_since,
   archived_at, revision, created_at, updated_at`;
@@ -222,7 +222,7 @@ export async function listPrograms(db: Pool | PoolClient, opts: { includeArchive
   return rows.map((r) => rowToProgram(r));
 }
 
-async function snapshot(c: PoolClient, id: string, action: string, adminId: string) {
+export async function snapshot(c: PoolClient, id: string, action: string, adminId: string | null) {
   const row = (await c.query(`SELECT ${COLS} FROM reward_programs WHERE id = $1`, [id])).rows[0];
   const p = rowToProgram(row);
   await c.query(`INSERT INTO reward_program_history (program_id, revision, action, snapshot, admin_id) VALUES ($1, $2, $3, $4, $5)`, [id, p.revision, action, JSON.stringify(p), adminId]);
@@ -238,7 +238,7 @@ const valuesOf = (n: ReturnType<typeof normalizeProgram>) => [
   n.sound, n.accent, n.popupSeconds, n.leaderboardCount,
 ];
 
-function publish(p: RewardProgram, action: string) {
+export function publish(p: Pick<RewardProgram, "id" | "kind" | "revision">, action: string) {
   arenaBroadcaster.broadcast("rewards.program.updated", { programId: p.id, kind: p.kind, revision: p.revision, action });
 }
 
@@ -366,7 +366,7 @@ export function duplicateProgramGroups(programs: RewardProgram[]) {
 }
 
 /** Refuses a second ACTIVE program that would pay the same milestone (kind, threshold, eligibility, reward type). */
-async function assertNoDuplicate(db: PoolClient, n: ReturnType<typeof normalizeProgram>, selfId?: string) {
+export async function assertNoDuplicate(db: PoolClient, n: ReturnType<typeof normalizeProgram>, selfId?: string) {
   const sig = programSignature({ kind: n.kind, salesRequired: n.salesRequired, scopeType: n.scopeType, scopeIds: n.scopeIds, rewardType: n.rewardType });
   const clash = (await listPrograms(db)).find((p) => p.id !== selfId && p.enabled && programSignature(p) === sig);
   if (clash)

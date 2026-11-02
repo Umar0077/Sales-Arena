@@ -142,7 +142,8 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
     >
       <div className="min-w-0 space-y-4">
         {daily && <ScreenTitle eyebrow="DAILY BONUS ARENA" title="Today's Bonus Floor" accent="#FFC857" />}
-        {showKpis && <KpiBar stats={stats} />}
+        {/* Daily Arena: five KPI cards (no Spin Credits card); the Spin & Win screen keeps all six. */}
+        {showKpis && <KpiBar stats={stats} showSpinCredits={!daily} />}
 
         {showHero && (
           <BroadcastHero
