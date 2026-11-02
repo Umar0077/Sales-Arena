@@ -41,6 +41,10 @@ export interface BonusProgram {
    * this, so turning a campaign on mid-day doesn't pay out for earlier sales.
    */
   activeSince: string | null;
+  /** Live mode (from PostgreSQL). */
+  rewardType?: string;
+  currency?: string;
+  description?: string;
 }
 
 /** A granted bonus. Keeps a snapshot so history survives program edits. */
@@ -60,6 +64,12 @@ export interface BonusAward {
   programName: string;
   salesRequired: number;
   createdAt: string;
+  /** Live mode (from PostgreSQL). */
+  userCode?: string;
+  rewardType?: string;
+  currency?: string;
+  /** The server allowed a public announcement when the award was created. */
+  announce?: boolean;
 }
 
 export const DEFAULT_PROGRAMS: BonusProgram[] = [
@@ -136,6 +146,8 @@ interface RewardsState {
   /** Adds awards whose id is not already recorded. Returns the ones actually added. */
   recordAwards: (awards: BonusAward[]) => BonusAward[];
   setBackendAwards: (awards: BonusAward[]) => void;
+  /** Live mode: programs come from PostgreSQL only (never the demo defaults). */
+  setLivePrograms: (programs: BonusProgram[]) => void;
   clearAwards: () => void;
 }
 
@@ -181,6 +193,7 @@ export const useRewardsStore = create<RewardsState>()(
         return added;
       },
       setBackendAwards: (awards) => set({ awards }),
+      setLivePrograms: (programs) => set({ programs }),
       clearAwards: () => set({ awards: [] }),
     }),
     {
@@ -210,5 +223,6 @@ export const useRewardsStore = create<RewardsState>()(
 );
 
 export function programFor(programs: BonusProgram[], kind: BonusKind): BonusProgram | undefined {
-  return programs.find((p) => p.kind === kind);
+  // Several programs per period: the headline card shows the lowest active threshold.
+  return programs.filter((p) => p.kind === kind && p.enabled).sort((a, b) => a.salesRequired - b.salesRequired)[0] ?? programs.find((p) => p.kind === kind);
 }

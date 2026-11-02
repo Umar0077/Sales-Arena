@@ -35,8 +35,10 @@ export function WhenArenaOnline({ children }: { children: React.ReactNode }) {
 export function ArenaContent({ children }: { children: React.ReactNode }) {
   const online = useArenaOnline();
   const message = useSettingsStore((s) => s.arenaOfflineMessage);
-  if (online) return <>{children}</>;
-  return <ArenaOffline message={message} />;
+  const anyScreen = useSettingsStore((s) => Object.values(s.arenaModes).some(Boolean));
+  if (online && anyScreen) return <>{children}</>;
+  // All public screens disabled by the admin: same safe offline page (the Admin Panel stays available).
+  return <ArenaOffline message={online ? "No Live Arena screens are enabled right now." : message} />;
 }
 
 function ArenaOffline({ message }: { message: string }) {

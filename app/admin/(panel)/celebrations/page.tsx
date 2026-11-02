@@ -1,11 +1,12 @@
 "use client";
 
+import { saveSettings } from "@/lib/admin/global-settings";
 import { useSettingsStore, fillTemplate } from "@/store/settings-store";
 import { Section, Toggle, Range, Choice, TextField } from "@/components/admin/ui";
 
 export default function CelebrationSettingsPage() {
   const s = useSettingsStore();
-  const update = s.update;
+  const update = saveSettings; // global settings → PostgreSQL → every display
   const sample = { agent: "ALI", sales: 2, spins: "1 Spin", prize: "GIFT VOUCHER" };
 
   return (

@@ -1,5 +1,6 @@
 "use client";
 
+import { saveSettings } from "@/lib/admin/global-settings";
 import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { Section, Toggle, Range, Choice, SelectField } from "@/components/admin/ui";
@@ -8,7 +9,7 @@ import type { LeaderboardPeriod } from "@/types";
 
 export default function LeaderboardSettingsPage() {
   const s = useSettingsStore();
-  const update = s.update;
+  const update = saveSettings; // global settings → PostgreSQL → every display
   const campaigns = useArenaStore((st) => st.campaigns);
 
   return (

@@ -1,8 +1,11 @@
 "use client";
 
+import { saveSettings } from "@/lib/admin/global-settings";
 import { GlobalPerformanceCard } from "@/components/admin/GlobalPerformanceCard";
 import { Play, RotateCcw } from "lucide-react";
-import { useSettingsStore } from "@/store/settings-store";
+import { useSettingsStore, DEFAULT_SETTINGS } from "@/store/settings-store";
+import { GLOBAL_SETTING_KEYS } from "@/lib/settings/global-keys";
+import type { DisplaySettings } from "@/types";
 import { audioEngine } from "@/lib/audio/engine";
 import { WHEEL_THEMES } from "@/features/spins/wheel-theme";
 import { Section, Toggle, Range, Choice, GhostButton } from "@/components/admin/ui";
@@ -24,7 +27,7 @@ const SOUND_LABELS: Record<SoundCategory, string> = {
 
 export default function AppearanceSoundPage() {
   const s = useSettingsStore();
-  const update = s.update;
+  const update = saveSettings; // global settings → PostgreSQL → every display
 
   const test = (cat: SoundCategory) => {
     audioEngine.unlock();
@@ -100,7 +103,7 @@ export default function AppearanceSoundPage() {
                 <input
                   type="checkbox"
                   checked={s.soundCategories[cat]}
-                  onChange={(e) => s.setCategory(cat, e.target.checked)}
+                  onChange={(e) => update({ soundCategories: { ...s.soundCategories, [cat]: e.target.checked } })}
                   className="h-4 w-4 accent-[#7568FF]"
                 />
                 {SOUND_LABELS[cat]}
@@ -125,14 +128,14 @@ export default function AppearanceSoundPage() {
           checked={s.spinnerFallback2D ?? false}
           onChange={(v) => update({ spinnerFallback2D: v })}
         />
-        <Toggle label="Performance diagnostics" hint="Shows a frame-rate panel on screen." checked={s.diagnostics} onChange={(v) => update({ diagnostics: v })} />
-        <Toggle label="Seeded test spins" hint="Same agent and spin number always gives the same prize (for QA)." checked={s.seededSpins} onChange={(v) => update({ seededSpins: v })} />
+        <Toggle label="Performance diagnostics" hint="This browser only: shows a frame-rate panel on screen." checked={s.diagnostics} onChange={(v) => update({ diagnostics: v })} />
+        <Toggle label="Seeded test spins" hint="Demo mode, this browser only. Live spins are always decided by the server." checked={s.seededSpins} onChange={(v) => update({ seededSpins: v })} />
       </Section>
 
       <Section title="Reset">
         <GhostButton
           onClick={() => {
-            if (confirm("Reset all appearance, sound, leaderboard and celebration settings to defaults?")) s.reset();
+            if (confirm("Restore default appearance, sound, leaderboard and celebration settings on EVERY screen? Arena on/off, screens, rewards and branding are kept.")) void update(resettableDefaults(), { immediate: true });
           }}
         >
           <RotateCcw className="h-4 w-4" /> Restore default settings
@@ -140,4 +143,11 @@ export default function AppearanceSoundPage() {
       </Section>
     </div>
   );
+}
+
+/** Appearance / sound / leaderboard / celebration defaults. Arena availability, screens, rewards and branding are kept. */
+const KEEP = new Set(["arenaEnabled", "arenaOfflineMessage", "arenaModes", "defaultArenaMode", "showModeSelector", "businessTimezone", "weekStartDay", "currencyLabel", "rewardCategories", "announceCash", "announcePrizes", "announceAutoSpins", "announceManualSpins", "customLogo", "brandName", "brandTagline"]);
+function resettableDefaults(): Partial<DisplaySettings> {
+  const d = DEFAULT_SETTINGS as unknown as Record<string, unknown>;
+  return Object.fromEntries(GLOBAL_SETTING_KEYS.filter((k) => !KEEP.has(k)).map((k) => [k, d[k]])) as Partial<DisplaySettings>;
 }

@@ -36,6 +36,7 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
   const Icon = meta.icon;
   const accent = program?.accent ?? "#FFC857";
   const total = awards.reduce((t, a) => t + a.amount, 0);
+  const cur = last.currency || currency;
   const seconds = program?.popupSeconds ?? 6;
   const doneRef = useRef(onDone);
   useEffect(() => {
@@ -51,14 +52,15 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
   const name = agent?.name ?? last.agentName;
   const vals = {
     agent: name.split(" ")[0].toUpperCase(),
-    amount: formatReward(total, last.prizeLabel, currency).toUpperCase(),
+    name,
+    amount: formatReward(total, last.prizeLabel, cur).toUpperCase(),
     sales: last.validatedAtAward,
     program: (program?.name ?? last.programName).toUpperCase(),
     count: awards.length,
   };
-  const headline = fillTemplate(program?.headline ?? "CONGRATULATIONS, {agent}!", vals);
-  const message = fillTemplate(program?.message ?? "YOUR SALE HAS BEEN VALIDATED!", vals);
-  const rewardLine = fillTemplate(program?.rewardLine ?? "YOU'VE EARNED {amount}!", vals);
+  const headline = fillTemplate(program?.headline ?? `${kind.toUpperCase()} BONUS UNLOCKED!`, vals);
+  const message = fillTemplate(program?.message ?? "{name}", vals);
+  const rewardLine = fillTemplate(program?.rewardLine ?? (total > 0 ? "{amount} BONUS EARNED" : "{amount} EARNED"), vals);
 
   return (
     <motion.div
@@ -82,7 +84,7 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 240, damping: 20 }}
-        className="relative w-full max-w-2xl overflow-hidden rounded-[28px] border bg-gradient-to-b from-[#16123A] via-[#0E1430] to-[#0A0F22] px-6 pb-8 pt-10 text-center sm:px-10"
+        className="relative w-full max-w-xl overflow-hidden rounded-[28px] border bg-gradient-to-b from-[#16123A] via-[#0E1430] to-[#0A0F22] px-6 pb-7 pt-8 text-center sm:px-10"
         style={{ borderColor: `${accent}66`, boxShadow: `0 0 90px -12px ${accent}88` }}
       >
         <button onClick={onDone} aria-label="Close" className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl text-text-muted hover:bg-white/5 hover:text-white">
@@ -90,12 +92,12 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
         </button>
 
         <motion.div
-          className="mx-auto mb-5 grid h-24 w-24 place-items-center rounded-3xl border"
+          className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl border"
           style={{ borderColor: `${accent}88`, background: `linear-gradient(135deg, ${accent}40, transparent)` }}
           animate={reducedMotion ? undefined : { scale: [1, 1.08, 1], rotate: [0, -4, 4, 0] }}
           transition={{ duration: 1.8, repeat: Infinity, repeatDelay: 0.8 }}
         >
-          <Trophy className="h-12 w-12" style={{ color: accent, filter: `drop-shadow(0 0 14px ${accent})` }} />
+          <Trophy className="h-9 w-9" style={{ color: accent, filter: `drop-shadow(0 0 14px ${accent})` }} />
         </motion.div>
 
         <span
@@ -113,7 +115,7 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
 
         {total > 0 && (
           <div className="mt-5 font-heading text-5xl font-black text-white tabular sm:text-6xl" style={{ textShadow: `0 0 30px ${accent}66` }}>
-            {currency} <AnimatedCounter value={total} duration={1400} formatter={(v) => Math.round(v).toLocaleString("en-US")} />
+            {cur} <AnimatedCounter value={total} duration={1400} formatter={(v) => Math.round(v).toLocaleString("en-US")} />
           </div>
         )}
 
@@ -125,7 +127,7 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
             </span>
           )}
           <span className="rounded-full bg-emerald-400/10 px-3 py-1 font-semibold text-emerald-300 tabular" data-testid="bonus-validated">
-            {last.validatedAtAward} validated sale{last.validatedAtAward === 1 ? "" : "s"} {meta.period}
+            {last.validatedAtAward} Validated Sale{last.validatedAtAward === 1 ? "" : "s"} Completed
           </span>
         </div>
 

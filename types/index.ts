@@ -324,6 +324,16 @@ export interface DisplaySettings {
   weeklyFloorTarget: number;
   monthlyFloorTarget: number;
   currencyLabel: string;
+
+  // ---- Reward categories & public announcements (global, from PostgreSQL) ----
+  /** Per category: Program Active (awards can be earned) vs Show on Live Arena (public popups/cards). */
+  rewardCategories: Record<"daily" | "weekly" | "monthly", { active: boolean; showOnArena: boolean }>;
+  announceCash: boolean;
+  announcePrizes: boolean;
+  announceAutoSpins: boolean;
+  announceManualSpins: boolean;
+  /** Master switch for reward / spin celebration popups on the Live Arena. */
+  celebrationPopups: boolean;
 }
 
 export type LeaderboardPeriod = "daily" | "weekly" | "monthly";

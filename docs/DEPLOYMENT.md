@@ -123,6 +123,24 @@ node --env-file=/etc/sales-arena/sales-arena.env scripts/db-migrate.mjs status
 
 Then repeat the section 4 queries against `sales-arena.env`.
 
+### Release notes: migrations 005 and 006 (global admin control)
+
+- `005_sales_targets`: target tables. `006_reward_programs_v2`: extra reward-program columns, `reward_program_history`,
+  award workflow columns, and award history protected from program deletes (`ON DELETE RESTRICT`).
+  Both only add tables or columns. No existing program, award, sale, spin or admin row is changed.
+- Deploy migration 006 **in the same release** as this code: the new build reads the new columns.
+- Verify after migrating:
+  ```sql
+  SELECT version FROM schema_migrations ORDER BY version;                      -- ends with 006_reward_programs_v2
+  SELECT conname, confdeltype FROM pg_constraint WHERE conname = 'fk_bonus_awards_program';  -- 'r' (restrict) if awards existed with the old FK
+  SELECT COUNT(*) FROM reward_programs; SELECT COUNT(*) FROM bonus_awards;     -- same counts as before the migration
+  ```
+- After the restart, open Admin → Reward Programs. Programs that already existed are listed as before. The Live Arena only shows
+  programs that are **Program Active** and **Show on Live Arena**. Global settings (screens, on/off, sounds, leaderboard,
+  celebrations) start from the defaults until an admin saves them once. Each display's old browser values no longer apply.
+- Optional, only if more than one Node process ever serves the arena: set `SALES_ARENA_EVENT_BUS=postgres` so live
+  events reach displays connected to any process (PostgreSQL LISTEN/NOTIFY). Not needed for the single systemd service.
+
 ## 7. First administrator
 
 Interactive only; the password is typed hidden and never echoed, logged or stored in plain text.

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
 import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
+import { startPgEventBus } from "@/lib/server/events/pg-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,8 @@ export async function GET(req: NextRequest) {
   // Start the upstream consumer only where background sync is enabled (it writes to PostgreSQL).
   const flag = process.env.SALES_ARENA_SYNC_ENABLED;
   if (flag === "true" || (flag !== "false" && process.env.NODE_ENV === "production")) safeQuoteSseConsumer.start();
+  // Optional: deliver events between several Node processes (SALES_ARENA_EVENT_BUS=postgres).
+  void startPgEventBus();
 
   const encoder = new TextEncoder();
   let pingInterval: NodeJS.Timeout | null = null;

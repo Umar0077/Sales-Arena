@@ -1,0 +1,87 @@
+"use client";
+
+import { useEffect } from "react";
+import { create } from "zustand";
+import { CheckCircle2, CircleAlert, Loader2 } from "lucide-react";
+import { loadAdminConfig, useSaveStatus } from "@/lib/admin/global-settings";
+import { appliedConfigRevision } from "@/lib/live/config-sync";
+
+/** Bumped when another admin (or the reward engine) changed programs / awards, so open pages reload. */
+interface AdminSync {
+  programsRev: number;
+  awardsRev: number;
+  bump: (k: "programsRev" | "awardsRev") => void;
+}
+export const useAdminSync = create<AdminSync>()((set, get) => ({
+  programsRev: 0,
+  awardsRev: 0,
+  bump: (k) => set({ [k]: get()[k] + 1 } as Pick<AdminSync, typeof k>),
+}));
+
+const CONFIG_EVENTS = [
+  "arena.availability.updated",
+  "arena.screens.updated",
+  "rewards.program.visibility.updated",
+  "settings.celebration.updated",
+  "settings.appearance.updated",
+  "settings.leaderboard.updated",
+];
+
+/**
+ * Keeps every open Admin Panel tab on the authoritative PostgreSQL state: loads it on open and
+ * follows changes made by other admins over the same shared SSE stream (one connection per tab).
+ */
+export function AdminLiveSync() {
+  useEffect(() => {
+    void loadAdminConfig();
+    const es = new EventSource("/api/arena/stream");
+    let first = true;
+    es.addEventListener("ready", () => {
+      if (!first) {
+        void loadAdminConfig(); // reconnected: catch up on anything missed
+        useAdminSync.getState().bump("programsRev");
+        useAdminSync.getState().bump("awardsRev");
+      }
+      first = false;
+    });
+    for (const t of CONFIG_EVENTS)
+      es.addEventListener(t, (e) => {
+        let rev = Infinity;
+        try {
+          rev = Number(JSON.parse((e as MessageEvent).data)?.revision);
+        } catch {
+          /* reload anyway */
+        }
+        if (!(rev <= appliedConfigRevision())) void loadAdminConfig();
+      });
+    es.addEventListener("rewards.program.updated", () => useAdminSync.getState().bump("programsRev"));
+    es.addEventListener("rewards.award.created", () => useAdminSync.getState().bump("awardsRev"));
+    es.addEventListener("rewards.award.updated", () => useAdminSync.getState().bump("awardsRev"));
+    return () => es.close();
+  }, []);
+  return null;
+}
+
+/** Header pill: the real result of the last settings save. */
+export function SaveStatusPill() {
+  const { state, message } = useSaveStatus();
+  if (state === "idle") return null;
+  return (
+    <span
+      role="status"
+      data-testid="save-status"
+      data-state={state}
+      title={message ?? undefined}
+      className={
+        state === "error"
+          ? "inline-flex max-w-[22rem] items-center gap-1.5 truncate rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-300"
+          : state === "saving"
+            ? "inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-text-secondary"
+            : "inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300"
+      }
+    >
+      {state === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : state === "error" ? <CircleAlert className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+      {state === "saving" ? "Saving…" : state === "error" ? message : "Saved to all screens"}
+    </span>
+  );
+}

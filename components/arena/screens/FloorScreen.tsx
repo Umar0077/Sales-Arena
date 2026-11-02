@@ -41,9 +41,9 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
   const program = programFor(programs, "daily");
   const todayAwards = useMemo(() => awards.filter((a) => a.kind === "daily" && a.periodKey === dayInfo.key), [awards, dayInfo.key]);
   const todayTotal = todayAwards.reduce((t, a) => t + a.amount, 0);
-  const concurrent = useSettingsStore((s) => s.programsConcurrent);
-  const defaultMode = useSettingsStore((s) => s.defaultArenaMode);
-  const dailyAllowed = concurrent || defaultMode === "daily";
+  const dailyCat = useSettingsStore((s) => s.rewardCategories.daily);
+  // Category switches from Admin → Reward Programs (Program Active + Show on Live Arena).
+  const dailyAllowed = dailyCat.active && dailyCat.showOnArena;
   const sales = useArenaStore((s) => s.sales);
   const agents = useArenaStore((s) => s.agents);
   const teams = useArenaStore((s) => s.teams);
@@ -155,7 +155,7 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
             accent={program.accent}
             rule={program.enabled && dailyAllowed ? `${program.salesRequired} validated sale${program.salesRequired > 1 ? "s" : ""} = ${formatReward(program.amount, program.prizeLabel, currency)}` : undefined}
             inactiveNote={
-              !program.enabled ? "Daily bonus paused" : !dailyAllowed ? "Daily bonus not running (another screen is the default)" : `${currency} ${todayTotal.toLocaleString("en-US")} awarded today`
+              !program.enabled ? "Daily bonus paused" : !dailyAllowed ? "Daily bonus paused by admin" : `${currency} ${todayTotal.toLocaleString("en-US")} awarded today`
             }
           />
         )}

@@ -7,6 +7,20 @@ import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useRewardsStore } from "@/store/rewards-store";
 import { useLiveStore } from "@/store/live-store";
 import { applyGlobalDisplay, fetchGlobalDisplay } from "@/lib/live/display-sync";
+import { appliedConfigRevision, applyScreenSwitch, fetchArenaConfig, fetchLivePrograms } from "@/lib/live/config-sync";
+import type { BonusAward } from "@/store/rewards-store";
+
+/** Silent full reconciliation interval (SSE stays the primary real-time channel). */
+export const RECONCILE_MS = 180_000;
+/** Settings events that all mean "the global arena configuration has a new revision". */
+const CONFIG_EVENTS = [
+  "arena.availability.updated",
+  "arena.screens.updated",
+  "rewards.program.visibility.updated",
+  "settings.celebration.updated",
+  "settings.appearance.updated",
+  "settings.leaderboard.updated",
+] as const;
 import { arenaBus } from "@/lib/events/bus";
 import { getPeriodDateRange } from "@/lib/time/business";
 import type { Agent, Reward, Sale } from "@/types";
@@ -295,6 +309,36 @@ export function LiveApiSync() {
     return false;
   }, [businessTimezone, weekStartDay, setApiStatus, setPeriodMetrics, setAllTimeMetrics, syncRealData, setServerSpinBalance]);
 
+  // The stream effect below runs once; it always calls the latest fetcher through this ref, so a
+  // settings change (e.g. business timezone) never closes or duplicates the SSE connection.
+  const fetchRef = useRef(fetchLiveStats);
+  useEffect(() => {
+    fetchRef.current = fetchLiveStats;
+  }, [fetchLiveStats]);
+
+  // One silent reconciliation of every live dataset and setting. Never overlaps itself, never
+  // reloads the page, never resets the selected screen and never creates awards (read-only).
+  const reconcilingRef = useRef<Promise<void> | null>(null);
+  const lastReconcileRef = useRef(0);
+  const reconcile = useCallback((manual = false): Promise<void> => {
+    if (reconcilingRef.current) return reconcilingRef.current;
+    const live = useArenaStore.getState().liveMode;
+    const run = Promise.allSettled([
+      fetchRef.current(false, manual),
+      syncCatalog(),
+      fetchGlobalDisplay(),
+      fetchArenaConfig(),
+      live ? fetchLivePrograms() : Promise.resolve(false),
+    ]).then(() => {
+      lastReconcileRef.current = Date.now();
+      document.documentElement.dataset.lastReconcile = new Date(lastReconcileRef.current).toISOString();
+    });
+    reconcilingRef.current = run.finally(() => {
+      reconcilingRef.current = null;
+    });
+    return reconcilingRef.current;
+  }, [syncCatalog]);
+
   // Connect to server-sent events for real-time sales and celebrations
   useEffect(() => {
     isMountedRef.current = true;
@@ -302,40 +346,45 @@ export function LiveApiSync() {
     const seenSpinEvents = new Set<string>();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let syncInterval: ReturnType<typeof setInterval> | null = null;
+    let programsTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Coalesce rapid live updates into a single efficient batch
     const scheduleLiveSync = (delay = 800) => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         if (isMountedRef.current && document.visibilityState === "visible") {
-          fetchLiveStats();
+          void fetchRef.current();
         }
       }, delay);
+    };
+    const scheduleProgramsSync = () => {
+      if (!useArenaStore.getState().liveMode) return;
+      if (programsTimer) clearTimeout(programsTimer);
+      programsTimer = setTimeout(() => void fetchLivePrograms(), 250);
     };
 
     // Initial check (deferred a tick so it does not set state during the effect)
     const initialCheck = setTimeout(() => {
-      void fetchLiveStats(true);
+      void fetchRef.current(true).then(() => {
+        lastReconcileRef.current = Date.now();
+      });
       void syncCatalog();
     }, 0);
 
-    // Setup periodic sync every 30s as safety reconciliation (paused when tab hidden)
+    // Silent reconciliation every 3 minutes while visible (backup for SSE, not a replacement).
     const startPeriodicSync = () => {
       if (syncInterval) clearInterval(syncInterval);
       syncInterval = setInterval(() => {
-        if (document.visibilityState === "visible") {
-          fetchLiveStats();
-          void syncCatalog(); // lightweight freshness check; applies only on a new revision
-          void fetchGlobalDisplay(); // same for the admin's global performance mode
-        }
-      }, 30_000);
+        if (document.visibilityState === "visible") void reconcile();
+      }, RECONCILE_MS);
     };
 
     startPeriodicSync();
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        fetchLiveStats(); // Instant sync when user returns to tab
+        // Back on screen: refresh right away only if the data is stale.
+        if (Date.now() - lastReconcileRef.current >= RECONCILE_MS) void reconcile();
         startPeriodicSync();
       } else {
         if (syncInterval) clearInterval(syncInterval);
@@ -350,9 +399,17 @@ export function LiveApiSync() {
       eventSource = new EventSource("/api/arena/stream");
       sseRef.current = eventSource;
 
+      let connectedOnce = false;
       eventSource.addEventListener("ready", (e) => {
-        void syncCatalog(); // (re)connected: pick up any catalog change missed while offline
-        void fetchGlobalDisplay(); // and any performance-mode change missed while offline
+        // (Re)connected: pick up anything missed while offline from the authoritative state.
+        void syncCatalog();
+        void fetchGlobalDisplay();
+        void fetchArenaConfig();
+        if (connectedOnce) {
+          scheduleProgramsSync();
+          scheduleLiveSync(300); // awards / sales missed during the gap (announced only if newer than page load)
+        }
+        connectedOnce = true;
         try {
           const payload = JSON.parse(e.data);
           // Show LIVE only once real data has actually loaded.
@@ -400,26 +457,41 @@ export function LiveApiSync() {
         }
       });
 
-      eventSource.addEventListener("bonus.awarded", (e) => {
+      // A committed award row. The reward runtime shows it once (deduped by award id) through the
+      // single bonus popup queue, if the admin's announcement switches allow it.
+      eventSource.addEventListener("rewards.award.created", (e) => {
         try {
-          const payload = JSON.parse(e.data);
-          arenaBus.emit("celebration:enqueue", {
-            event: {
-              id: `celeb_bonus_${payload.awardId || Date.now()}`,
-              tier: "milestone",
-              headline: `CONGRATULATIONS, ${payload.closer?.name || "CLOSER"}!`,
-              subline: `Earned ${payload.amount ? `Rs. ${payload.amount.toLocaleString()}` : payload.prizeLabel} bonus!`,
-              agentId: payload.closer?.userCode,
-              agentName: payload.closer?.name,
-              teamName: "Bonus Program",
-              teamColor: "#FFC857",
-              value: payload.amount || null,
-              createdAt: new Date().toISOString(),
-              preview: false,
-            },
-          });
+          const a = JSON.parse(e.data)?.award as BonusAward | undefined;
+          if (!a?.id || !useArenaStore.getState().liveMode) return;
+          useRewardsStore.getState().recordAwards([a]);
         } catch (err) {
-          console.error("[LiveApiSync] Failed to process bonus event", err);
+          console.error("[LiveApiSync] Failed to process award event", err);
+        }
+      });
+
+      eventSource.addEventListener("rewards.program.updated", () => scheduleProgramsSync());
+
+      for (const type of CONFIG_EVENTS)
+        eventSource.addEventListener(type, (e) => {
+          let rev = Infinity;
+          try {
+            rev = Number(JSON.parse((e as MessageEvent).data)?.revision);
+          } catch {
+            /* fetch anyway */
+          }
+          if (!(rev <= appliedConfigRevision())) void fetchArenaConfig();
+          if (type === "rewards.program.visibility.updated") {
+            scheduleProgramsSync();
+            scheduleLiveSync(400); // award list visibility changed
+          }
+        });
+
+      eventSource.addEventListener("arena.screen.changed", (e) => {
+        try {
+          const p = JSON.parse(e.data);
+          applyScreenSwitch({ screen: p.screen, revision: Number(p.revision) });
+        } catch {
+          void fetchArenaConfig();
         }
       });
 
@@ -440,6 +512,10 @@ export function LiveApiSync() {
           const name = String(payload.closerName || agent?.name || code);
           const qty = Number(payload.quantity) || 1;
           const manual = payload.origin === "manual";
+          scheduleLiveSync(600); // balances refresh either way
+          // The spin credit is stored regardless; only the public popup follows the admin switches.
+          const s = useSettingsStore.getState();
+          if (!s.arenaEnabled || !s.celebrationPopups || !(manual ? s.announceManualSpins : s.announceAutoSpins)) return;
           useSpinFlowStore.getState().push({
             agentId: agent?.id ?? `agt_${code}`,
             userCode: code,
@@ -490,7 +566,8 @@ export function LiveApiSync() {
 
     return () => {
       isMountedRef.current = false;
-      clearTimeout(initialCheck);
+      if (debounceTimer) clearTimeout(debounceTimer);
+      if (programsTimer) clearTimeout(programsTimer);
       if (debounceTimer) clearTimeout(debounceTimer);
       if (syncInterval) clearInterval(syncInterval);
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -498,7 +575,7 @@ export function LiveApiSync() {
         eventSource.close();
       }
     };
-  }, [fetchLiveStats, setApiStatus]);
+  }, [reconcile, syncCatalog, setApiStatus]);
 
   // Manual refresh (header button): one coordinated re-fetch of every live dataset. Read-only:
   // it never opens another SSE stream and never writes sales, spins or rewards.
@@ -507,10 +584,8 @@ export function LiveApiSync() {
     if (refreshRequest === 0) return;
     // Deferred a tick (no state change inside the effect body). Always clears the spinner.
     setTimeout(() => {
-      void syncCatalog();
-      void fetchGlobalDisplay();
-      void fetchLiveStats(false, true).then((ok) => {
-      if (ok === false) {
+      void reconcile(true).then(() => {
+      if (useArenaStore.getState().apiSyncStatus === "error") {
         const err = useArenaStore.getState().apiSyncError;
         useLiveStore.getState().setRefreshing(false, err ? `Refresh failed: ${err}` : "Refresh failed. Showing the last verified data.");
       } else {

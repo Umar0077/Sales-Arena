@@ -9,6 +9,7 @@ import {
   Palette, Webhook, ExternalLink, Menu, X, Award, Disc3, Activity, UserCog, LogOut,
 } from "lucide-react";
 import { adminApi, setCsrfToken } from "./admin-api";
+import { AdminLiveSync, SaveStatusPill } from "./AdminLiveSync";
 import { ArenaBackdrop } from "@/components/layout/ArenaBackdrop";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { HydrationGate } from "@/components/common/HydrationGate";
@@ -133,6 +134,7 @@ export default function AdminShell({ children, admin, csrfToken }: { children: R
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <SaveStatusPill />
             <Link
               href="/"
               target="sales-arena-live"
@@ -161,6 +163,7 @@ export default function AdminShell({ children, admin, csrfToken }: { children: R
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl p-4 pb-20 lg:p-8 lg:pb-20">
+          <AdminLiveSync />
           <HydrationGate>{children}</HydrationGate>
         </main>
       </div>

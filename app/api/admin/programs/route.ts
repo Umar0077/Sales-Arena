@@ -1,108 +1,34 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { dbQuery } from "@/lib/server/db/client";
-import { DEFAULT_PROGRAMS, type BonusProgram } from "@/store/rewards-store";
+import { NextResponse, type NextRequest } from "next/server";
+import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/lib/server/auth/guard";
+import { errorResponse, readJson } from "@/lib/server/spins/http";
+import { createProgram, listPrograms, ProgramError } from "@/lib/server/rewards/programs";
 
+export const dynamic = "force-dynamic";
+
+/** All reward programs from PostgreSQL (never built-in defaults). ?archived=1 includes archived ones. */
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
+  const sp = req.nextUrl.searchParams;
   try {
-    const res = await dbQuery("SELECT * FROM reward_programs ORDER BY created_at ASC");
-    if (res && res.rowCount && res.rowCount > 0) {
-      const programs: BonusProgram[] = res.rows.map((r) => ({
-        id: r.id,
-        kind: r.kind,
-        name: r.name,
-        enabled: r.enabled,
-        salesRequired: r.sales_required,
-        amount: Number(r.amount),
-        prizeLabel: r.prize_label,
-        maxAwards: r.max_awards,
-        startDate: r.start_date,
-        endDate: r.end_date,
-        headline: r.headline,
-        message: r.message,
-        rewardLine: r.reward_line,
-        sound: r.sound,
-        accent: r.accent,
-        popupSeconds: r.popup_seconds,
-        leaderboardCount: r.leaderboard_count,
-        activeSince: r.active_since,
-      }));
-      return NextResponse.json({ ok: true, programs, source: "database" });
-    }
+    const programs = await listPrograms(auth.pool, { includeArchived: sp.get("archived") === "1", kind: sp.get("kind") ?? undefined });
+    return NextResponse.json({ ok: true, programs }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
-    console.warn("[Admin Programs] Falling back to default programs", err);
+    return errorResponse(err, "Reward programs are unavailable: the database could not be reached.");
   }
-
-  return NextResponse.json({ ok: true, programs: DEFAULT_PROGRAMS, source: "defaults" });
 }
 
+/** Creates ONE new program. Other programs are never touched. */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req, { mutating: true });
   if (!auth.ok) return auth.response;
-
+  const body = await readJson(req);
+  if (!body) return jsonError(400, "Invalid request.");
   try {
-    const body = await req.json();
-    const programs: BonusProgram[] = Array.isArray(body?.programs) ? body.programs : [body];
-
-    for (const p of programs) {
-      await dbQuery(
-        `INSERT INTO reward_programs (
-           id, kind, name, enabled, sales_required, amount, prize_label, max_awards, start_date, end_date, headline, message, reward_line, sound, accent, popup_seconds, leaderboard_count, active_since, updated_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
-         ON CONFLICT (id) DO UPDATE SET
-           kind = EXCLUDED.kind,
-           name = EXCLUDED.name,
-           enabled = EXCLUDED.enabled,
-           sales_required = EXCLUDED.sales_required,
-           amount = EXCLUDED.amount,
-           prize_label = EXCLUDED.prize_label,
-           max_awards = EXCLUDED.max_awards,
-           start_date = EXCLUDED.start_date,
-           end_date = EXCLUDED.end_date,
-           headline = EXCLUDED.headline,
-           message = EXCLUDED.message,
-           reward_line = EXCLUDED.reward_line,
-           sound = EXCLUDED.sound,
-           accent = EXCLUDED.accent,
-           popup_seconds = EXCLUDED.popup_seconds,
-           leaderboard_count = EXCLUDED.leaderboard_count,
-           active_since = EXCLUDED.active_since,
-           updated_at = NOW()`,
-        [
-          p.id,
-          p.kind,
-          p.name,
-          p.enabled,
-          p.salesRequired,
-          p.amount,
-          p.prizeLabel || "",
-          p.maxAwards,
-          p.startDate || null,
-          p.endDate || null,
-          p.headline,
-          p.message,
-          p.rewardLine,
-          p.sound,
-          p.accent,
-          p.popupSeconds,
-          p.leaderboardCount,
-          p.activeSince || null,
-        ]
-      );
-    }
-
-    await dbQuery(
-      `INSERT INTO audit_logs (actor, admin_id, action, target_type, target_id, details)
-       VALUES ('admin', $1, 'reward_programs.update', 'reward_programs', NULL, $2)`,
-      [auth.ctx.admin.id, JSON.stringify({ count: Array.isArray(body?.programs) ? body.programs.length : undefined })],
-    );
-    return NextResponse.json({ ok: true, message: "Programs saved successfully" });
+    const program = await createProgram(auth.pool, body, { adminId: auth.ctx.admin.id, ip: requestIp(req), userAgent: requestUserAgent(req) });
+    return NextResponse.json({ ok: true, program }, { status: 201 });
   } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Failed to update programs" },
-      { status: 500 }
-    );
+    if (err instanceof ProgramError) return jsonError(err.status, err.message);
+    return errorResponse(err);
   }
 }

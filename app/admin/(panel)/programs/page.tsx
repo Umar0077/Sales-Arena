@@ -1,18 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { ExternalLink, MonitorPlay, Trash2 } from "lucide-react";
+import { ExternalLink, MonitorPlay } from "lucide-react";
 import { useSettingsStore } from "@/store/settings-store";
-import { useRewardsStore, programFor } from "@/store/rewards-store";
-import { useArenaStore } from "@/store/arena-store";
 import { ARENA_MODE_LABEL, ARENA_MODE_ORDER } from "@/store/arena-mode-store";
-import { arenaBus } from "@/lib/events/bus";
+import { saveSettings } from "@/lib/admin/global-settings";
+import { adminApi } from "@/components/admin/admin-api";
 import { browserTimezone, isValidTimezone } from "@/lib/time/business";
-import { formatReward } from "@/lib/rewards/engine";
-import { ProgramEditor } from "@/components/admin/ProgramEditor";
-import { Section, Field, Toggle, Choice, SelectField, TextField, GhostButton, PrimaryButton, inputClass } from "@/components/admin/ui";
-import { TimeAgo } from "@/components/common/TimeAgo";
+import { Section, Field, Toggle, Choice, SelectField, TextField, GhostButton, inputClass } from "@/components/admin/ui";
+import { Notice } from "@/components/admin/spins/shared";
+import { ProgramsTab } from "@/components/admin/rewards/ProgramsTab";
+import { AwardHistoryTab } from "@/components/admin/rewards/AwardHistoryTab";
 import { cn } from "@/lib/utils";
 import type { ArenaMode } from "@/types";
 
@@ -24,15 +23,14 @@ const COMMON_TZ = ["Asia/Karachi", "Asia/Dubai", "Asia/Kolkata", "Europe/London"
 
 export default function RewardProgramsPage() {
   const [tab, setTab] = useState<Tab>("Arena Display");
-  const programs = useRewardsStore((s) => s.programs);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="font-heading text-xl font-bold text-white">Reward Programs & Arena Management</h2>
         <p className="mt-1 max-w-3xl text-sm text-text-muted">
-          Daily, weekly and monthly bonuses and Spin &amp; Win are tracked separately, and only validated sales count. Demo mode:
-          awards are calculated in this browser. In production, bonus eligibility and payouts must be confirmed by the backend.
+          Everything here is saved in PostgreSQL and applied to every connected Live Arena screen within seconds. Awards are created by the server from
+          genuine Safe Quote validated sales only. Arena screen visibility never decides reward eligibility.
         </p>
       </div>
 
@@ -51,88 +49,110 @@ export default function RewardProgramsPage() {
       </div>
 
       {tab === "Arena Display" && <ArenaDisplayTab />}
-      {tab === "Daily Rewards" && programFor(programs, "daily") && <ProgramEditor program={programFor(programs, "daily")!} />}
-      {tab === "Weekly Rewards" && programFor(programs, "weekly") && <ProgramEditor program={programFor(programs, "weekly")!} />}
-      {tab === "Monthly Rewards" && programFor(programs, "monthly") && <ProgramEditor program={programFor(programs, "monthly")!} />}
+      {tab === "Daily Rewards" && <ProgramsTab kind="daily" />}
+      {tab === "Weekly Rewards" && <ProgramsTab kind="weekly" />}
+      {tab === "Monthly Rewards" && <ProgramsTab kind="monthly" />}
       {tab === "Spin & Win" && <SpinTab />}
-      {tab === "Award History" && <HistoryTab />}
+      {tab === "Award History" && <AwardHistoryTab />}
     </div>
   );
 }
 
 function ArenaDisplayTab() {
   const s = useSettingsStore();
-  const update = s.update;
-  const [sent, setSent] = useState<ArenaMode | null>(null);
+  const [sent, setSent] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [tzDraft, setTzDraft] = useState(s.businessTimezone);
   const tzOk = tzDraft === "" || isValidTimezone(tzDraft);
-  const enabledCount = ARENA_MODE_ORDER.filter((m) => s.arenaModes[m]).length;
+  const enabled = ARENA_MODE_ORDER.filter((m) => s.arenaModes[m]);
+
+  const switchNow = async (m: ArenaMode) => {
+    setSent(null);
+    const r = await adminApi("/api/admin/arena-config/screen", { method: "POST", body: { screen: m } });
+    setSent(r.ok ? { kind: "ok", text: `Every connected Live Arena screen is switching to ${ARENA_MODE_LABEL[m]}.` } : { kind: "error", text: r.error });
+  };
 
   return (
     <div className="space-y-6">
-      <Section title="Live Arena screens" description="Choose which screens exist on the Live Arena and which one it opens on.">
-        {ARENA_MODE_ORDER.map((m) => (
-          <Toggle
-            key={m}
-            label={ARENA_MODE_LABEL[m]}
-            checked={s.arenaModes[m]}
-            onChange={(v) => {
-              if (!v && enabledCount <= 1) return; // keep at least one screen
-              update({ arenaModes: { ...s.arenaModes, [m]: v } });
-            }}
+      <Section
+        title="Live Arena screens"
+        description="Which screens exist on every public display. A disabled screen is hidden everywhere and cannot be opened from the selector or a direct link. Its sales are still tracked, and its rewards follow the separate Program Active switch."
+      >
+        <div className="grid gap-x-6 sm:grid-cols-2" data-testid="screen-toggles">
+          {ARENA_MODE_ORDER.map((m) => (
+            <Toggle key={m} label={ARENA_MODE_LABEL[m]} checked={s.arenaModes[m]} onChange={(v) => void saveSettings({ arenaModes: { ...s.arenaModes, [m]: v } }, { immediate: true })} />
+          ))}
+        </div>
+        {enabled.length === 0 && (
+          <Notice kind="info">All public screens are disabled: every display shows the offline screen. The Admin Panel stays available.</Notice>
+        )}
+        {enabled.length > 0 && (
+          <SelectField<ArenaMode>
+            label="Default screen"
+            hint="Newly opened displays start here. Displays already open stay on their screen; use “Switch the Live Arena now” to move them."
+            value={s.arenaModes[s.defaultArenaMode] ? s.defaultArenaMode : enabled[0]}
+            options={enabled.map((m) => ({ value: m, label: ARENA_MODE_LABEL[m] }))}
+            onChange={(v) => void saveSettings({ defaultArenaMode: v }, { immediate: true })}
           />
-        ))}
-        <SelectField<ArenaMode>
-          label="Default screen"
-          hint="Displays open on this screen. Changing it also switches open displays."
-          value={s.defaultArenaMode}
-          options={ARENA_MODE_ORDER.filter((m) => s.arenaModes[m]).map((m) => ({ value: m, label: ARENA_MODE_LABEL[m] }))}
-          onChange={(v) => update({ defaultArenaMode: v })}
-        />
+        )}
         <Toggle
           label="Show screen selector on the Live Arena"
-          hint="Off: only admins can switch screens, from here."
+          hint="Off: the selector is hidden on every public display. Admins can still switch screens from here."
           checked={s.showModeSelector}
-          onChange={(v) => update({ showModeSelector: v })}
+          onChange={(v) => void saveSettings({ showModeSelector: v }, { immediate: true })}
         />
-        <Field label="Switch the Live Arena now" hint="Sends the screen to Live Arena displays open in this browser.">
+        <Field label="Switch the Live Arena now" hint="Moves every connected display to this screen right away (also displays that reconnect later).">
           <div className="flex flex-wrap gap-2">
-            {ARENA_MODE_ORDER.filter((m) => s.arenaModes[m]).map((m) => (
-              <GhostButton
-                key={m}
-                data-testid={`switch-${m}`}
-                onClick={() => {
-                  arenaBus.emit("arena:mode", { mode: m });
-                  setSent(m);
-                }}
-              >
+            {enabled.map((m) => (
+              <GhostButton key={m} data-testid={`switch-${m}`} onClick={() => void switchNow(m)}>
                 <MonitorPlay className="h-4 w-4" /> {ARENA_MODE_LABEL[m]}
               </GhostButton>
             ))}
           </div>
-          {sent && <p className="mt-2 text-sm text-emerald-300" role="status">Live Arena switched to {ARENA_MODE_LABEL[sent]}.</p>}
+          {sent && <div className="mt-2"><Notice kind={sent.kind}>{sent.text}</Notice></div>}
         </Field>
       </Section>
 
-      <Section title="Program rules">
-        <Toggle
-          label="Programs run at the same time"
-          hint="On: one validated sale can count for daily, weekly and monthly bonuses. Off: only the default screen's program awards. Spin & Win is controlled separately."
-          checked={s.programsConcurrent}
-          onChange={(v) => update({ programsConcurrent: v })}
+      <Section
+        title="Public announcements"
+        description="Controls what appears publicly. Turning an announcement off never deletes earned awards or spin credits. Category switches are on each Daily / Weekly / Monthly tab."
+      >
+        <div className="grid gap-x-6 sm:grid-cols-2">
+          <Toggle label="Celebration popups" hint="Master switch for reward and spin popups on every screen." checked={s.celebrationPopups} onChange={(v) => void saveSettings({ celebrationPopups: v }, { immediate: true })} />
+          <Toggle label="Cash bonus announcements" checked={s.announceCash} onChange={(v) => void saveSettings({ announceCash: v }, { immediate: true })} />
+          <Toggle label="Prize announcements" hint="Non-cash rewards: prizes, vouchers, badges, perks." checked={s.announcePrizes} onChange={(v) => void saveSettings({ announcePrizes: v }, { immediate: true })} />
+          <Toggle label="Automatic spin announcements" checked={s.announceAutoSpins} onChange={(v) => void saveSettings({ announceAutoSpins: v }, { immediate: true })} />
+          <Toggle label="Manual spin announcements" hint="When an admin allocates spins." checked={s.announceManualSpins} onChange={(v) => void saveSettings({ announceManualSpins: v }, { immediate: true })} />
+          <Toggle label="Celebration sounds" checked={s.soundEnabled} onChange={(v) => void saveSettings({ soundEnabled: v }, { immediate: true })} />
+        </div>
+        <Choice
+          label="Celebration intensity"
+          value={s.intensity}
+          options={[{ value: "calm", label: "Calm" }, { value: "standard", label: "Standard" }, { value: "epic", label: "Epic" }]}
+          onChange={(v) => void saveSettings({ intensity: v })}
         />
-        <Field label="Business timezone" hint={`Day, week and month boundaries. Empty = this device (${browserTimezone()}).`}>
+        <Toggle label="Confetti & particles" checked={s.particles} onChange={(v) => void saveSettings({ particles: v })} />
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/admin/arena" className="font-semibold text-secondary hover:underline">Live Arena on / off →</Link>
+          <Link href="/admin/celebrations" className="font-semibold text-secondary hover:underline">Popup durations & messages →</Link>
+          <Link href="/admin/settings" className="font-semibold text-secondary hover:underline">Sounds & spinner look →</Link>
+        </div>
+      </Section>
+
+      <Section
+        title="Business calendar"
+        description="Day, week and month boundaries for targets, leaderboards and rewards (server and displays). Daylight-saving changes follow the timezone. Several categories always count at the same time; use each category's Program Active switch to stop one."
+      >
+        <Field label="Business timezone" hint={`Empty = server default. This device: ${browserTimezone()}.`}>
           <div className="flex flex-wrap items-center gap-2">
             <input
               list="tz-options"
               value={tzDraft}
-              onChange={(e) => {
-                setTzDraft(e.target.value);
-                if (e.target.value === "" || isValidTimezone(e.target.value)) update({ businessTimezone: e.target.value });
-              }}
+              onChange={(e) => setTzDraft(e.target.value)}
+              onBlur={() => tzOk && tzDraft !== s.businessTimezone && void saveSettings({ businessTimezone: tzDraft }, { immediate: true })}
               placeholder="e.g. Asia/Karachi"
               className={cn(inputClass, "max-w-[260px]", !tzOk && "border-rose-500/60")}
               aria-invalid={!tzOk}
+              data-testid="business-timezone"
             />
             <datalist id="tz-options">
               {COMMON_TZ.map((z) => (
@@ -146,71 +166,40 @@ function ArenaDisplayTab() {
           label="Week starts on"
           value={String(s.weekStartDay)}
           options={WEEKDAYS.map((d, i) => ({ value: String(i), label: d }))}
-          onChange={(v) => update({ weekStartDay: Number(v) })}
+          onChange={(v) => void saveSettings({ weekStartDay: Number(v) }, { immediate: true })}
         />
-        <Field label="Floor targets" hint="Validated sales for the whole floor, shown on the Weekly and Monthly screens.">
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-text-secondary">
-              Weekly
-              <input type="number" min={1} value={s.weeklyFloorTarget} onChange={(e) => update({ weeklyFloorTarget: Math.max(1, Number(e.target.value) || 1) })} className={`${inputClass} w-28`} />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-text-secondary">
-              Monthly
-              <input type="number" min={1} value={s.monthlyFloorTarget} onChange={(e) => update({ monthlyFloorTarget: Math.max(1, Number(e.target.value) || 1) })} className={`${inputClass} w-28`} />
-            </label>
-          </div>
-        </Field>
-        <TextField label="Currency label" value={s.currencyLabel} maxLength={6} onChange={(v) => update({ currencyLabel: v })} />
-      </Section>
-
-      <Section title="Celebrations & sound" description="More options in Celebration Settings and Appearance & Sound.">
-        <Choice
-          label="Celebration intensity"
-          value={s.intensity}
-          options={[{ value: "calm", label: "Calm" }, { value: "standard", label: "Standard" }, { value: "epic", label: "Epic" }]}
-          onChange={(v) => update({ intensity: v })}
-        />
-        <Toggle label="Sound effects" checked={s.soundEnabled} onChange={(v) => update({ soundEnabled: v })} />
-        <Toggle label="Confetti & particles" checked={s.particles} onChange={(v) => update({ particles: v })} />
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/admin/leaderboard" className="font-semibold text-secondary hover:underline">Leaderboard appearance →</Link>
-          <Link href="/admin/celebrations" className="font-semibold text-secondary hover:underline">Spin popups & messages →</Link>
-          <Link href="/admin/settings" className="font-semibold text-secondary hover:underline">Sounds & spinner look →</Link>
-        </div>
+        <TextField label="Currency label (display)" value={s.currencyLabel} maxLength={6} onChange={(v) => v.trim() && void saveSettings({ currencyLabel: v })} />
+        <p className="text-sm text-text-muted">
+          Floor targets are managed in <Link href="/admin/targets" className="font-semibold text-secondary hover:underline">Target Management</Link>.
+        </p>
       </Section>
     </div>
   );
 }
 
 function SpinTab() {
-  const spinOn = useSettingsStore((s) => s.spinFeatureEnabled);
-  const update = useSettingsStore((s) => s.update);
-  const rules = useArenaStore((s) => s.targetRules);
-  const spins = useArenaStore((s) => s.spins);
-  const def = rules.find((r) => r.teamId === null);
-  const [perSpin, setPerSpin] = useState(def?.salesPerSpin ?? 2);
-
+  const s = useSettingsStore();
   return (
     <div className="space-y-6">
-      <Section title="Spin & Win" description="Spins are earned only from validated sales, by their own rule. Daily, weekly and monthly bonuses never add spins.">
-        <Toggle label="Spin & Win enabled" checked={spinOn} onChange={(v) => update({ spinFeatureEnabled: v })} />
-        <Field label="Validated sales per spin" hint="Default rule. Team-specific rules are in Target Management.">
-          <div className="flex items-center gap-2">
-            <input type="number" min={1} max={50} value={perSpin} onChange={(e) => setPerSpin(Math.max(1, Number(e.target.value) || 1))} className={`${inputClass} w-24`} />
-            <PrimaryButton
-              disabled={!def || def.salesPerSpin === perSpin}
-              onClick={() => def && useArenaStore.getState().upsertTargetRule({ ...def, salesPerSpin: perSpin })}
-            >
-              Save
-            </PrimaryButton>
-          </div>
-        </Field>
+      <Section title="Spin & Win" description="Spins are earned only from validated sales by their own server rules. Daily, weekly and monthly bonuses never add spins.">
+        <Toggle
+          label="Spin & Win screen"
+          hint="Shows the Spin & Win screen on public displays."
+          checked={s.arenaModes.spin}
+          onChange={(v) => void saveSettings({ arenaModes: { ...s.arenaModes, spin: v } }, { immediate: true })}
+        />
+        <Toggle
+          label="Spin rewards on the Live Arena"
+          hint="Off hides SPIN NOW popups and launches on every screen. Earned credits are kept."
+          checked={s.spinFeatureEnabled}
+          onChange={(v) => void saveSettings({ spinFeatureEnabled: v }, { immediate: true })}
+        />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { href: "/admin/rewards", t: "Prizes", d: "Add, edit, remove wheel prizes" },
-            { href: "/admin/targets", t: "Eligibility rules", d: "Per-team sales per spin" },
-            { href: "/admin/settings", t: "Spin animation", d: "Theme, glow, duration" },
-            { href: "/admin/spins", t: "Spin history", d: `${spins.length} spins recorded` },
+            { href: "/admin/spin-management", t: "Spin rules & automatic spins", d: "Sales per spin, activation cutoff, manual allocation" },
+            { href: "/admin/rewards", t: "Prize wheel", d: "Add, edit, reorder and archive wheel prizes" },
+            { href: "/admin/celebrations", t: "Spin popups", d: "SPIN NOW popup, messages, timeout" },
+            { href: "/admin/spins", t: "Spin history", d: "Every spin from PostgreSQL" },
           ].map((l) => (
             <Link key={l.href} href={l.href} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:border-primary/40">
               <div className="flex items-center justify-between font-semibold text-white">
@@ -222,71 +211,5 @@ function SpinTab() {
         </div>
       </Section>
     </div>
-  );
-}
-
-function HistoryTab() {
-  const awards = useRewardsStore((s) => s.awards);
-  const currency = useSettingsStore((s) => s.currencyLabel);
-  const [kind, setKind] = useState<"all" | "daily" | "weekly" | "monthly">("all");
-  const rows = useMemo(() => (kind === "all" ? awards : awards.filter((a) => a.kind === kind)), [awards, kind]);
-  const total = rows.reduce((t, a) => t + a.amount, 0);
-
-  return (
-    <Section
-      title="Award history"
-      description="Every bonus awarded, with the rule as it was at the time. Editing a program never changes past awards."
-      actions={
-        <GhostButton
-          className="border-rose-500/30 text-rose-300"
-          onClick={() => confirm("Delete all demo award history?") && useRewardsStore.getState().clearAwards()}
-        >
-          <Trash2 className="h-4 w-4" /> Clear demo history
-        </GhostButton>
-      }
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Choice
-          label="Program"
-          value={kind}
-          options={[{ value: "all", label: "All" }, { value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }]}
-          onChange={setKind}
-        />
-      </div>
-      <p className="text-sm text-text-secondary">
-        {rows.length} award{rows.length === 1 ? "" : "s"} · total <b className="text-white">{currency} {total.toLocaleString("en-US")}</b>
-      </p>
-      <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
-        <table className="w-full min-w-[640px] text-sm" data-testid="award-history">
-          <thead className="bg-white/[0.04] text-left text-xs uppercase tracking-wider text-text-muted">
-            <tr>
-              <th className="px-4 py-2.5">Agent</th>
-              <th className="px-4 py-2.5">Program</th>
-              <th className="px-4 py-2.5">Period</th>
-              <th className="px-4 py-2.5">Rule then</th>
-              <th className="px-4 py-2.5 text-right">Reward</th>
-              <th className="px-4 py-2.5 text-right">When</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.05]">
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-text-muted">No awards yet.</td>
-              </tr>
-            )}
-            {rows.slice(0, 100).map((a) => (
-              <tr key={a.id}>
-                <td className="px-4 py-2.5 font-medium text-white">{a.agentName}</td>
-                <td className="px-4 py-2.5 text-text-secondary">{a.programName}</td>
-                <td className="px-4 py-2.5 text-text-muted tabular">{a.periodKey.slice(2)} · #{a.n}</td>
-                <td className="px-4 py-2.5 text-text-muted">{a.salesRequired} validated</td>
-                <td className="px-4 py-2.5 text-right font-semibold text-gold tabular">{formatReward(a.amount, a.prizeLabel, currency)}</td>
-                <td className="px-4 py-2.5 text-right text-text-muted"><TimeAgo iso={a.createdAt} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Section>
   );
 }

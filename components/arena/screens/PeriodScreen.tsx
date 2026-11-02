@@ -101,9 +101,8 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
   }, [dataSourceMode, periodMetrics, sales, history, historySubmitted, agents, awards, kind, info, program?.salesRequired]);
 
   const accent = program?.accent ?? "#22D3FF";
-  const concurrent = useSettingsStore((s) => s.programsConcurrent);
-  const defaultMode = useSettingsStore((s) => s.defaultArenaMode);
-  const allowed = concurrent || defaultMode === kind;
+  const cat = useSettingsStore((s) => s.rewardCategories[kind]);
+  const allowed = cat.active && cat.showOnArena;
   const live = !!program?.enabled && allowed && withinDates(info.today, program.startDate, program.endDate);
   const daysLeft = kind === "monthly" ? daysLeftInMonth(info.today) : 6 - info.daysBack;
   const dateRangeLabel = periodMetrics?.dateRange?.detailedLabel || info.label;
@@ -146,7 +145,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           inactiveNote={
             dateRangeLabel
               ? dateRangeLabel
-              : (!program?.enabled ? "Campaign paused" : !allowed ? "Not running (another screen is the default)" : !live ? "Outside campaign dates" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`)
+              : (!program?.enabled ? "Campaign paused" : !allowed ? "Paused by admin" : !live ? "Outside campaign dates" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`)
           }
         />
 

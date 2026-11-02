@@ -6,88 +6,9 @@ import type { DisplaySettings, QualityPreset, SoundCategory } from "@/types";
 
 export const SETTINGS_STORAGE_KEY = "sales-arena:settings";
 
-export const DEFAULT_SOUND_CATEGORIES: Record<SoundCategory, boolean> = {
-  sale: true,
-  target: true,
-  spinUnlocked: true,
-  wheelActivate: true,
-  wheelMove: true,
-  tick: true,
-  reveal: true,
-  ui: true,
-  special: true,
-};
+import { DEFAULT_SETTINGS, DEFAULT_SOUND_CATEGORIES } from "@/lib/settings/defaults";
+export { DEFAULT_SETTINGS, DEFAULT_SOUND_CATEGORIES };
 
-export const DEFAULT_SETTINGS: DisplaySettings = {
-  intensity: "standard",
-  particles: true,
-  soundEnabled: true,
-  volume: 0.7,
-  soundCategories: DEFAULT_SOUND_CATEGORIES,
-  celebrationDuration: 5,
-  quality: "auto",
-  spinnerFallback2D: false,
-  motion: "system",
-  accent: "violet",
-  diagnostics: false,
-  tvMode: false,
-  seededSpins: false,
-  spinSeed: 2026,
-
-  spinnerTheme: "neon",
-  segmentColorMode: "theme",
-  glowIntensity: 1,
-  spinnerLights: true,
-  lightSpeed: 1,
-  spinDurationScale: 1,
-
-  arenaEnabled: true,
-  arenaOfflineMessage: "We'll be back on air shortly.",
-  brandName: "FE SALES ARENA",
-  brandTagline: "Live Sales Broadcast",
-  customLogo: null,
-  backgroundEffects: "full",
-  showKpis: true,
-  showHero: true,
-  showActivity: true,
-  autoSimulate: false,
-  autoSimulateEverySec: 8,
-  showDemoSpinButton: true,
-
-  leaderboardVisible: true,
-  leaderboardCount: 10,
-  leaderboardCriteria: "sales",
-  leaderboardPeriod: "daily",
-  leaderboardTeamId: null,
-  leaderboardCampaignId: null,
-  leaderboardAnimations: true,
-  leaderboardSize: "comfortable",
-  topPerformerStyle: "podium",
-
-  saleCelebrationStyle: "toast",
-  announceMilestones: true,
-  announceTeamTargets: true,
-  spinFeatureEnabled: true,
-  spinFlowEnabled: true,
-  spinPopupTimeoutSec: 30,
-  achievementHeadline: "CONGRATULATIONS, {agent}!",
-  achievementMessage: "You've completed {sales} approved sales!",
-  achievementReward: "You've earned {spins}!",
-  revealHeadline: "CONGRATULATIONS, {agent}!",
-  revealMessage: "YOU WON {prize}!",
-  revealStyle: "cinematic",
-
-  arenaModes: { daily: true, weekly: true, monthly: true, spin: true },
-  defaultArenaMode: "daily",
-  showModeSelector: true,
-  // Opt-in: by default only the default screen's bonus program awards.
-  programsConcurrent: false,
-  businessTimezone: "America/New_York",
-  weekStartDay: 1,
-  weeklyFloorTarget: 3500,
-  monthlyFloorTarget: 16000,
-  currencyLabel: "Rs.",
-};
 
 /** Fills a message template such as "CONGRATULATIONS, {agent}!". */
 export function fillTemplate(template: string, values: Record<string, string | number>): string {
@@ -154,6 +75,7 @@ export const useSettingsStore = create<SettingsStore>()(
           ...p,
           soundCategories: { ...DEFAULT_SOUND_CATEGORIES, ...(p.soundCategories ?? {}) },
           arenaModes: { ...DEFAULT_SETTINGS.arenaModes, ...(p.arenaModes ?? {}) },
+          rewardCategories: { ...DEFAULT_SETTINGS.rewardCategories, ...(p.rewardCategories ?? {}) },
         };
       },
       onRehydrateStorage: () => () => {

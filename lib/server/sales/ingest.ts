@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { arenaBroadcaster } from "../events/broadcaster";
-import { businessCalendar, grantAutomaticSpins, readSpinSettings, type AutoGrant } from "../spins/ledger";
+import { grantAutomaticSpins, readSpinSettings, type AutoGrant } from "../spins/ledger";
+import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { evaluateBonusAwards, type BonusAwardRecord } from "../rewards/engine";
 
 /**
@@ -128,9 +129,17 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
         [caseId, source, input.eventId?.slice(0, 128) ?? null],
       );
       if (rewardEligible && cutoff) {
-        const calendar = businessCalendar();
+        const cfg = (await readArenaConfig(client)).values;
+        const calendar = calendarFrom(cfg);
+        const config = {
+          categories: cfg.rewardCategories as Record<string, { active: boolean; showOnArena: boolean }>,
+          arenaEnabled: cfg.arenaEnabled !== false,
+          celebrationPopups: cfg.celebrationPopups !== false,
+          announceCash: cfg.announceCash !== false,
+          announcePrizes: cfg.announcePrizes !== false,
+        };
         spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar });
-        bonuses = await evaluateBonusAwards(client, { userCode, agentId, closerName, saleId, validatedAt, cutoff, calendar });
+        bonuses = await evaluateBonusAwards(client, { userCode, agentId, closerName, saleId, caseId, validatedAt, cutoff, calendar, config });
       }
     }
     if (input.eventId) {
@@ -160,7 +169,8 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
         spinsAvailable: last.balanceAfter,
       });
     }
-    for (const b of result.bonuses) arenaBroadcaster.broadcast("bonus.awarded", { awardId: b.id, closer: { userCode, name: closerName }, amount: b.amount, prizeLabel: b.prizeLabel, programName: b.programName, kind: b.kind });
+    // One event per committed award row (the displays dedupe by awardId).
+    for (const b of result.bonuses) arenaBroadcaster.broadcast("rewards.award.created", { award: publicAward(b, userCode, closerName) });
   }
   return result;
 }
@@ -195,4 +205,27 @@ export async function recordSaleStatus(
   } finally {
     client.release();
   }
+}
+
+/** What the Live Arena may show about an award: agent name, reward and sales count. No customer data. */
+export function publicAward(b: BonusAwardRecord, userCode: string, agentName: string) {
+  return {
+    id: b.id,
+    programId: b.programId,
+    programName: b.programName,
+    kind: b.kind,
+    rewardType: b.rewardType,
+    agentId: agentIdFor(userCode),
+    userCode,
+    agentName,
+    periodKey: b.periodKey,
+    n: b.n,
+    validatedAtAward: b.validatedCount,
+    salesRequired: b.salesRequired,
+    amount: b.amount,
+    currency: b.currency,
+    prizeLabel: b.prizeLabel,
+    announce: b.announce,
+    createdAt: b.createdAt,
+  };
 }

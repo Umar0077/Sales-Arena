@@ -5,6 +5,16 @@ export type ArenaBroadcastEventType =
   | "spin.completed"
   | "rewards.catalog.updated"
   | "settings.performance.updated"
+  | "settings.celebration.updated"
+  | "settings.appearance.updated"
+  | "settings.leaderboard.updated"
+  | "arena.availability.updated"
+  | "arena.screens.updated"
+  | "arena.screen.changed"
+  | "rewards.program.updated"
+  | "rewards.program.visibility.updated"
+  | "rewards.award.created"
+  | "rewards.award.updated"
   | "target.updated"
   | "stats.updated"
   | "connection.status"
@@ -29,7 +39,24 @@ class ArenaBroadcaster {
     };
   }
 
+  private relay: ((e: ArenaBroadcastEvent) => void) | null = null;
+
+  /** Cross-process forwarding (lib/server/events/pg-bus.ts); null in single-process mode. */
+  public setRelay(fn: ((e: ArenaBroadcastEvent) => void) | null): void {
+    this.relay = fn;
+  }
+
   public broadcast(type: ArenaBroadcastEventType, payload: unknown): void {
+    const event = this.deliverLocal(type, payload);
+    try {
+      this.relay?.(event);
+    } catch (err) {
+      console.error("[ArenaBroadcaster relay]", err);
+    }
+  }
+
+  /** Delivers to this process's subscribers only (also used for events relayed from other processes). */
+  public deliverLocal(type: ArenaBroadcastEventType, payload: unknown): ArenaBroadcastEvent {
     const event: ArenaBroadcastEvent = {
       type,
       payload,
@@ -42,6 +69,7 @@ class ArenaBroadcaster {
         console.error("[ArenaBroadcaster Error]", err);
       }
     }
+    return event;
   }
 
   public getSubscriberCount(): number {

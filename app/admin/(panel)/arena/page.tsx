@@ -1,5 +1,6 @@
 "use client";
 
+import { saveSettings } from "@/lib/admin/global-settings";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, Gift, Disc3, RotateCcw, Upload, ExternalLink, Zap } from "lucide-react";
@@ -24,7 +25,7 @@ const STATUS_STYLE: Record<SaleStatus, string> = {
   duplicate: "border-white/15 bg-white/5 text-text-secondary",
 };
 
-const MAX_LOGO_BYTES = 400 * 1024;
+const MAX_LOGO_BYTES = 280 * 1024; // stored in PostgreSQL and sent to every display
 
 export default function LiveArenaControlsPage() {
   const agents = useArenaStore((s) => s.agents);
@@ -34,7 +35,8 @@ export default function LiveArenaControlsPage() {
   const bonus = useArenaStore((s) => s.bonusCredits);
   const rules = useArenaStore((s) => s.targetRules);
   const settings = useSettingsStore();
-  const update = settings.update;
+  const update = saveSettings; // global settings → PostgreSQL → every display
+  const liveMode = useArenaStore((s) => s.liveMode);
 
   const [agentId, setAgentId] = useState(agents[0]?.id ?? "");
   const [bulk, setBulk] = useState(2);
@@ -93,11 +95,10 @@ export default function LiveArenaControlsPage() {
     setLogoError(null);
     if (!file) return;
     if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) return setLogoError("Use a PNG, JPG, WebP or SVG image.");
-    if (file.size > MAX_LOGO_BYTES) return setLogoError("Logo must be 400 KB or smaller (it is stored in this browser).");
+    if (file.size > MAX_LOGO_BYTES) return setLogoError("Logo must be 280 KB or smaller.");
     const reader = new FileReader();
     reader.onload = () => {
-      update({ customLogo: String(reader.result) });
-      notify("Logo updated.");
+      void update({ customLogo: String(reader.result) }, { immediate: true }).then((ok) => ok && notify("Logo updated on every screen."));
     };
     reader.readAsDataURL(file);
   };
@@ -129,11 +130,10 @@ export default function LiveArenaControlsPage() {
       >
         <Toggle
           label="Live Arena on"
-          hint="Applies straight away to Live Arena tabs in this browser."
+          hint="Saved in PostgreSQL and applied to every connected Live Arena screen. Off: awards are still recorded, but nothing is announced publicly."
           checked={settings.arenaEnabled}
           onChange={(v) => {
-            update({ arenaEnabled: v });
-            notify(v ? "Live Arena is back on air." : "Live Arena switched off.");
+            void update({ arenaEnabled: v }, { immediate: true }).then((ok) => ok && notify(v ? "Live Arena is back on air on every screen." : "Live Arena switched off on every screen."));
           }}
         />
         <TextField
@@ -144,6 +144,13 @@ export default function LiveArenaControlsPage() {
         />
       </Section>
 
+      {liveMode ? (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary" data-testid="demo-tools-unavailable">
+          <b className="text-white">Demo tools are off in live mode.</b> The sales simulator, automatic demo sales, test celebrations and demo data
+          reset only work in demo mode: live sales come from Safe Quote only and are never simulated. Use Spin Management to allocate real spins.
+        </div>
+      ) : (
+      <>
       <Section
         title="Sales simulator"
         description="Record demo sales for an agent. Keep the Live Arena open in another tab (same browser) to watch celebrations and the SPIN NOW popup."
@@ -279,6 +286,8 @@ export default function LiveArenaControlsPage() {
           format={(v) => `${v}s`}
         />
       </Section>
+      </>
+      )}
 
       <Section title="Live Arena sections" description="Choose what the TV display shows.">
         <Toggle label="KPI cards" hint="Approved sales, target, completion, spins" checked={settings.showKpis} onChange={(v) => update({ showKpis: v })} />
@@ -286,7 +295,7 @@ export default function LiveArenaControlsPage() {
         <Toggle label="Sales & achievements feeds" checked={settings.showActivity} onChange={(v) => update({ showActivity: v })} />
         <Toggle
           label="Demo spin button"
-          hint="Small button on the Live Arena that runs the full spin journey for presentations."
+          hint="This browser only: a small button that runs a visual-only spin for presentations (never a real spin)."
           checked={settings.showDemoSpinButton}
           onChange={(v) => update({ showDemoSpinButton: v })}
         />
@@ -296,7 +305,7 @@ export default function LiveArenaControlsPage() {
       <Section title="Brand" description="Shown in the Live Arena header, the spin stage and the Admin Panel.">
         <TextField label="Brand name" value={settings.brandName} maxLength={28} onChange={(v) => update({ brandName: v })} />
         <TextField label="Tagline" value={settings.brandTagline} maxLength={40} onChange={(v) => update({ brandTagline: v })} />
-        <Field label="Logo" hint="PNG, JPG, WebP or SVG up to 400 KB. Square images work best.">
+        <Field label="Logo" hint="PNG, JPG, WebP or SVG up to 280 KB. Square images work best.">
           <div className="flex flex-wrap items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={settings.customLogo || "/brand/logo-mark.webp"} alt="Current logo" className="h-14 w-14 rounded-xl border border-white/10 bg-white/5 object-contain p-1" />
@@ -333,7 +342,9 @@ export default function LiveArenaControlsPage() {
         />
       </Section>
 
-      <Section title="Test celebrations" description="Sends a sample celebration to the Live Arena display.">
+      {!liveMode && (
+      <>
+      <Section title="Test celebrations" description="Demo mode: sends a sample celebration to Live Arena tabs open in this browser.">
         <div className="flex flex-wrap gap-2">
           {TIER_ORDER.map((t) => (
             <GhostButton key={t} onClick={() => triggerCelebration(t)}>
@@ -358,6 +369,8 @@ export default function LiveArenaControlsPage() {
           </GhostButton>
         </Field>
       </Section>
+      </>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { arenaBus } from "@/lib/events/bus";
 import { processValidatedSale } from "@/lib/rewards/runner";
 import { useLiveStore } from "@/store/live-store";
 import { applyGlobalDisplay, type GlobalDisplay } from "@/lib/live/display-sync";
+import { applyArenaConfig, fetchLivePrograms, type ArenaConfigPayload } from "@/lib/live/config-sync";
 
 /** Shared by the Live Arena and the Admin Panel: store hydration, audio, cross-tab sync. */
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -41,20 +42,27 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     void (async () => {
       let live = false;
       let display: GlobalDisplay | null = null;
+      let config: ArenaConfigPayload | null = null;
       try {
         const res = await fetch("/api/arena/mode", { cache: "no-store" });
         const j = res.ok ? await res.json() : null;
         live = j?.live === true;
         display = j?.display ?? null;
+        config = j?.config ?? null;
       } catch {
         live = false;
       }
       if (cancelled) return;
       // Admin's global performance mode wins over this browser's saved preference, before heavy graphics start.
       applyGlobalDisplay(display);
+      // Global arena configuration (screens, on/off, rewards, sound...) from PostgreSQL wins over browser storage.
+      applyArenaConfig(config, { initial: true });
       useLiveStore.getState().setLive(live);
       if (live) {
         useArenaStore.getState().enterLiveMode();
+        // Reward programs come from PostgreSQL only: never show the built-in demo amounts.
+        useRewardsStore.setState({ programs: [], awards: [] });
+        void fetchLivePrograms();
       } else {
         await useArenaStore.persist.rehydrate();
         useArenaStore.getState().ensureFreshDay();
@@ -66,7 +74,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     // Bonus programs: evaluate validated sales recorded in this tab (remote copies are ignored,
     // so two open tabs never award the same sale twice).
     const offSale = arenaBus.on("sale:recorded", ({ sale }, meta) => {
-      if (!meta.remote && sale.status === "approved") processValidatedSale(sale.agentId);
+      // Demo only: in live mode awards are created by the server (PostgreSQL), never in the browser.
+      if (!meta.remote && sale.status === "approved" && !useArenaStore.getState().liveMode) processValidatedSale(sale.agentId);
     });
 
     const s = useSettingsStore.getState();

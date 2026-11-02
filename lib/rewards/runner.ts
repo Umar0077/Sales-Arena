@@ -11,9 +11,9 @@ export function businessClock(s: Pick<DisplaySettings, "businessTimezone" | "wee
   return { timezone: s.businessTimezone || browserTimezone(), weekStartDay: s.weekStartDay };
 }
 
-/** Program kinds that may award: all when programs run together, else only the default screen's. */
-export function allowedKinds(s: Pick<DisplaySettings, "programsConcurrent" | "defaultArenaMode">): (k: BonusKind) => boolean {
-  return (k) => s.programsConcurrent || s.defaultArenaMode === k;
+/** Program kinds that may award: categories switched to Program Active in Admin → Reward Programs. */
+export function allowedKinds(s: Pick<DisplaySettings, "rewardCategories">): (k: BonusKind) => boolean {
+  return (k) => s.rewardCategories?.[k]?.active !== false;
 }
 
 /**
