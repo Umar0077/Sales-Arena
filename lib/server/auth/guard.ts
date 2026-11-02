@@ -3,11 +3,11 @@ import { cookies } from "next/headers";
 import type { Pool, PoolClient } from "pg";
 import { getDbPool } from "../db/client";
 import { csrfTokenFor, readSession, safeEqual, sessionCookieName, type SessionContext } from "./session";
+import { trustedClientIp } from "../security/client-ip";
 
-/** Client IP as seen by nginx (X-Real-IP), falling back to the first X-Forwarded-For hop. */
+/** Client IP from the trusted proxy only (never the client-controlled X-Forwarded-For). */
 export function requestIp(req: NextRequest): string | null {
-  const ip = req.headers.get("x-real-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-  return ip ? ip.slice(0, 45) : null;
+  return trustedClientIp(req.headers);
 }
 
 export function requestUserAgent(req: NextRequest): string | null {

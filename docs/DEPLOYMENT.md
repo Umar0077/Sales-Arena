@@ -49,7 +49,8 @@ Point the systemd unit at the env file (check the current unit first with `syste
 # /etc/systemd/system/sales-arena.service  ([Service] section)
 EnvironmentFile=/etc/sales-arena/sales-arena.env
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/npm run start -- -p 3102
+# Listen on localhost only: every request must come through nginx (IP perimeter trust boundary).
+ExecStart=/usr/bin/npm run start -- -H 127.0.0.1 -p 3102
 ```
 
 ## 2. Install and build (in a separate checkout, not the live one)
@@ -258,3 +259,79 @@ sudo nginx -t && sudo systemctl reload nginx
 ```
 
 The plain-HTTP preview on port 8082 needs `ADMIN_COOKIE_SECURE=false` in its env file, or sign-in cookies will not stick.
+
+## 12. IP perimeter security (application whitelist)
+
+Admin → **IP Perimeter Security** (Owner only) manages a PostgreSQL whitelist (`ip_whitelist_rules`, `cidr`) and a master
+switch (`ip_security_settings`). `proxy.ts` enforces it on every page and API request (static `/_next` assets excepted);
+the live stream re-checks open connections. Migration `007_ip_perimeter_security` ships it **disabled**.
+
+### Trust boundary (do this before enabling anything)
+
+1. Node listens on `127.0.0.1:3102` only (systemd `ExecStart … -H 127.0.0.1 -p 3102`, section 1). Check:
+   `ss -ltnp | grep 3102` must show `127.0.0.1:3102`, never `0.0.0.0` / `*`. Belt and braces: `sudo ufw deny 3102`.
+2. In the **Sales Arena server block only** (do not edit the CRM, Asterisk or other vhosts), every `location` that proxies to
+   3102 must overwrite the client-IP headers. Put them in one snippet so `/` and `/api/arena/stream` cannot drift apart:
+   ```nginx
+   # /etc/nginx/snippets/sales-arena-proxy.conf
+   proxy_set_header Host              $host;
+   proxy_set_header X-Real-IP         $remote_addr;   # overwrites anything the client sent
+   proxy_set_header X-Forwarded-For   $remote_addr;   # replace, do not append the client's chain
+   proxy_set_header X-Forwarded-Proto $scheme;
+   proxy_set_header X-Forwarded-Host  $host;
+   proxy_set_header X-Sales-Arena-Proxy "<same value as SALES_ARENA_PROXY_SECRET>";   # optional, recommended
+   ```
+   and `include snippets/sales-arena-proxy.conf;` in both locations (the stream location currently sets no X-Real-IP).
+   Generate the secret with `openssl rand -hex 32`; keep it in the root-only env file and the root-only snippet.
+3. The app reads **only** `X-Real-IP` (never `X-Forwarded-For`). With `SALES_ARENA_PROXY_SECRET` set, a request without the
+   matching `X-Sales-Arena-Proxy` header has no trusted IP and is blocked while restriction is on.
+4. Future CDN / load balancer: configure nginx `set_real_ip_from <provider ranges>; real_ip_header <provider header>;
+   real_ip_recursive on;` so `$remote_addr` is the visitor again. The application needs no change.
+
+`sudo nginx -t && sudo systemctl reload nginx`, then verify spoofing is ignored (from a network that is NOT whitelisted, once
+restriction is on): `curl -s -o /dev/null -w "%{http_code}\n" -H "X-Real-IP: <whitelisted ip>" -H "X-Forwarded-For: <whitelisted ip>" https://fesalesarena.goconnectivo.com/`
+→ `403`. Direct port access from outside must time out: `curl -m 5 http://<server-ip>:3102/`.
+
+### Transition from the existing nginx admin allowlist
+
+1. Keep the current nginx `allow … deny all;` admin block in place.
+2. In the app, add every network from that nginx allowlist as a rule **with Admin access**, plus the FE floor / branch
+   networks for the Live Arena. Use "Whitelist my current IP" from the office first.
+3. Turn the restriction on with scopes *Live Arena* + *Display pairing* (Admin scope off: nginx still guards `/admin`).
+   Check every TV/laptop and the Current Connection card.
+4. Only after that is verified: optionally turn on the *Admin Panel* scope, and later remove the nginx admin allowlist in a
+   separate, reviewed change. Until it is removed, an IP must be allowed by **both** nginx and the app to reach `/admin`.
+   nginx rules are never generated from database input.
+
+### Behaviour
+
+- Blocked: branded "ACCESS RESTRICTED" page, HTTP 403 (JSON 403 for APIs and the stream). No data, no whitelist details.
+- Live Arena OFF (allowed network): the existing offline page. The two switches are independent.
+- Rule changes apply within ~3 s in every app process (revision check), immediately in the process that saved them. No restart.
+- Database outage: the last verified policy keeps being enforced. If the app starts while the database is down, protected
+  routes answer 503 until it is reachable (fail closed).
+- Lockout protection: turning restriction on needs an explicit confirmation, at least one active Admin-access rule without an
+  expiry, and the Owner's own IP covered by one. Changes that would remove the last such rule, or cut off the Owner's network
+  while the Admin scope is on, are refused.
+- Blocked requests are counted in memory and logged at most once per IP per 10 minutes (journal), never one DB row per request.
+
+### Lockout recovery (server console only, no bypass URL)
+
+```bash
+cd /var/www/sales-arena/staging
+sudo -u <app user> node --env-file=/etc/sales-arena/sales-arena.env scripts/ip-security.mjs status
+sudo -u <app user> node --env-file=/etc/sales-arena/sales-arena.env scripts/ip-security.mjs disable --reason="Office IP changed"
+# or keep it on and allow the new network:
+sudo -u <app user> node --env-file=/etc/sales-arena/sales-arena.env scripts/ip-security.mjs allow 203.0.113.25 --label="Head Office" --reason="New ISP"
+sudo -u <app user> node --env-file=/etc/sales-arena/sales-arena.env scripts/ip-security.mjs activate 12 --reason="Re-enable expired office rule"
+```
+
+Each command asks you to type `recover`, writes an audit entry (`ip_security.recovery.*`, actor `console:<user>`) and takes
+effect within a few seconds.
+
+### Deploy / rollback
+
+Deploy migration 007 in the same release as the code, after a fresh `pg_dump` (section 5) and the test-database run (section 3).
+Do not turn restriction on in production until the whitelist is verified (transition steps above). Rollback: turn the
+restriction off (Admin or `scripts/ip-security.mjs disable`), then roll back the code as in section 10. The 007 tables are
+additive and can stay.

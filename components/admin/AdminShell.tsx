@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard, MonitorPlay, Users, Shield, BarChart3, Target, Gift, Trophy, PartyPopper, History,
-  Palette, Webhook, ExternalLink, Menu, X, Award, Disc3, Activity, UserCog, LogOut,
+  Palette, Webhook, ExternalLink, Menu, X, Award, Disc3, Activity, UserCog, LogOut, ShieldCheck,
 } from "lucide-react";
 import { adminApi, setCsrfToken } from "./admin-api";
 import { AdminLiveSync, SaveStatusPill } from "./AdminLiveSync";
@@ -16,7 +16,7 @@ import { HydrationGate } from "@/components/common/HydrationGate";
 import { PoweredBy, PoweredByBadge } from "@/components/brand/PoweredBy";
 import { cn } from "@/lib/utils";
 
-const ADMIN_NAV = [
+const ADMIN_NAV: Array<{ href: string; label: string; icon: typeof Shield; exact?: boolean; ownerOnly?: boolean }> = [
   { href: "/admin", label: "Overview Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/spin-management", label: "Spin Management", icon: Disc3 },
   { href: "/admin/system", label: "System Health", icon: Activity },
@@ -31,6 +31,7 @@ const ADMIN_NAV = [
   { href: "/admin/spins", label: "Spin History", icon: History },
   { href: "/admin/settings", label: "Appearance & Sound", icon: Palette },
   { href: "/admin/integrations", label: "Integration Preview", icon: Webhook },
+  { href: "/admin/ip-security", label: "IP Perimeter Security", icon: ShieldCheck, ownerOnly: true },
   { href: "/admin/account", label: "Account", icon: UserCog },
 ];
 
@@ -63,7 +64,7 @@ export default function AdminShell({ children, admin, csrfToken }: { children: R
 
   const nav = (
     <nav aria-label="Admin" className="flex flex-col gap-1 p-3">
-      {ADMIN_NAV.map((l, i) => {
+      {ADMIN_NAV.filter((l) => !l.ownerOnly || admin.role === "owner").map((l, i) => {
         const active = l.href === current.href;
         const Icon = l.icon;
         return (
@@ -98,7 +99,7 @@ export default function AdminShell({ children, admin, csrfToken }: { children: R
         <div className="space-y-3 border-t border-white/[0.06] p-4">
           <PoweredByBadge />
           <p className="text-[11px] leading-relaxed text-text-muted">
-            Spin rules, balances, prizes and history are stored in PostgreSQL. Display preferences on other pages are saved in this browser.
+            Settings, rewards, spins and security rules are stored in PostgreSQL and apply to every screen.
           </p>
         </div>
       </aside>

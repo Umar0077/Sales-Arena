@@ -15,6 +15,7 @@ export type ArenaBroadcastEventType =
   | "rewards.program.visibility.updated"
   | "rewards.award.created"
   | "rewards.award.updated"
+  | "security.policy.updated"
   | "target.updated"
   | "stats.updated"
   | "connection.status"
