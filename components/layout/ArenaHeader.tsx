@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { DemoSpinButton } from "@/components/arena/DemoSpinButton";
 import { ArenaModeSelector } from "@/components/layout/ArenaModeSelector";
 import { RefreshButton } from "@/components/layout/RefreshButton";
+import { SafeQuoteStatus } from "@/components/layout/SafeQuoteStatus";
 
 /** Public Live Arena header: branding plus display utilities only — no admin links. */
 export function ArenaHeader() {
@@ -51,10 +52,11 @@ export function ArenaHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-[#070B16]/70 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 lg:px-8">
-        <BrandLogo size={42} />
+      <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:h-16 sm:flex-nowrap sm:py-0 lg:px-8">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <BrandLogo size={42} className="shrink-0" />
 
-        <div className="hidden xl:flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-primary/30 bg-primary/10 px-4 py-2 shadow-[0_0_24px_-6px_rgba(117,104,255,0.6)]">
+        <div className="hidden xl:flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-primary/30 bg-primary/10 px-4 py-2 shadow-[0_0_24px_-6px_rgba(117,104,255,0.6)]" data-testid="live-arena-badge">
           <Radio className="h-4 w-4 text-secondary" />
           <span className="font-heading text-sm font-bold tracking-[0.2em] text-white">LIVE ARENA</span>
           {online ? (
@@ -65,6 +67,8 @@ export function ArenaHeader() {
           ) : (
             <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-text-muted">OFF AIR</span>
           )}
+        </div>
+        <SafeQuoteStatus />
         </div>
 
         <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">

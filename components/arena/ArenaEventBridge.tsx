@@ -77,7 +77,9 @@ export function ArenaEventBridge() {
       const settings = useSettingsStore.getState();
       const { next, unlocks } = detectNewUnlocks(pickData(s), readAnnounced());
       writeAnnounced(next);
-      if (!settings.spinFeatureEnabled || !settings.spinFlowEnabled) return;
+      // Live mode: spin unlocks come only from the server (spin.unlocked, PostgreSQL ledger), never from local data.
+      if (s.liveMode) return;
+      if (!settings.spinFeatureEnabled || !settings.spinFlowEnabled || !settings.celebrationPopups || !settings.announceAutoSpins) return;
       const push = useSpinFlowStore.getState().push;
       for (const u of unlocks) push(u);
     };
@@ -102,7 +104,7 @@ export function ArenaEventBridge() {
     // "/?spin=<agentId>" opens the spin stage directly (Admin → Launch spin).
     const params = new URLSearchParams(window.location.search);
     const launchId = params.get("spin");
-    if (launchId) {
+    if (launchId && useSettingsStore.getState().spinFeatureEnabled) {
       useSpinFlowStore.getState().push({ agentId: launchId, periodSales: 0, available: 0, reason: "launch" });
       window.history.replaceState(null, "", window.location.pathname);
     }

@@ -32,10 +32,6 @@ export function LiveApiSync() {
   const setAllTimeMetrics = useArenaStore((s) => s.setAllTimeMetrics);
   const setApiStatus = useArenaStore((s) => s.setApiStatus);
   const setServerSpinBalance = useArenaStore((s) => s.setServerSpinBalance);
-  const apiStatus = useArenaStore((s) => s.apiSyncStatus);
-  const apiError = useArenaStore((s) => s.apiSyncError);
-  const dataSourceMode = useArenaStore((s) => s.dataSourceMode);
-  const lastSyncAt = useArenaStore((s) => s.lastSyncAt);
 
   const businessTimezone = useSettingsStore((s) => s.businessTimezone);
   const weekStartDay = useSettingsStore((s) => s.weekStartDay);
@@ -200,12 +196,15 @@ export function LiveApiSync() {
           }
 
           // 5. Backend Verified Awards
+          // Earned-cash totals come from PostgreSQL bonus_awards. On failure keep the last verified
+          // awards and totals and mark them unavailable: never show an invented zero.
           if (awardsRes.status === "fulfilled" && awardsRes.value.ok) {
-            const awardsData = await awardsRes.value.json();
-            if (Array.isArray(awardsData.awards)) {
+            const awardsData = await awardsRes.value.json().catch(() => null);
+            if (awardsData?.ok && Array.isArray(awardsData.awards)) {
               useRewardsStore.getState().setBackendAwards(awardsData.awards);
-            }
-          }
+              useLiveStore.getState().setAwardSummary(awardsData.summary ?? null, awardsData.summary ? "ok" : "error");
+            } else useLiveStore.getState().setAwardSummary(null, "error");
+          } else useLiveStore.getState().setAwardSummary(null, "error");
 
           // 6. All-Time summary & closers
           let allTimeSummary = null;
@@ -357,6 +356,24 @@ export function LiveApiSync() {
         }
       }, delay);
     };
+    let awardsTimer: ReturnType<typeof setTimeout> | null = null;
+    // Lightweight: only the awards endpoint (list + earned totals), not the full 14-request sync.
+    const scheduleAwardsSync = () => {
+      if (!useArenaStore.getState().liveMode) return;
+      if (awardsTimer) clearTimeout(awardsTimer);
+      awardsTimer = setTimeout(async () => {
+        try {
+          const res = await fetch("/api/arena/awards", { cache: "no-store" });
+          const j = await res.json().catch(() => null);
+          if (res.ok && j?.ok && Array.isArray(j.awards)) {
+            useRewardsStore.getState().setBackendAwards(j.awards);
+            useLiveStore.getState().setAwardSummary(j.summary ?? null, j.summary ? "ok" : "error");
+          } else useLiveStore.getState().setAwardSummary(null, "error");
+        } catch {
+          useLiveStore.getState().setAwardSummary(null, "error");
+        }
+      }, 400);
+    };
     const scheduleProgramsSync = () => {
       if (!useArenaStore.getState().liveMode) return;
       if (programsTimer) clearTimeout(programsTimer);
@@ -464,12 +481,18 @@ export function LiveApiSync() {
           const a = JSON.parse(e.data)?.award as BonusAward | undefined;
           if (!a?.id || !useArenaStore.getState().liveMode) return;
           useRewardsStore.getState().recordAwards([a]);
+          scheduleAwardsSync(); // earned totals from PostgreSQL, not added up in the browser
         } catch (err) {
           console.error("[LiveApiSync] Failed to process award event", err);
         }
       });
 
-      eventSource.addEventListener("rewards.program.updated", () => scheduleProgramsSync());
+      eventSource.addEventListener("rewards.program.updated", () => {
+        scheduleProgramsSync();
+        scheduleAwardsSync(); // a hidden / archived program changes the public totals
+      });
+      // An award was approved, paid, cancelled or reversed: totals change (earned excludes cancelled / reversed).
+      eventSource.addEventListener("rewards.award.updated", () => scheduleAwardsSync());
 
       for (const type of CONFIG_EVENTS)
         eventSource.addEventListener(type, (e) => {
@@ -515,7 +538,7 @@ export function LiveApiSync() {
           scheduleLiveSync(600); // balances refresh either way
           // The spin credit is stored regardless; only the public popup follows the admin switches.
           const s = useSettingsStore.getState();
-          if (!s.arenaEnabled || !s.celebrationPopups || !(manual ? s.announceManualSpins : s.announceAutoSpins)) return;
+          if (!s.arenaEnabled || !s.celebrationPopups || !s.spinFeatureEnabled || !s.spinFlowEnabled || !(manual ? s.announceManualSpins : s.announceAutoSpins)) return;
           useSpinFlowStore.getState().push({
             agentId: agent?.id ?? `agt_${code}`,
             userCode: code,
@@ -566,8 +589,9 @@ export function LiveApiSync() {
 
     return () => {
       isMountedRef.current = false;
-      if (debounceTimer) clearTimeout(debounceTimer);
+      clearTimeout(initialCheck);
       if (programsTimer) clearTimeout(programsTimer);
+      if (awardsTimer) clearTimeout(awardsTimer);
       if (debounceTimer) clearTimeout(debounceTimer);
       if (syncInterval) clearInterval(syncInterval);
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -596,44 +620,6 @@ export function LiveApiSync() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshRequest]);
 
-  // Status Indicator Badge in bottom corner
-  return (
-    <aside
-      aria-label="Live connection status"
-      className="fixed bottom-3 right-4 z-50 flex items-center gap-2 rounded-full border border-white/10 bg-[#0A0E1A]/90 px-3.5 py-1.5 text-[11px] font-mono backdrop-blur-md shadow-lg"
-    >
-      {dataSourceMode === "production" ? (
-        apiStatus === "connected" ? (
-          <>
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            <span className="font-semibold text-emerald-400">SAFE QUOTE LIVE</span>
-            {lastSyncAt && (
-              <span className="text-white/40 hidden sm:inline">
-                · {new Date(lastSyncAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
-            </span>
-            <span className="font-semibold text-amber-400">
-              {apiError ? "RECONNECTING" : "CONNECTING..."}
-            </span>
-          </>
-        )
-      ) : (
-        <>
-          <span className="relative flex h-2 w-2">
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-400" />
-          </span>
-          <span className="font-medium text-purple-300">DEMO MODE (SIMULATED)</span>
-        </>
-      )}
-    </aside>
-  );
+  // Connection status is shown in the Live Arena header (components/layout/SafeQuoteStatus.tsx), from this same store state.
+  return null;
 }

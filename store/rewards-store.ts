@@ -45,6 +45,9 @@ export interface BonusProgram {
   rewardType?: string;
   currency?: string;
   description?: string;
+  stackable?: boolean;
+  /** Only some agents may earn it (eligibility is enforced on the server). */
+  limitedEligibility?: boolean;
 }
 
 /** A granted bonus. Keeps a snapshot so history survives program edits. */
@@ -141,6 +144,8 @@ interface RewardsState {
   programs: BonusProgram[];
   awards: BonusAward[];
   hydrated: boolean;
+  /** "live": programs/awards are server data (never persisted or restored). */
+  source: "demo" | "live";
   updateProgram: (id: string, patch: Partial<BonusProgram>) => void;
   resetPrograms: () => void;
   /** Adds awards whose id is not already recorded. Returns the ones actually added. */
@@ -148,6 +153,8 @@ interface RewardsState {
   setBackendAwards: (awards: BonusAward[]) => void;
   /** Live mode: programs come from PostgreSQL only (never the demo defaults). */
   setLivePrograms: (programs: BonusProgram[]) => void;
+  /** Switch to server-only data: clears demo programs/awards and stops browser persistence. */
+  enterLiveMode: () => void;
   clearAwards: () => void;
 }
 
@@ -175,6 +182,7 @@ export const useRewardsStore = create<RewardsState>()(
       programs: DEFAULT_PROGRAMS,
       awards: [],
       hydrated: false,
+      source: "demo",
       updateProgram: (id, patch) =>
         set({
           programs: get().programs.map((p) => {
@@ -193,7 +201,8 @@ export const useRewardsStore = create<RewardsState>()(
         return added;
       },
       setBackendAwards: (awards) => set({ awards }),
-      setLivePrograms: (programs) => set({ programs }),
+      setLivePrograms: (programs) => set({ programs, source: "live" }),
+      enterLiveMode: () => set({ source: "live", programs: [], awards: [] }),
       clearAwards: () => set({ awards: [] }),
     }),
     {
@@ -203,8 +212,12 @@ export const useRewardsStore = create<RewardsState>()(
         typeof window !== "undefined" ? localStorage : { getItem: () => null, setItem: () => {}, removeItem: () => {} },
       ),
       skipHydration: true,
-      partialize: (s) => ({ programs: s.programs, awards: s.awards }),
+      // Nothing is persisted in live mode: the browser is never a source of reward data.
+      partialize: (s) => (s.source === "live" ? {} : { programs: s.programs, awards: s.awards }),
       merge: (persisted, current) => {
+        // Live mode: programs and awards come from PostgreSQL only. Never restore browser copies
+        // (this used to bring back the built-in demo "1 validated sale = Rs. 1,000" program).
+        if (current.source === "live") return current;
         const p = (persisted ?? {}) as Partial<RewardsState>;
         // Keep any new default fields when older saved programs are loaded.
         const now = new Date().toISOString();

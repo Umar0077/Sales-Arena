@@ -19,22 +19,29 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
   const summary = useArenaStore((s) => s.periodMetrics?.day?.summary ?? s.safeQuoteSummary);
   const serverSpinBalance = useArenaStore((s) => s.serverSpinBalance);
 
-  const approvedCount = summary ? summary.validated : stats.approvedToday;
-  const volumeStr = summary?.premium?.total
-    ? `+$${Math.round(summary.premium.total).toLocaleString()} total premium`
-    : `+$${(stats.approvedToday * 95).toLocaleString()} est. volume`;
   const liveMode = useArenaStore((s) => s.liveMode);
+  // Live mode: every number comes from Safe Quote / PostgreSQL. Without a source it shows "—", never an estimate.
+  const approvedCount = summary ? summary.validated : liveMode ? null : stats.approvedToday;
+  const volumeStr = summary
+    ? typeof summary.premium?.total === "number"
+      ? `+$${Math.round(summary.premium.total).toLocaleString()} total premium`
+      : "Premium not reported"
+    : liveMode
+      ? "Premium unavailable"
+      : `+$${(stats.approvedToday * 95).toLocaleString()} est. volume (demo)`;
   const liveTarget = useLiveStore((s) => s.targets.day);
   // Live: target from PostgreSQL (Admin → Target Management). Demo: the simulated floor target.
-  const progress = targetProgress(approvedCount, liveMode ? liveTarget : stats.targetToday);
+  const progress = targetProgress(approvedCount ?? 0, liveMode ? (approvedCount === null ? null : liveTarget) : stats.targetToday);
   const completionRate = (progress.percent ?? 0) / 100;
   const percentStr = formatPercent(progress.percent);
   const remainingCount = progress.remaining;
-  const activeCount = summary ? summary.activeClosers : stats.activeAgents;
-  const activeSub = summary ? `${summary.submitted} submitted leads` : `${stats.totalAgents} on roster`;
-  const remainingSub = summary ? `${summary.returned} returned · ${summary.rejected} rejected` : "To floor victory";
-  const unlockedCount = serverSpinBalance ? serverSpinBalance.unlocked : stats.spinsUnlocked;
-  const availableCount = serverSpinBalance ? serverSpinBalance.available : stats.spinsAvailable;
+  const activeCount = summary ? summary.activeClosers : liveMode ? null : stats.activeAgents;
+  const activeSub = summary ? `${summary.submitted} submitted leads` : liveMode ? "Unavailable" : `${stats.totalAgents} on roster`;
+  const remainingSub = summary ? `${summary.returned} returned · ${summary.rejected} rejected` : liveMode ? "" : "To floor victory";
+  // Spin credits (PostgreSQL ledger) — separate from cash bonuses.
+  const unlockedCount = serverSpinBalance ? serverSpinBalance.unlocked : liveMode ? null : stats.spinsUnlocked;
+  const availableCount = serverSpinBalance ? serverSpinBalance.available : liveMode ? null : stats.spinsAvailable;
+  const dash = <span className="text-2xl text-text-muted">—</span>;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -45,7 +52,7 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
         </div>
         <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          <AnimatedCounter value={approvedCount} />
+          {approvedCount === null ? dash : <AnimatedCounter value={approvedCount} />}
         </div>
         <div className="text-[11px] font-mono text-emerald-400 mt-1">
           {volumeStr}
@@ -105,14 +112,14 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
       {/* 5. Unlocked Spins */}
       <div className="rounded-2xl border border-primary/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-primary">
         <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>SPINS UNLOCKED</span>
+          <span>SPIN CREDITS</span>
           <Disc3 className="w-4 h-4 text-primary" />
         </div>
         <div className="font-heading text-3xl font-black text-primary tracking-tight kpi-number">
-          <AnimatedCounter value={unlockedCount} />
+          {unlockedCount === null ? dash : <AnimatedCounter value={unlockedCount} />}
         </div>
         <div className="text-[11px] font-mono text-secondary mt-1">
-          {availableCount} spins ready
+          {availableCount === null ? "Spin credits unavailable" : `${availableCount} spin credit${availableCount === 1 ? "" : "s"} ready`}
         </div>
       </div>
 
@@ -123,7 +130,7 @@ export const KpiBar = memo(function KpiBar({ stats }: { stats: ArenaStatistics }
           <Users className="w-4 h-4 text-text-secondary" />
         </div>
         <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          <AnimatedCounter value={activeCount} />
+          {activeCount === null ? dash : <AnimatedCounter value={activeCount} />}
         </div>
         <div className="text-[11px] font-mono text-muted mt-1">
           {activeSub}

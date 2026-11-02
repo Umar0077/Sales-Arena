@@ -6,7 +6,7 @@ import { AnimatedCounter } from "@/components/arena/AnimatedCounter";
 import { TimeAgo } from "@/components/common/TimeAgo";
 import { formatReward } from "@/lib/rewards/engine";
 import { useArenaStore } from "@/store/arena-store";
-import type { BonusAward, BonusProgram } from "@/store/rewards-store";
+import type { BonusAward } from "@/store/rewards-store";
 import { cn } from "@/lib/utils";
 
 /** Screen heading: name, active campaign rule and an honest "Demo data" label. */
@@ -26,11 +26,8 @@ export function ScreenTitle({ eyebrow, title, rule, accent, inactiveNote }: { ey
           </span>
         )}
         {inactiveNote && <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-sm font-semibold text-text-muted">{inactiveNote}</span>}
-        {dataSourceMode === "production" ? (
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold tracking-[0.15em] text-emerald-400" title="Connected to Safe Quote Live Sales API">
-            SAFE QUOTE LIVE
-          </span>
-        ) : (
+        {/* Live connection status is in the header (SafeQuoteStatus); only demo data is labelled here. */}
+        {dataSourceMode !== "production" && (
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold tracking-[0.15em] text-text-muted" title="Numbers come from the built-in demo data until the live sales API is connected.">
             DEMO DATA
           </span>
@@ -81,65 +78,6 @@ export function StatGrid({ stats }: { stats: Stat[] }) {
 
 export const STAT_ICONS = { Gift, Target, Trophy, Users, BadgeCheck };
 
-/** Active campaign: the rule, how many qualified, and who is closest. */
-export function CampaignCard({
-  program,
-  currency,
-  periodWord,
-  qualified,
-  close,
-  awardsTotal,
-  active,
-}: {
-  program: BonusProgram | undefined;
-  currency: string;
-  periodWord: string;
-  qualified: number;
-  close: Array<{ name: string; need: number }>;
-  awardsTotal: number;
-  active: boolean;
-}) {
-  if (!program) return null;
-  const accent = program.accent;
-  const reward = formatReward(program.amount, program.prizeLabel, currency);
-  return (
-    <div className="relative overflow-hidden rounded-3xl border bg-[#0B1122]/80 p-5 backdrop-blur-xl lg:p-6" style={{ borderColor: `${accent}40` }}>
-      <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full blur-3xl" style={{ background: `${accent}22` }} />
-      <div className="relative flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1 basis-72">
-          <p className="text-xs font-bold tracking-[0.25em]" style={{ color: accent }}>{active ? "ACTIVE CAMPAIGN" : "CAMPAIGN PAUSED"}</p>
-          <h2 className="mt-1 font-heading text-xl font-extrabold text-white">{program.name}</h2>
-          <p className="mt-1 text-base text-text-secondary">
-            Complete <b className="text-white">{program.salesRequired} validated sale{program.salesRequired > 1 ? "s" : ""}</b> {periodWord} to earn{" "}
-            <b style={{ color: accent }}>{reward}</b>
-            {program.maxAwards > 1 ? ` (up to ${program.maxAwards}× per agent)` : ""}.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-wrap gap-3">
-          <div className="min-w-0 rounded-2xl bg-white/[0.04] px-4 py-3 text-center">
-            <div className="font-heading text-[clamp(1.4rem,2.2vw,1.875rem)] font-black text-white tabular" data-testid="campaign-qualified">{qualified}</div>
-            <div className="text-[10px] font-bold tracking-[0.15em] text-text-muted">QUALIFIED</div>
-          </div>
-          <div className="min-w-0 rounded-2xl bg-white/[0.04] px-4 py-3 text-center">
-            <div className="break-words font-heading text-[clamp(1.4rem,2.2vw,1.875rem)] font-black tabular" style={{ color: accent }}>{currency} {awardsTotal.toLocaleString("en-US")}</div>
-            <div className="text-[10px] font-bold tracking-[0.15em] text-text-muted">BONUSES EARNED</div>
-          </div>
-        </div>
-      </div>
-      {close.length > 0 && (
-        <div className="relative mt-4 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-text-muted">Closest to the bonus:</span>
-          {close.map((c) => (
-            <span key={c.name} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-medium text-white">
-              {c.name} <span className="text-text-muted">· {c.need} to go</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** Feed of awards for a program and period. */
 export function AwardFeed({ title, awards, currency, accent, empty }: { title: string; awards: BonusAward[]; currency: string; accent: string; empty: string }) {
   return (
@@ -165,7 +103,7 @@ export function AwardFeed({ title, awards, currency, accent, empty }: { title: s
               </p>
             </div>
             <span className={cn("shrink-0 font-heading text-sm font-bold tabular")} style={{ color: accent }}>
-              {formatReward(a.amount, a.prizeLabel, currency)}
+              {formatReward(a.amount, a.prizeLabel, a.currency ?? currency)}
             </span>
           </li>
         ))}

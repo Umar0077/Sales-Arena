@@ -7,6 +7,16 @@ import type { TargetPeriod } from "@/lib/live/targets";
  * Live-data runtime state (never persisted): whether this server runs on live Safe Quote
  * data, the configured targets from PostgreSQL, and the manual refresh state.
  */
+export interface PeriodAwardSummary {
+  periodKey: string;
+  /** Cash earned (excludes cancelled / reversed). Earned is not paid. */
+  earned: number;
+  paid: number;
+  count: number;
+  currency: string;
+}
+export type AwardSummary = Record<"daily" | "weekly" | "monthly", PeriodAwardSummary>;
+
 interface LiveState {
   /** null until the server has said which mode it runs in. */
   live: boolean | null;
@@ -24,6 +34,13 @@ interface LiveState {
   /** Admin's global performance policy as last received from the server (null = not known yet). */
   globalDisplay: { performanceMode: string; revision: number } | null;
   setGlobalDisplay: (d: { performanceMode: string; revision: number }) => void;
+  /** Earned cash bonuses for the current day / week / month (from bonus_awards). null = not loaded yet. */
+  awardSummary: AwardSummary | null;
+  /** "error": the last load failed (keep showing the last verified values, or "unavailable"). */
+  awardSummaryStatus: "loading" | "ok" | "error";
+  setAwardSummary: (s: AwardSummary | null, status: "ok" | "error") => void;
+  programsStatus: "loading" | "ok" | "error";
+  setProgramsStatus: (s: "ok" | "error") => void;
   setLive: (live: boolean) => void;
   setTargets: (t: Record<TargetPeriod, number | null>) => void;
   requestRefresh: () => void;
@@ -37,6 +54,11 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
   targetsLoaded: false,
   refreshRequest: 0,
   refreshing: false,
+  awardSummary: null,
+  awardSummaryStatus: "loading",
+  setAwardSummary: (s, status) => set((st) => ({ awardSummary: s ?? st.awardSummary, awardSummaryStatus: status })),
+  programsStatus: "loading",
+  setProgramsStatus: (programsStatus) => set({ programsStatus }),
   refreshError: null,
   lastSuccessAt: null,
   catalogRevision: null,

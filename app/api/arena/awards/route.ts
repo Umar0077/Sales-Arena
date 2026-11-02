@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDbPool } from "@/lib/server/db/client";
-import { readArenaConfig } from "@/lib/server/settings/arena-config";
+import { calendarFrom, readArenaConfig } from "@/lib/server/settings/arena-config";
+import { periodWindow } from "@/lib/server/spins/rules";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Recent awards the Live Arena may show (agent name, program, reward, sales count; no customer data).
- * Hidden: categories or programs switched off "Show on Live Arena", and cancelled / reversed awards.
- * Never invents awards: no database → empty list.
+ * Awards the Live Arena may show (agent name, program, reward, sales count; no customer data), plus
+ * earned-cash totals for the CURRENT business day / week / month, computed in PostgreSQL from
+ * bonus_awards (each award row counted once; cancelled and reversed awards excluded; "earned" is not
+ * "paid"). Hidden programs / categories are excluded. Database failure → 503 (never a fake zero).
  */
 export async function GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
@@ -15,9 +17,10 @@ export async function GET(req: NextRequest) {
   const periodKey = sp.get("periodKey");
   const limit = Math.min(200, Math.max(1, Number(sp.get("limit")) || 100));
   const pool = getDbPool();
-  if (!pool) return NextResponse.json({ ok: true, mode: "production", awards: [], total: 0 });
+  if (!pool) return NextResponse.json({ ok: false, error: "Database not configured." }, { status: 503 });
   try {
-    const cats = (await readArenaConfig(pool)).values.rewardCategories as Record<string, { showOnArena: boolean }>;
+    const cfg = (await readArenaConfig(pool)).values;
+    const cats = cfg.rewardCategories as Record<string, { showOnArena: boolean }>;
     const visibleKinds = ["daily", "weekly", "monthly"].filter((k) => cats?.[k]?.showOnArena !== false);
     const params: unknown[] = [visibleKinds];
     let where = `a.kind = ANY($1) AND p.show_on_arena AND a.status NOT IN ('reversed', 'cancelled')`;
@@ -56,8 +59,36 @@ export async function GET(req: NextRequest) {
       announce: r.announce,
       createdAt: new Date(r.created_at).toISOString(),
     }));
-    return NextResponse.json({ ok: true, mode: "production", awards, total: awards.length }, { headers: { "Cache-Control": "no-store" } });
+
+    // Current period keys in the business calendar (same keys the reward engine writes).
+    const cal = calendarFrom(cfg);
+    const now = new Date();
+    const keys = { daily: periodWindow("daily", now, cal).key, weekly: periodWindow("weekly", now, cal).key, monthly: periodWindow("monthly", now, cal).key };
+    const totals = await pool.query(
+      `SELECT a.kind,
+              COUNT(*) FILTER (WHERE a.status NOT IN ('reversed', 'cancelled'))::int AS count,
+              COALESCE(SUM(a.amount) FILTER (WHERE a.reward_type = 'cash' AND a.status NOT IN ('reversed', 'cancelled')), 0)::float AS earned,
+              COALESCE(SUM(a.amount) FILTER (WHERE a.reward_type = 'cash' AND a.status = 'paid'), 0)::float AS paid,
+              MIN(a.currency) FILTER (WHERE a.reward_type = 'cash') AS currency
+         FROM bonus_awards a JOIN reward_programs p ON p.id = a.program_id
+        WHERE p.show_on_arena AND ((a.kind = 'daily' AND a.period_key = $1) OR (a.kind = 'weekly' AND a.period_key = $2) OR (a.kind = 'monthly' AND a.period_key = $3))
+        GROUP BY a.kind`,
+      [keys.daily, keys.weekly, keys.monthly],
+    );
+    const byKind = new Map(totals.rows.map((r) => [r.kind, r]));
+    // With no awards yet, label the zero in the currency the active programs use (e.g. PKR).
+    const progCurrency = new Map(
+      (await pool.query(`SELECT kind, MIN(currency) AS currency FROM reward_programs WHERE archived_at IS NULL AND enabled AND reward_type = 'cash' GROUP BY kind`)).rows.map((r) => [r.kind, r.currency]),
+    );
+    const fallbackCurrency = String(cfg.currencyLabel || "Rs.");
+    const summary = Object.fromEntries(
+      (["daily", "weekly", "monthly"] as const).map((k) => {
+        const r = byKind.get(k);
+        return [k, { periodKey: keys[k], earned: Number(r?.earned ?? 0), paid: Number(r?.paid ?? 0), count: Number(r?.count ?? 0), currency: r?.currency ?? progCurrency.get(k) ?? fallbackCurrency }];
+      }),
+    );
+    return NextResponse.json({ ok: true, mode: "production", awards, total: awards.length, summary }, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return NextResponse.json({ ok: true, mode: "production", awards: [], total: 0 });
+    return NextResponse.json({ ok: false, error: "Awards are unavailable right now." }, { status: 503 });
   }
 }

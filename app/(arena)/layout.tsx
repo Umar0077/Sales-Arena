@@ -34,7 +34,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       </WhenArenaOnline>
       {/* Data + settings sync keeps running while offline, so an admin can switch the arena back on remotely. */}
       <LiveApiSync />
-      <PoweredBy />
+      <PoweredBy size="lg" />
     </div>
   );
 }

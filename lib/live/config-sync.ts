@@ -4,6 +4,7 @@ import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useArenaModeStore, resolveMode } from "@/store/arena-mode-store";
 import { useRewardsStore, type BonusProgram } from "@/store/rewards-store";
+import { useLiveStore } from "@/store/live-store";
 import type { ArenaMode, DisplaySettings } from "@/types";
 
 /**
@@ -108,10 +109,16 @@ export async function fetchLivePrograms(): Promise<boolean> {
   try {
     const res = await fetch("/api/arena/programs", { cache: "no-store" });
     const j = await res.json();
-    if (!res.ok || !j.ok || !Array.isArray(j.programs) || seq !== programsSeq) return false;
+    if (seq !== programsSeq) return false;
+    if (!res.ok || !j.ok || !Array.isArray(j.programs)) {
+      useLiveStore.getState().setProgramsStatus("error"); // keep the last verified programs on screen
+      return false;
+    }
     useRewardsStore.getState().setLivePrograms(j.programs as BonusProgram[]);
+    useLiveStore.getState().setProgramsStatus("ok");
     return true;
   } catch {
+    if (seq === programsSeq) useLiveStore.getState().setProgramsStatus("error");
     return false;
   }
 }

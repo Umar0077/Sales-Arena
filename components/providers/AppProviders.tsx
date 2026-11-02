@@ -61,7 +61,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       if (live) {
         useArenaStore.getState().enterLiveMode();
         // Reward programs come from PostgreSQL only: never show the built-in demo amounts.
-        useRewardsStore.setState({ programs: [], awards: [] });
+        useRewardsStore.getState().enterLiveMode();
         void fetchLivePrograms();
       } else {
         await useArenaStore.persist.rehydrate();
@@ -97,7 +97,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       // Live tabs fetch their own data; only demo mode shares records through localStorage.
       if (e.key === DATA_STORAGE_KEY && !useArenaStore.getState().liveMode) useArenaStore.persist.rehydrate();
       if (e.key === SETTINGS_STORAGE_KEY) useSettingsStore.persist.rehydrate();
-      if (e.key === REWARDS_STORAGE_KEY) useRewardsStore.persist.rehydrate();
+      if (e.key === REWARDS_STORAGE_KEY && useRewardsStore.getState().source !== "live") useRewardsStore.persist.rehydrate();
     };
     window.addEventListener("storage", onStorage);
 

@@ -6,12 +6,11 @@ import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useRewardsStore, programFor } from "@/store/rewards-store";
 import { periodLeadCounts, closedRate } from "@/features/sales/leads";
-import { formatReward } from "@/lib/rewards/engine";
-import { withinDates } from "@/lib/time/business";
 import { LiveLeaderboard, useCloserRows, usePeriodInfo } from "@/components/arena/LiveLeaderboard";
 import { TopPerformersPodium } from "@/components/arena/TopPerformersPodium";
 import { ArenaLiveActivity } from "@/components/arena/ArenaLiveActivity";
-import { ScreenTitle, StatGrid, CampaignCard, AwardFeed } from "./parts";
+import { ScreenTitle, StatGrid, AwardFeed } from "./parts";
+import { BonusTierStrip } from "@/components/arena/BonusTiers";
 import { cn } from "@/lib/utils";
 import { useLiveStore } from "@/store/live-store";
 import { targetProgress, formatPercent } from "@/lib/live/targets";
@@ -37,6 +36,8 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
   const demoFloorTarget = useSettingsStore((s) => s[cfg.targetKey]);
   const liveMode = useArenaStore((s) => s.liveMode);
   const liveTarget = useLiveStore((s) => s.targets[cfg.period]);
+  const earned = useLiveStore((s) => s.awardSummary?.[kind] ?? null);
+  const earnedStatus = useLiveStore((s) => s.awardSummaryStatus);
   // Live: the PostgreSQL target for this week/month (null = not set). Demo: the simulated floor target.
   const floorTarget = liveMode ? liveTarget : demoFloorTarget;
   const showBoard = useSettingsStore((s) => s.leaderboardVisible);
@@ -101,9 +102,6 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
   }, [dataSourceMode, periodMetrics, sales, history, historySubmitted, agents, awards, kind, info, program?.salesRequired]);
 
   const accent = program?.accent ?? "#22D3FF";
-  const cat = useSettingsStore((s) => s.rewardCategories[kind]);
-  const allowed = cat.active && cat.showOnArena;
-  const live = !!program?.enabled && allowed && withinDates(info.today, program.startDate, program.endDate);
   const daysLeft = kind === "monthly" ? daysLeftInMonth(info.today) : 6 - info.daysBack;
   const dateRangeLabel = periodMetrics?.dateRange?.detailedLabel || info.label;
 
@@ -141,13 +139,10 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           eyebrow={cfg.eyebrow}
           title={cfg.title}
           accent={accent}
-          rule={program && live ? `${program.salesRequired} validated sales = ${formatReward(program.amount, program.prizeLabel, currency)}` : undefined}
-          inactiveNote={
-            dateRangeLabel
-              ? dateRangeLabel
-              : (!program?.enabled ? "Campaign paused" : !allowed ? "Paused by admin" : !live ? "Outside campaign dates" : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`)
-          }
+          inactiveNote={dateRangeLabel || `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
         />
+        {/* Real programs from Admin → Reward Programs and cash actually earned this period. */}
+        <BonusTierStrip kind={kind} />
 
         <StatGrid
           stats={[
@@ -166,7 +161,18 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
             },
             { label: "Submitted leads", value: view.submitted, icon: Send, accent: "#8B5CFF", testId: "period-submitted" },
             { label: "Closed rate", value: Math.round(view.closeRate), icon: Percent, accent: "#FFC857", format: (v) => `${Math.round(v)}%` },
-            { label: "Bonuses earned", value: view.total, icon: Gift, accent, format: (v) => `${currency} ${Math.round(v).toLocaleString("en-US")}` },
+            // Live: cash earned this period from PostgreSQL bonus_awards (not paid; cancelled/reversed excluded).
+            liveMode
+              ? {
+                  label: "Bonuses earned",
+                  value: earned?.earned ?? 0,
+                  icon: Gift,
+                  accent,
+                  format: earned ? (v: number) => `${earned.currency} ${Math.round(v).toLocaleString("en-US")}` : () => (earnedStatus === "error" ? "Unavailable" : "…"),
+                  sub: earned ? `${earned.count} award${earned.count === 1 ? "" : "s"} · earned, not paid` : undefined,
+                  testId: "period-bonuses-earned",
+                }
+              : { label: "Bonuses earned", value: view.total, icon: Gift, accent, format: (v: number) => `${currency} ${Math.round(v).toLocaleString("en-US")}` },
             {
               label: periodMetrics?.summary ? "Active Closers" : "Qualified agents",
               value: periodMetrics?.summary ? periodMetrics.summary.activeClosers : view.qualified,
@@ -178,8 +184,6 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
             },
           ]}
         />
-
-        <CampaignCard program={program} currency={currency} periodWord={cfg.word} qualified={view.qualified} close={live ? view.close : []} awardsTotal={view.total} active={live} />
 
         <TopPerformersPodium
           rows={rows}

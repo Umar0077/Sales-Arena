@@ -4,6 +4,8 @@ import { memo } from "react";
 import { motion } from "motion/react";
 import type { Sale, Agent, Team, Campaign } from "@/types";
 import { Flame, CheckCircle, Disc3 } from "lucide-react";
+import { useSettingsStore } from "@/store/settings-store";
+import { useArenaStore } from "@/store/arena-store";
 
 interface BroadcastHeroProps {
   latestSale: Sale | null;
@@ -22,6 +24,8 @@ export const BroadcastHero = memo(function BroadcastHero({
   topAgent,
   completionRate: _completionRate,
 }: BroadcastHeroProps) {
+  const spinOn = useSettingsStore((s) => s.spinFeatureEnabled);
+  const liveMode = useArenaStore((s) => s.liveMode);
   return (
     <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-[#0D1426] via-[#121C32] to-[#070B16] p-4 lg:p-5 shadow-2xl">
       {/* Dynamic ambient background glows */}
@@ -35,17 +39,15 @@ export const BroadcastHero = memo(function BroadcastHero({
           <span className="font-heading text-xs font-bold tracking-widest text-emerald-400 uppercase">
             LIVE BROADCAST STADIUM
           </span>
-          <span className="text-xs text-muted">·</span>
-          <span className="text-xs font-mono text-secondary">
-            CAMPAIGN FLOOR ACTIVE
-          </span>
         </div>
 
-        {/* Status only: spins open automatically when an agent hits their target. */}
-        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/15 border border-gold/30 text-gold text-xs font-bold">
-          <Disc3 className="w-3.5 h-3.5" />
-          <span>SPIN REWARDS ACTIVE</span>
-        </span>
+        {/* Shown only while Spin rewards are switched on in Admin. */}
+        {spinOn && (
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gold/15 border border-gold/30 text-gold text-xs font-bold">
+            <Disc3 className="w-3.5 h-3.5" />
+            <span>SPIN REWARDS ACTIVE</span>
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
@@ -91,7 +93,7 @@ export const BroadcastHero = memo(function BroadcastHero({
               </div>
 
               <p className="text-text-muted text-xs font-mono pt-1">
-                Approved today · Synced with live dialer event bus
+                Approved today · {liveMode ? "Validated by Safe Quote" : "Demo data"}
               </p>
             </motion.div>
           ) : (
@@ -134,7 +136,7 @@ export const BroadcastHero = memo(function BroadcastHero({
                     {topAgent.agent.name}
                   </div>
                   <div className="text-xs text-text-secondary">
-                    {topAgent.team?.name ?? "Final Expense"} · {topAgent.agent.title}
+                    {topAgent.agent.userCode ? `${topAgent.agent.userCode} · ` : ""}#1 today by validated sales
                   </div>
                 </div>
               </div>

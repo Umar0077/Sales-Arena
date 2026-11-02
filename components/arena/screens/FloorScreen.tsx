@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
 import { TopPerformersPodium } from "@/components/arena/TopPerformersPodium";
 import { useCloserRows } from "@/components/arena/LiveLeaderboard";
 import { ScreenTitle } from "./parts";
-import { useRewardsStore, programFor } from "@/store/rewards-store";
-import { formatReward } from "@/lib/rewards/engine";
+import { useRewardsStore } from "@/store/rewards-store";
+import { BonusTierStrip } from "@/components/arena/BonusTiers";
 import { usePeriodInfo } from "@/components/arena/LiveLeaderboard";
 
 const EMPTY_ACTIVITY: ActivityEvent[] = [];
@@ -34,16 +34,10 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
   const weekMetrics = useArenaStore((s) => s.periodMetrics?.week);
   const weekInfo = usePeriodInfo("week");
   const weekDateLabel = weekMetrics?.dateRange?.detailedLabel || weekInfo.label;
-  const programs = useRewardsStore((s) => s.programs);
   const awards = useRewardsStore((s) => s.awards);
   const currency = useSettingsStore((s) => s.currencyLabel);
   const dayInfo = usePeriodInfo("day");
-  const program = programFor(programs, "daily");
   const todayAwards = useMemo(() => awards.filter((a) => a.kind === "daily" && a.periodKey === dayInfo.key), [awards, dayInfo.key]);
-  const todayTotal = todayAwards.reduce((t, a) => t + a.amount, 0);
-  const dailyCat = useSettingsStore((s) => s.rewardCategories.daily);
-  // Category switches from Admin → Reward Programs (Program Active + Show on Live Arena).
-  const dailyAllowed = dailyCat.active && dailyCat.showOnArena;
   const sales = useArenaStore((s) => s.sales);
   const agents = useArenaStore((s) => s.agents);
   const teams = useArenaStore((s) => s.teams);
@@ -132,7 +126,7 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
     return todayAwards.map((award) => ({
       id: `act_award_${award.id}`,
       type: "milestone" as const,
-      message: `${award.agentName} earned ${currency} ${award.amount.toLocaleString()} ${award.programName}!`,
+      message: award.amount > 0 ? `${award.agentName} earned ${award.currency ?? currency} ${award.amount.toLocaleString("en-US")} · ${award.programName}` : `${award.agentName} earned ${award.prizeLabel} · ${award.programName}`,
       createdAt: award.createdAt,
       agentId: award.agentId,
       teamId: null,
@@ -148,16 +142,12 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
       )}
     >
       <div className="min-w-0 space-y-4">
-        {daily && program && (
-          <ScreenTitle
-            eyebrow="DAILY BONUS ARENA"
-            title="Today's Bonus Floor"
-            accent={program.accent}
-            rule={program.enabled && dailyAllowed ? `${program.salesRequired} validated sale${program.salesRequired > 1 ? "s" : ""} = ${formatReward(program.amount, program.prizeLabel, currency)}` : undefined}
-            inactiveNote={
-              !program.enabled ? "Daily bonus paused" : !dailyAllowed ? "Daily bonus paused by admin" : `${currency} ${todayTotal.toLocaleString("en-US")} awarded today`
-            }
-          />
+        {daily && (
+          <>
+            <ScreenTitle eyebrow="DAILY BONUS ARENA" title="Today's Bonus Floor" accent="#FFC857" />
+            {/* Real Daily programs from Admin → Reward Programs, and cash actually earned today. */}
+            <BonusTierStrip kind="daily" />
+          </>
         )}
         {showKpis && <KpiBar stats={stats} />}
 
