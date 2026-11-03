@@ -25,6 +25,7 @@ const CONFIG_EVENTS = [
   "settings.celebration.updated",
   "settings.appearance.updated",
   "settings.leaderboard.updated",
+  "settings.mascot.updated",
 ];
 
 /**

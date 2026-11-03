@@ -66,3 +66,12 @@ export async function resolveSpinActor(req: NextRequest): Promise<SpinActor | nu
 export function spinRequestAllowed(req: NextRequest): boolean {
   return isSameOrigin(req);
 }
+
+/** The paired, unrevoked display making this request (from its httpOnly device cookie), or null. */
+export async function resolveDeviceId(req: NextRequest): Promise<string | null> {
+  const pool = getDbPool();
+  const token = req.cookies.get(deviceCookieName())?.value;
+  if (!pool || !token || token.length < 20 || token.length > 100) return null;
+  const { rows } = await pool.query(`SELECT id FROM arena_devices WHERE token_hash = $1 AND revoked_at IS NULL`, [sha256(token)]);
+  return rows[0]?.id ?? null;
+}

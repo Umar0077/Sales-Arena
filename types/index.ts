@@ -334,6 +334,8 @@ export interface DisplaySettings {
   announceManualSpins: boolean;
   /** Master switch for reward / spin celebration popups on the Live Arena. */
   celebrationPopups: boolean;
+  /** Arena Cub mascot (global, admin_settings "arena.config"). */
+  arenaCub: import("@/lib/cub/config").ArenaCubConfig;
 }
 
 export type LeaderboardPeriod = "daily" | "weekly" | "monthly";

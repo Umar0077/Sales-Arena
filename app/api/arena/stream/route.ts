@@ -3,6 +3,7 @@ import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
 import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
 import { startPgEventBus } from "@/lib/server/events/pg-bus";
 import { deniedResponse, evaluateAccess } from "@/lib/server/security/enforce";
+import { resolveDeviceId } from "@/lib/server/auth/arena-device";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,10 @@ export async function GET(req: NextRequest) {
   const reqHeaders = new Headers(req.headers);
   const first = await evaluateAccess("/api/arena/stream", reqHeaders);
   if (!first.decision.allowed) return deniedResponse("/api/arena/stream", first.decision.reason);
+
+  // Paired display identity (server-side, from its httpOnly cookie): device-targeted Arena Cub actions
+  // are delivered only to the displays they name.
+  const deviceId = await resolveDeviceId(req).catch(() => null);
 
   const encoder = new TextEncoder();
   let pingInterval: NodeJS.Timeout | null = null;
@@ -53,8 +58,16 @@ export async function GET(req: NextRequest) {
       // Subscribe to internal real-time broadcaster
       unsubscribe = arenaBroadcaster.subscribe((event) => {
         if (event.type === "security.policy.updated") void recheck();
+        let data = event.payload;
+        if (event.type === "arena.cub.action") {
+          const t = (data as { target?: { scope?: string; devices?: string[] } }).target;
+          if (t?.scope === "devices") {
+            if (!deviceId || !t.devices?.includes(deviceId)) return; // not for this display
+            data = { ...(data as object), target: { scope: "devices", devices: [deviceId] } };
+          }
+        }
         try {
-          const payload = `event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`;
+          const payload = `event: ${event.type}\ndata: ${JSON.stringify(data)}\n\n`;
           controller.enqueue(encoder.encode(payload));
         } catch {
           // Client disconnected

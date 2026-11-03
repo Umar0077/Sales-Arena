@@ -233,3 +233,29 @@ export function encodeWav(samples: Float32Array, sampleRate = SAMPLE_RATE): Arra
   }
   return buffer;
 }
+
+/** Arena Cub sound effects (original, synthesized here; short and soft). */
+export type CubSound = "intro" | "hungry" | "angry" | "sad" | "feeding" | "bonus";
+export const CUB_SOUNDS: Record<CubSound, () => Float32Array> = {
+  // friendly pop + little hop
+  intro: () => new Mixer(0.7).pluck(NOTE(7), 0, 0.25, 0.3, "sine", 14).tone(NOTE(10), 0.12, 0.22, { wave: "triangle", gain: 0.18, glideTo: NOTE(19) }).pluck(NOTE(22), 0.3, 0.35, 0.18, "bell", 9).space(0.15).finish(0.6),
+  // soft rising "mrrp?"
+  hungry: () => new Mixer(0.6).tone(NOTE(-5), 0, 0.45, { wave: "triangle", gain: 0.2, attack: 0.04, glideTo: NOTE(2), vibrato: 0.02 }).finish(0.5),
+  // comic pout: two short bouncy notes down
+  angry: () => new Mixer(0.55).tone(NOTE(3), 0, 0.16, { wave: "triangle", gain: 0.2, glideTo: NOTE(-2) }).tone(NOTE(-2), 0.2, 0.22, { wave: "triangle", gain: 0.2, glideTo: NOTE(-9) }).finish(0.5),
+  // small sad sigh
+  sad: () => new Mixer(0.9).tone(NOTE(2), 0, 0.8, { wave: "sine", gain: 0.18, attack: 0.08, glideTo: NOTE(-7), vibrato: 0.012 }).finish(0.45),
+  // happy munch-munch + chime
+  feeding: () => {
+    const m = new Mixer(1.1);
+    [0, 0.14, 0.28].forEach((t, i) => m.noise(t, 0.08, { gain: 0.22, from: 900, to: 400, attack: 0.002, seed: 11 + i }));
+    m.pluck(NOTE(19), 0.46, 0.6, 0.22, "bell", 6).pluck(NOTE(26), 0.54, 0.6, 0.2, "bell", 6);
+    return m.space(0.18).finish(0.6);
+  },
+  // milestone chime
+  bonus: () => {
+    const m = new Mixer(1.4);
+    [12, 16, 19, 24].forEach((n, i) => m.pluck(NOTE(n), i * 0.09, 0.9, 0.18, "bell", 4));
+    return m.space(0.22).finish(0.6);
+  },
+};

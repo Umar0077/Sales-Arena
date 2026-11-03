@@ -162,7 +162,8 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
 
   // Broadcast only after the data is committed.
   if (result.status === "inserted") {
-    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString() });
+    // `source` lets displays tell a live sale from a historical import (Arena Cub never celebrates imports).
+    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source });
     if (result.spinGrants.length) {
       const last = result.spinGrants[result.spinGrants.length - 1];
       arenaBroadcaster.broadcast("spin.unlocked", {

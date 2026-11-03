@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import { arenaBroadcaster, type ArenaBroadcastEventType } from "../events/broadcaster";
 import { DEFAULT_SETTINGS } from "@/lib/settings/defaults";
+import { CubConfigError, validateCub } from "@/lib/cub/config";
 
 /**
  * Global FE Sales Arena configuration: ONE row in admin_settings, shared by every display and admin.
@@ -144,6 +145,17 @@ const SCHEMA: Record<string, { v: Validator; group: ArenaBroadcastEventType }> =
   leaderboardAnimations: { v: bool, group: "settings.leaderboard.updated" },
   leaderboardSize: { v: oneOf("compact", "comfortable"), group: "settings.leaderboard.updated" },
   topPerformerStyle: { v: oneOf("podium", "highlight", "minimal"), group: "settings.leaderboard.updated" },
+  // Arena Cub mascot (one validated object; timing rules are checked together)
+  arenaCub: {
+    v: (v) => {
+      try {
+        return validateCub(v);
+      } catch (e) {
+        throw new Bad(e instanceof CubConfigError ? e.message : "is invalid");
+      }
+    },
+    group: "settings.mascot.updated",
+  },
 };
 
 export const GLOBAL_SETTING_KEYS = Object.keys(SCHEMA);

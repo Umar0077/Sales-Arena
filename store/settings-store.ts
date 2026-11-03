@@ -7,6 +7,7 @@ import type { DisplaySettings, QualityPreset, SoundCategory } from "@/types";
 export const SETTINGS_STORAGE_KEY = "sales-arena:settings";
 
 import { DEFAULT_SETTINGS, DEFAULT_SOUND_CATEGORIES } from "@/lib/settings/defaults";
+import { readCub } from "@/lib/cub/config";
 export { DEFAULT_SETTINGS, DEFAULT_SOUND_CATEGORIES };
 
 
@@ -76,6 +77,8 @@ export const useSettingsStore = create<SettingsStore>()(
           soundCategories: { ...DEFAULT_SOUND_CATEGORIES, ...(p.soundCategories ?? {}) },
           arenaModes: { ...DEFAULT_SETTINGS.arenaModes, ...(p.arenaModes ?? {}) },
           rewardCategories: { ...DEFAULT_SETTINGS.rewardCategories, ...(p.rewardCategories ?? {}) },
+          // The Live Arena permission is never taken from browser storage: only the server can turn it on.
+          arenaCub: { ...readCub(p.arenaCub), allowOnLiveArena: false },
         };
       },
       onRehydrateStorage: () => () => {

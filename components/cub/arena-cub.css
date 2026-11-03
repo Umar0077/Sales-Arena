@@ -1,0 +1,630 @@
+/* Arena Cub — character animation. Transform/opacity only (cheap), one small SVG.
+   Root: .cub[data-pose][data-motion=full|lite|reduced][data-paused]. Durations come from admin settings
+   as CSS variables (--cub-intro, --cub-feed, --cub-bonus, --cub-act); --cub-amp scales jump heights. */
+
+.cub {
+  --cub-intro: 4.6s;
+  --cub-feed: 5s;
+  --cub-bonus: 6s;
+  --cub-act: 6s;
+  --cub-amp: 1;
+  position: relative;
+  user-select: none;
+  pointer-events: none;
+}
+.cub-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.cub-svg g, .cub-svg path, .cub-svg ellipse, .cub-svg circle, .cub-svg text { transform-box: view-box; }
+
+/* ---------------------------------------------------------------- pivots */
+.cub-rig { transform-origin: 120px 252px; }
+.cub-body { transform-origin: 120px 242px; }
+.cub-head { transform-origin: 120px 152px; }
+.cub-ear-l { transform-origin: 82px 76px; }
+.cub-ear-r { transform-origin: 158px 76px; }
+.cub-eye { transform-box: fill-box !important; transform-origin: center; }
+.cub-tail { transform-origin: 160px 226px; }
+.cub-arm-l { transform-origin: 91px 172px; }
+.cub-arm-r { transform-origin: 149px 172px; }
+.cub-trophy { transform-origin: 153.5px 216px; }
+.cub-portal { transform-origin: 120px 250px; }
+.cub-bigglow { transform-origin: 120px 150px; }
+.cub-tear { transform-box: fill-box !important; transform-origin: center top; }
+.cub-anger { transform-box: fill-box !important; transform-origin: center; }
+.cub-token { transform: translate(120px, 198px) scale(0); }
+
+/* ---------------------------------------------------------------- default visibility */
+.cub-eyes-closed, .cub-eyes-happy, .cub-brow-angry, .cub-brow-worried, .cub-mouth-open, .cub-mouth-frown,
+.cub-mouth-pout, .cub-tear, .cub-anger, .cub-zzz, .cub-token, .cub-trophy, .cub-bowl, .cub-portal,
+.cub-bigglow, .cub-water, .cub-bite { opacity: 0; }
+.cub-svg g, .cub-svg path { transition: opacity 0.25s ease; }
+
+/* ---------------------------------------------------------------- ambient life (all moods) */
+.cub .cub-body { animation: cub-breathe 3.6s ease-in-out infinite; }
+.cub .cub-eye { animation: cub-blink 5.2s infinite; }
+.cub .cub-tail { animation: cub-tail 3s ease-in-out infinite alternate; }
+.cub[data-pose="idle"] .cub-head { animation: cub-look 13s ease-in-out infinite; }
+.cub[data-pose="idle"] .cub-pupil { animation: cub-pupil-look 13s ease-in-out infinite; }
+.cub[data-pose="idle"] .cub-ear-l { animation: cub-ear-l 7s infinite; }
+.cub[data-pose="idle"] .cub-ear-r { animation: cub-ear-r 9.5s infinite; }
+.cub[data-pose="idle"] .cub-rig { animation: cub-shift 26s ease-in-out infinite; }
+
+@keyframes cub-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, 1.028); } }
+@keyframes cub-blink { 0%, 90%, 94%, 100% { transform: scaleY(1); } 92% { transform: scaleY(0.08); } }
+@keyframes cub-tail { from { transform: rotate(-7deg); } to { transform: rotate(9deg); } }
+@keyframes cub-look {
+  0%, 28%, 100% { transform: rotate(0); }
+  34%, 46% { transform: rotate(-4deg) translateX(-1px); }
+  54%, 68% { transform: rotate(3.5deg) translateX(1px); }
+  74% { transform: rotate(0); }
+}
+@keyframes cub-pupil-look {
+  0%, 28%, 100% { transform: translate(0, 0); }
+  34%, 46% { transform: translate(-3px, -0.5px); }
+  54%, 68% { transform: translate(3px, -0.5px); }
+  74% { transform: translate(0, 0); }
+}
+@keyframes cub-ear-l { 0%, 86%, 100% { transform: rotate(0); } 89% { transform: rotate(-13deg); } 92% { transform: rotate(3deg); } 95% { transform: rotate(0); } }
+@keyframes cub-ear-r { 0%, 80%, 100% { transform: rotate(0); } 83% { transform: rotate(13deg); } 86% { transform: rotate(-3deg); } 89% { transform: rotate(0); } }
+@keyframes cub-shift {
+  0%, 55%, 100% { transform: translateX(0) rotate(0); }
+  60% { transform: translateY(-3px) rotate(-1.5deg); }
+  64%, 92% { transform: translateX(2px) rotate(1deg); }
+  97% { transform: translateX(0) rotate(0); }
+}
+
+/* ---------------------------------------------------------------- hungry */
+.cub[data-pose="hungry"] .cub-brow-worried,
+.cub[data-pose="hungry"] .cub-mouth-pout,
+.cub[data-pose="hungry"] .cub-bowl { opacity: 1; }
+.cub[data-pose="hungry"] .cub-mouth-smile { opacity: 0; }
+.cub[data-pose="hungry"] .cub-pupil { transform: translate(-1.5px, -3px); }
+.cub[data-pose="hungry"] .cub-tail { animation-duration: 5.5s; }
+.cub[data-pose="hungry"] .cub-arm-r { animation: cub-rub 6s ease-in-out infinite; }
+.cub[data-pose="hungry"] .cub-bowl-glow { animation: cub-pulse 2.2s ease-in-out infinite; }
+.cub[data-pose="hungry"] .cub-head { transform: rotate(-3deg); }
+/* the reminder performance: rub tummy → paws together → look at the bowl */
+.cub[data-pose="hungry"][data-act="reminder"] .cub-arm-r { animation: cub-hungry-arm-r var(--cub-act) ease-in-out both; }
+.cub[data-pose="hungry"][data-act="reminder"] .cub-arm-l { animation: cub-hungry-arm-l var(--cub-act) ease-in-out both; }
+.cub[data-pose="hungry"][data-act="reminder"] .cub-pupil { animation: cub-hungry-eyes var(--cub-act) ease-in-out both; }
+.cub[data-pose="hungry"][data-act="reminder"] .cub-head { animation: cub-hungry-head var(--cub-act) ease-in-out both; }
+
+@keyframes cub-rub {
+  0%, 55%, 100% { transform: rotate(0); }
+  62%, 70%, 78% { transform: rotate(30deg); }
+  66%, 74%, 82% { transform: rotate(40deg); }
+  88% { transform: rotate(0); }
+}
+@keyframes cub-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+@keyframes cub-hungry-arm-r {
+  0% { transform: rotate(0); }
+  8%, 16%, 24% { transform: rotate(30deg); }
+  12%, 20%, 28% { transform: rotate(42deg); }
+  36%, 66% { transform: translateY(-16px) rotate(34deg); }
+  76%, 100% { transform: rotate(0); }
+}
+@keyframes cub-hungry-arm-l {
+  0%, 28% { transform: rotate(0); }
+  36%, 66% { transform: translateY(-16px) rotate(-34deg); }
+  76%, 100% { transform: rotate(0); }
+}
+@keyframes cub-hungry-eyes {
+  0%, 30% { transform: translate(-1.5px, -3px); }
+  36%, 66% { transform: translate(0, -4.5px) scale(1.06); }
+  74%, 100% { transform: translate(-4px, 2.5px); }
+}
+@keyframes cub-hungry-head {
+  0%, 30% { transform: rotate(-3deg); }
+  40%, 52% { transform: rotate(4deg) translateY(-2px); }
+  46%, 60% { transform: rotate(-4deg) translateY(-2px); }
+  74%, 100% { transform: rotate(-7deg) translateY(2px); }
+}
+
+/* ---------------------------------------------------------------- playfully angry */
+.cub[data-pose="angry"] .cub-brow-angry,
+.cub[data-pose="angry"] .cub-mouth-frown { opacity: 1; }
+.cub[data-pose="angry"] .cub-mouth-smile { opacity: 0; }
+.cub[data-pose="angry"] .cub-arm-l { transform: rotate(-64deg); }
+.cub[data-pose="angry"] .cub-arm-r { transform: rotate(64deg); }
+.cub[data-pose="angry"] .cub-pupil { transform: translate(-2.5px, -3px); }
+.cub[data-pose="angry"] .cub-head { transform: rotate(-5deg); }
+.cub[data-pose="angry"] .cub-tail { animation: cub-flick 2.6s ease-in-out infinite; }
+.cub[data-pose="angry"][data-act="reminder"] .cub-anger { animation: cub-anger 1.3s ease-in-out 3; }
+.cub[data-pose="angry"][data-act="reminder"] .cub-head { animation: cub-hmph var(--cub-act) ease-in-out both; }
+@keyframes cub-flick { 0%, 60%, 100% { transform: rotate(-4deg); } 66% { transform: rotate(16deg); } 72% { transform: rotate(-8deg); } 78% { transform: rotate(12deg); } 84% { transform: rotate(-4deg); } }
+@keyframes cub-anger { 0%, 100% { opacity: 0; transform: scale(0.6); } 25%, 70% { opacity: 1; transform: scale(1.12); } 45% { opacity: 1; transform: scale(0.94); } }
+@keyframes cub-hmph {
+  0% { transform: rotate(-5deg); }
+  8% { transform: rotate(6deg) translateY(-2px); }
+  16% { transform: rotate(-8deg); }
+  24%, 100% { transform: rotate(-5deg); }
+}
+
+/* ---------------------------------------------------------------- brief sad */
+.cub[data-pose="sad"] .cub-brow-worried,
+.cub[data-pose="sad"] .cub-mouth-frown,
+.cub[data-pose="sad"] .cub-water { opacity: 1; }
+.cub[data-pose="sad"] .cub-mouth-smile { opacity: 0; }
+.cub[data-pose="sad"] .cub-ear-l { transform: rotate(-30deg) translateY(4px); }
+.cub[data-pose="sad"] .cub-ear-r { transform: rotate(30deg) translateY(4px); }
+.cub[data-pose="sad"] .cub-head { transform: translateY(5px) rotate(-3deg); }
+.cub[data-pose="sad"] .cub-pupil { transform: translateY(2.5px); }
+.cub[data-pose="sad"] .cub-tail { animation: none; transform: rotate(14deg); }
+.cub[data-pose="sad"] .cub-body { animation-duration: 5s; }
+.cub[data-pose="sad"][data-act="reminder"] .cub-tear { animation: cub-tear 1.8s ease-in 3; }
+.cub[data-pose="sad"][data-act="reminder"] .cub-tear-r { animation-delay: 0.6s; }
+@keyframes cub-tear { 0% { opacity: 0; transform: translateY(0) scale(0.6); } 20% { opacity: 1; transform: translateY(2px) scale(1); } 100% { opacity: 0; transform: translateY(22px) scale(0.9); } }
+
+/* ---------------------------------------------------------------- resting + sleeping */
+.cub[data-pose="resting"] .cub-eyes-open,
+.cub[data-pose="sleeping"] .cub-eyes-open { opacity: 0; }
+.cub[data-pose="resting"] .cub-eyes-closed,
+.cub[data-pose="sleeping"] .cub-eyes-closed { opacity: 1; }
+.cub[data-pose="resting"] .cub-head { transform: rotate(4deg) translateY(3px); }
+.cub[data-pose="sleeping"] .cub-head { transform: rotate(7deg) translateY(6px); }
+.cub[data-pose="resting"] .cub-body,
+.cub[data-pose="sleeping"] .cub-body { animation-duration: 5.6s; }
+.cub[data-pose="resting"] .cub-tail,
+.cub[data-pose="sleeping"] .cub-tail { animation-duration: 7s; }
+.cub[data-pose="sleeping"] .cub-ear-l { transform: rotate(-14deg); }
+.cub[data-pose="sleeping"] .cub-ear-r { transform: rotate(14deg); }
+.cub[data-pose="sleeping"] .cub-zzz { opacity: 1; }
+.cub[data-pose="sleeping"] .cub-zzz text { animation: cub-z 4.5s ease-in-out infinite; opacity: 0; }
+.cub[data-pose="sleeping"] .cub-zzz text:nth-child(2) { animation-delay: 1.5s; }
+.cub[data-pose="sleeping"] .cub-zzz text:nth-child(3) { animation-delay: 3s; }
+@keyframes cub-z { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 0.9; } 100% { opacity: 0; transform: translate(6px, -10px); } }
+
+/* ---------------------------------------------------------------- intro */
+.cub[data-pose="intro"] .cub-portal { animation: cub-portal var(--cub-intro) ease-out both; }
+.cub[data-pose="intro"] .cub-rig { animation: cub-intro-rig var(--cub-intro) cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+.cub[data-pose="intro"] .cub-eye { animation: cub-intro-blink var(--cub-intro) both; }
+.cub[data-pose="intro"] .cub-ear-l { animation: cub-intro-ear-l var(--cub-intro) both; }
+.cub[data-pose="intro"] .cub-ear-r { animation: cub-intro-ear-r var(--cub-intro) both; }
+.cub[data-pose="intro"] .cub-arm-l { animation: cub-wave var(--cub-intro) ease-in-out both; }
+.cub[data-pose="intro"] .cub-tail { animation: cub-tail 0.5s ease-in-out infinite alternate; }
+.cub[data-pose="intro"] .cub-mouth-smile { animation: cub-hide-mid var(--cub-intro) both; }
+.cub[data-pose="intro"] .cub-mouth-open { animation: cub-show-mid var(--cub-intro) both; }
+.cub[data-pose="intro"] .cub-shadow { animation: cub-shadow-in var(--cub-intro) both; }
+@keyframes cub-portal { 0% { opacity: 0; transform: scale(0.1, 0.1); } 10% { opacity: 1; transform: scale(1, 1); } 70% { opacity: 1; transform: scale(1, 1); } 86%, 100% { opacity: 0; transform: scale(1.2, 1.2); } }
+@keyframes cub-intro-rig {
+  0%, 12% { transform: translateY(160px); }
+  24%, 36% { transform: translateY(72px); }
+  30% { transform: translateY(78px) rotate(-3deg); }
+  46% { transform: translateY(calc(-36px * var(--cub-amp))) scale(0.96, 1.06); }
+  56% { transform: translateY(0) scale(1.06, 0.9); }
+  62% { transform: translateY(0) scale(0.98, 1.03); }
+  66%, 100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes cub-shadow-in { 0%, 40% { opacity: 0; } 56%, 100% { opacity: 0.38; } }
+@keyframes cub-intro-blink { 0%, 64%, 70%, 100% { transform: scaleY(1); } 67% { transform: scaleY(0.08); } }
+@keyframes cub-intro-ear-l { 0%, 68%, 76%, 100% { transform: rotate(0); } 72% { transform: rotate(-14deg); } }
+@keyframes cub-intro-ear-r { 0%, 70%, 78%, 100% { transform: rotate(0); } 74% { transform: rotate(14deg); } }
+@keyframes cub-wave {
+  0%, 68% { transform: rotate(0); }
+  74% { transform: rotate(142deg); }
+  78% { transform: rotate(124deg); }
+  82% { transform: rotate(150deg); }
+  86% { transform: rotate(124deg); }
+  90% { transform: rotate(146deg); }
+  97%, 100% { transform: rotate(0); }
+}
+@keyframes cub-show-mid { 0%, 66% { opacity: 0; } 70%, 94% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes cub-hide-mid { 0%, 66% { opacity: 1; } 70%, 94% { opacity: 0; } 100% { opacity: 1; } }
+
+/* ---------------------------------------------------------------- feeding (validated sale) */
+.cub[data-pose="feeding"] .cub-token { animation: cub-token var(--cub-feed) ease-in-out both; }
+.cub[data-pose="feeding"] .cub-bite { animation: cub-bite var(--cub-feed) both; }
+.cub[data-pose="feeding"] .cub-eye { animation: cub-wide var(--cub-feed) ease-out both; }
+.cub[data-pose="feeding"] .cub-eyes-open { animation: cub-hide-late var(--cub-feed) both; }
+.cub[data-pose="feeding"] .cub-eyes-happy { animation: cub-show-late var(--cub-feed) both; }
+.cub[data-pose="feeding"] .cub-ear-l { animation: cub-perk-l var(--cub-feed) ease-out both; }
+.cub[data-pose="feeding"] .cub-ear-r { animation: cub-perk-r var(--cub-feed) ease-out both; }
+.cub[data-pose="feeding"] .cub-arm-l { animation: cub-feed-arm-l var(--cub-feed) ease-in-out both; }
+.cub[data-pose="feeding"] .cub-arm-r { animation: cub-feed-arm-r var(--cub-feed) ease-in-out both; }
+.cub[data-pose="feeding"] .cub-mouth-smile { opacity: 0; }
+.cub[data-pose="feeding"] .cub-mouth-open { animation: cub-chomp var(--cub-feed) both; }
+.cub[data-pose="feeding"] .cub-rig { animation: cub-feed-jump var(--cub-feed) ease-in-out both; }
+.cub[data-pose="feeding"] .cub-tail { animation: cub-tail 0.36s ease-in-out infinite alternate; }
+.cub[data-pose="feeding"] .cub-blush { opacity: 0.6; }
+@keyframes cub-token {
+  0% { opacity: 0; transform: translate(-6px, -40px) scale(0.5); }
+  8% { opacity: 1; transform: translate(10px, -36px) scale(0.85) rotate(-20deg); }
+  17% { opacity: 1; transform: translate(70px, 30px) scale(1.05) rotate(10deg); }
+  26% { opacity: 1; transform: translate(120px, 196px) scale(1); }
+  34% { opacity: 1; transform: translate(120px, 190px) scale(1.06); }
+  40% { opacity: 1; transform: translate(120px, 168px) scale(0.95); }
+  47% { opacity: 1; transform: translate(120px, 152px) scale(0.72); }
+  54% { opacity: 1; transform: translate(120px, 146px) scale(0.42); }
+  60%, 100% { opacity: 0; transform: translate(120px, 142px) scale(0); }
+}
+@keyframes cub-bite { 0%, 44% { opacity: 0; } 46%, 60% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes cub-wide { 0% { transform: scale(1); } 6%, 30% { transform: scale(1.18); } 38%, 100% { transform: scale(1); } }
+@keyframes cub-hide-late { 0%, 58% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes cub-show-late { 0%, 58% { opacity: 0; } 62%, 100% { opacity: 1; } }
+@keyframes cub-perk-l { 0% { transform: rotate(0); } 6%, 40% { transform: translateY(-4px) rotate(10deg); } 50%, 100% { transform: rotate(0); } }
+@keyframes cub-perk-r { 0% { transform: rotate(0); } 6%, 40% { transform: translateY(-4px) rotate(-10deg); } 50%, 100% { transform: rotate(0); } }
+@keyframes cub-feed-arm-l {
+  0%, 16% { transform: rotate(0); }
+  25%, 56% { transform: translateY(-10px) rotate(-38deg); }
+  64%, 80% { transform: rotate(146deg); }
+  92%, 100% { transform: rotate(0); }
+}
+@keyframes cub-feed-arm-r {
+  0%, 16% { transform: rotate(0); }
+  25%, 56% { transform: translateY(-10px) rotate(38deg); }
+  64%, 80% { transform: rotate(-146deg); }
+  92%, 100% { transform: rotate(0); }
+}
+@keyframes cub-chomp {
+  0%, 33% { opacity: 1; }
+  36% { opacity: 0; } 40% { opacity: 1; } 44% { opacity: 0; } 48% { opacity: 1; } 52% { opacity: 0; }
+  56%, 100% { opacity: 1; }
+}
+@keyframes cub-feed-jump {
+  0%, 58% { transform: translateY(0) scale(1, 1); }
+  62% { transform: translateY(0) scale(1.05, 0.92); }
+  69% { transform: translateY(calc(-32px * var(--cub-amp))) scale(0.97, 1.05); }
+  76% { transform: translateY(0) scale(1.06, 0.9); }
+  81% { transform: translateY(calc(-9px * var(--cub-amp))) scale(1, 1.02); }
+  87%, 100% { transform: translateY(0) scale(1, 1); }
+}
+
+/* ---------------------------------------------------------------- bonus milestone */
+.cub[data-pose="bonus"] .cub-bigglow { animation: cub-glow var(--cub-bonus) ease-in-out both; }
+.cub[data-pose="bonus"] .cub-rig { animation: cub-bonus-jump var(--cub-bonus) ease-in-out both; }
+.cub[data-pose="bonus"] .cub-arm-r { animation: cub-bonus-arm-r var(--cub-bonus) ease-in-out both; }
+.cub[data-pose="bonus"] .cub-arm-l { animation: cub-bonus-arm-l var(--cub-bonus) ease-in-out both; }
+.cub[data-pose="bonus"] .cub-trophy { animation: cub-trophy var(--cub-bonus) ease-in-out both; }
+.cub[data-pose="bonus"] .cub-eyes-open,
+.cub[data-pose="bonus"] .cub-mouth-smile { opacity: 0; }
+.cub[data-pose="bonus"] .cub-eyes-happy,
+.cub[data-pose="bonus"] .cub-mouth-open { opacity: 1; }
+.cub[data-pose="bonus"] .cub-ear-l { animation: cub-perk-l var(--cub-bonus) ease-out both; }
+.cub[data-pose="bonus"] .cub-ear-r { animation: cub-perk-r var(--cub-bonus) ease-out both; }
+.cub[data-pose="bonus"] .cub-tail { animation: cub-tail 0.3s ease-in-out infinite alternate; }
+.cub[data-pose="bonus"] .cub-blush { opacity: 0.65; }
+@keyframes cub-glow { 0% { opacity: 0; transform: scale(0.6); } 14% { opacity: 1; transform: scale(1.05); } 50% { opacity: 0.8; transform: scale(0.96); } 86% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes cub-bonus-jump {
+  0% { transform: translateY(0) scale(1, 1); }
+  8% { transform: translateY(0) scale(1.07, 0.88); }
+  17% { transform: translateY(calc(-50px * var(--cub-amp))) scale(0.95, 1.07); }
+  27% { transform: translateY(0) scale(1.07, 0.88); }
+  32% { transform: translateY(0) scale(1, 1); }
+  52% { transform: translateY(0) scale(1.05, 0.93); }
+  59% { transform: translateY(calc(-26px * var(--cub-amp))) scale(0.98, 1.04); }
+  66% { transform: translateY(0) scale(1.04, 0.94); }
+  71%, 100% { transform: translateY(0) scale(1, 1); }
+}
+@keyframes cub-bonus-arm-r {
+  0% { transform: rotate(0); }
+  13%, 38% { transform: rotate(-150deg); }
+  45% { transform: rotate(-138deg); }
+  52%, 86% { transform: rotate(-152deg); }
+  96%, 100% { transform: rotate(0); }
+}
+@keyframes cub-bonus-arm-l {
+  0%, 10% { transform: rotate(0); }
+  18% { transform: rotate(140deg); }
+  28% { transform: rotate(118deg); }
+  38% { transform: rotate(148deg); }
+  48% { transform: rotate(120deg); }
+  58% { transform: rotate(146deg); }
+  70%, 84% { transform: rotate(-30deg); }
+  94%, 100% { transform: rotate(0); }
+}
+@keyframes cub-trophy {
+  0%, 11% { opacity: 0; transform: rotate(150deg) scale(0.4); }
+  16%, 88% { opacity: 1; transform: rotate(150deg) scale(1); }
+  45% { transform: rotate(138deg) scale(1.06); }
+  52% { transform: rotate(152deg) scale(1); }
+  94%, 100% { opacity: 0; transform: rotate(150deg) scale(0.6); }
+}
+
+/* ---------------------------------------------------------------- particles / confetti (HTML layer) */
+.cub-fx { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.cub-fx i {
+  position: absolute; left: 50%; top: 55%; width: var(--s, 7px); height: var(--s, 7px); border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #FFF6C4, #FFC83D 55%, #D98C0B);
+  box-shadow: 0 0 8px rgba(255, 200, 60, 0.8);
+  opacity: 0; animation: cub-particle var(--d, 1.2s) ease-out var(--delay, 0s) both;
+}
+.cub-fx i.c { border-radius: 2px; width: 6px; height: 10px; background: var(--c); box-shadow: none; animation-name: cub-confetti; }
+@keyframes cub-particle {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  12% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1); }
+}
+@keyframes cub-confetti {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(0); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy) + 60px)) rotate(var(--r, 540deg)); }
+}
+
+/* ---------------------------------------------------------------- speech bubble */
+.cub-bubble {
+  position: absolute; z-index: 2; max-width: 230px; padding: 9px 13px 10px; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 22, 70, 0.96), rgba(14, 12, 40, 0.96));
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.12), 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 22px rgba(139, 92, 246, 0.35);
+  color: #fff; font-family: var(--font-heading), Sora, system-ui, sans-serif; line-height: 1.22; text-align: left;
+  animation: cub-bubble-in 0.35s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.cub-bubble b { display: block; font-size: 15px; font-weight: 800; letter-spacing: 0.01em; }
+.cub-bubble span { display: block; margin-top: 3px; font-size: 12.5px; font-weight: 600; color: #FDE68A; }
+.cub-bubble[data-compact="true"] { max-width: 170px; padding: 6px 10px 7px; }
+.cub-bubble[data-compact="true"] b { font-size: 12.5px; }
+.cub-bubble[data-compact="true"] span { font-size: 11px; }
+.cub-bubble::after { content: ""; position: absolute; width: 12px; height: 12px; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: rotate(45deg); }
+.cub-bubble[data-side="left"]::after { right: -6px; bottom: 26px; transform: rotate(-45deg); background: rgba(16, 13, 44, 0.98); }
+.cub-bubble[data-side="right"]::after { left: -6px; bottom: 26px; transform: rotate(135deg); background: rgba(16, 13, 44, 0.98); }
+.cub-bubble[data-side="top"]::after { left: 50%; bottom: -6px; margin-left: -6px; background: rgba(14, 12, 40, 0.98); }
+@keyframes cub-bubble-in { from { opacity: 0; transform: translateY(6px) scale(0.85); } to { opacity: 1; transform: none; } }
+
+/* ---------------------------------------------------------------- performance + accessibility */
+/* Lite: blink, breathing and the celebrations stay; idle extras (look-around, ear twitches, shifting) stop. */
+.cub[data-motion="lite"][data-pose="idle"] .cub-head,
+.cub[data-motion="lite"][data-pose="idle"] .cub-pupil,
+.cub[data-motion="lite"][data-pose="idle"] .cub-ear-l,
+.cub[data-motion="lite"][data-pose="idle"] .cub-ear-r,
+.cub[data-motion="lite"][data-pose="idle"] .cub-rig,
+.cub[data-motion="lite"] .cub-bowl-glow { animation: none; }
+.cub[data-motion="lite"] .cub-tail { animation-duration: 6s; }
+
+/* Reduced motion: no movement at all; poses change with a soft fade. */
+.cub[data-motion="reduced"] *,
+.cub[data-motion="reduced"] .cub-fx i { animation: none !important; }
+.cub[data-motion="reduced"] .cub-bubble { animation: none; }
+.cub[data-motion="reduced"][data-pose="feeding"] .cub-token { opacity: 1; transform: translate(120px, 196px) scale(0.9); }
+.cub[data-motion="reduced"][data-pose="feeding"] .cub-eyes-open,
+.cub[data-motion="reduced"][data-pose="intro"] .cub-portal { opacity: 0; }
+.cub[data-motion="reduced"][data-pose="feeding"] .cub-eyes-happy,
+.cub[data-motion="reduced"][data-pose="feeding"] .cub-mouth-open { opacity: 1; }
+.cub[data-motion="reduced"][data-pose="feeding"] .cub-arm-l { transform: translateY(-10px) rotate(-38deg); }
+.cub[data-motion="reduced"][data-pose="feeding"] .cub-arm-r { transform: translateY(-10px) rotate(38deg); }
+.cub[data-motion="reduced"][data-pose="bonus"] .cub-arm-r { transform: rotate(-150deg); }
+.cub[data-motion="reduced"][data-pose="bonus"] .cub-trophy { opacity: 1; transform: rotate(150deg); }
+.cub[data-motion="reduced"][data-pose="bonus"] .cub-bigglow { opacity: 0.7; }
+
+/* Hidden tab: everything stops. */
+.cub[data-paused="true"] *, .cub[data-paused="true"] { animation-play-state: paused !important; }
+
+/* ================================================================= V2: legs, running and admin actions
+   Root extras: --dir (1 right / -1 left), --cycle (run-cycle length), data-move (prep|run|turn|settle),
+   data-hops (jump run). Only transforms and opacity. */
+.cub { --dir: 1; --cycle: 0.42s; }
+.cub-leg-l { transform-origin: 92px 224px; }
+.cub-leg-r { transform-origin: 148px 224px; }
+.cub-thigh { opacity: 0; }
+.cub-shadow { transform-origin: 120px 251px; }
+.cub-bubble { font-size: calc(15px * var(--cub-bscale, 1)); max-width: calc(250px * var(--cub-bscale, 1)); }
+.cub-bubble b { font-size: 1em; }
+.cub-bubble span { font-size: 0.83em; }
+
+/* standing poses show the legs */
+.cub[data-pose="run"] .cub-thigh, .cub[data-pose="jump"] .cub-thigh, .cub[data-pose="dance"] .cub-thigh,
+.cub[data-pose="backflip"] .cub-thigh, .cub[data-pose="spin"] .cub-thigh, .cub[data-pose="greet"] .cub-thigh,
+.cub[data-pose="happy"] .cub-thigh, .cub[data-pose="wake"] .cub-thigh { opacity: 1; }
+/* cheerful faces */
+.cub[data-pose="run"] .cub-mouth-smile, .cub[data-pose="jump"] .cub-mouth-smile, .cub[data-pose="dance"] .cub-mouth-smile,
+.cub[data-pose="happy"] .cub-mouth-smile, .cub[data-pose="backflip"] .cub-mouth-smile, .cub[data-pose="spin"] .cub-mouth-smile { opacity: 0; }
+.cub[data-pose="run"] .cub-mouth-open, .cub[data-pose="jump"] .cub-mouth-open, .cub[data-pose="dance"] .cub-mouth-open,
+.cub[data-pose="happy"] .cub-mouth-open, .cub[data-pose="backflip"] .cub-mouth-open, .cub[data-pose="spin"] .cub-mouth-open { opacity: 1; }
+.cub[data-pose="dance"] .cub-eyes-open, .cub[data-pose="happy"] .cub-eyes-open, .cub[data-pose="spin"] .cub-eyes-open { opacity: 0; }
+.cub[data-pose="dance"] .cub-eyes-happy, .cub[data-pose="happy"] .cub-eyes-happy, .cub[data-pose="spin"] .cub-eyes-happy { opacity: 1; }
+.cub[data-pose="run"] .cub-tail, .cub[data-pose="dance"] .cub-tail, .cub[data-pose="happy"] .cub-tail,
+.cub[data-pose="jump"] .cub-tail, .cub[data-pose="greet"] .cub-tail { animation: cub-tail 0.3s ease-in-out infinite alternate; }
+.cub[data-pose="dance"] .cub-blush, .cub[data-pose="happy"] .cub-blush, .cub[data-pose="greet"] .cub-blush { opacity: 0.62; }
+
+/* ---------------------------------------------------------------- run cycle */
+.cub[data-pose="run"][data-move="run"] .cub-rig { animation: cub-run-bob calc(var(--cycle) / 2) ease-in-out infinite; }
+.cub[data-pose="run"][data-move="run"][data-hops="true"] .cub-rig { animation: cub-run-hop calc(var(--cycle) * 2) ease-in-out infinite; }
+.cub[data-pose="run"][data-move="run"] .cub-leg-l { animation: cub-step var(--cycle) linear infinite; }
+.cub[data-pose="run"][data-move="run"] .cub-leg-r { animation: cub-step var(--cycle) linear infinite; animation-delay: calc(var(--cycle) / -2); }
+.cub[data-pose="run"][data-move="run"] .cub-arm-l { animation: cub-swing var(--cycle) ease-in-out infinite; animation-delay: calc(var(--cycle) / -2); }
+.cub[data-pose="run"][data-move="run"] .cub-arm-r { animation: cub-swing var(--cycle) ease-in-out infinite; }
+.cub[data-pose="run"][data-move="run"] .cub-head { animation: cub-head-bob calc(var(--cycle) / 2) ease-in-out infinite; }
+.cub[data-pose="run"] .cub-ear-l { transform: rotate(-20deg) translateY(3px); }
+.cub[data-pose="run"] .cub-ear-r { transform: rotate(20deg) translateY(3px); }
+.cub[data-pose="run"] .cub-pupil { transform: translate(calc(var(--dir) * 4.5px), -1px); transition: transform 0.18s; }
+.cub[data-pose="run"][data-move="run"] .cub-shadow { animation: cub-shadow-run calc(var(--cycle) / 2) ease-in-out infinite; }
+.cub[data-pose="run"] .cub-rig, .cub[data-pose="run"] .cub-leg-l, .cub[data-pose="run"] .cub-leg-r { transition: transform 0.25s ease-out; }
+@keyframes cub-run-bob {
+  0%, 100% { transform: translateY(-11px) rotate(calc(var(--dir) * 7deg)) scale(1.01, 0.99); }
+  50% { transform: translateY(-19px) rotate(calc(var(--dir) * 7deg)) scale(0.98, 1.03); }
+}
+@keyframes cub-run-hop {
+  0%, 40%, 100% { transform: translateY(-11px) rotate(calc(var(--dir) * 7deg)); }
+  55% { transform: translateY(calc(-62px * var(--cub-amp))) rotate(calc(var(--dir) * 2deg)) scale(0.96, 1.05); }
+  72% { transform: translateY(-8px) rotate(calc(var(--dir) * 8deg)) scale(1.05, 0.93); }
+}
+@keyframes cub-step {
+  0%, 100% { transform: translate(calc(var(--dir) * -11px), 9px) rotate(calc(var(--dir) * -24deg)); }
+  25% { transform: translate(0px, -3px) rotate(calc(var(--dir) * -6deg)); }
+  50% { transform: translate(calc(var(--dir) * 11px), 7px) rotate(calc(var(--dir) * 24deg)); }
+  75% { transform: translate(0px, 14px) rotate(0deg); }
+}
+@keyframes cub-swing { 0%, 100% { transform: rotate(38deg); } 50% { transform: rotate(-38deg); } }
+@keyframes cub-head-bob { 0%, 100% { transform: translateY(1px) rotate(calc(var(--dir) * -2deg)); } 50% { transform: translateY(4px) rotate(calc(var(--dir) * 2deg)); } }
+@keyframes cub-shadow-run { 0%, 100% { transform: scaleX(0.92); opacity: 0.3; } 50% { transform: scaleX(0.78); opacity: 0.22; } }
+/* prepare: crouch and lean */
+.cub[data-pose="run"][data-move="prep"] .cub-rig { transform: translateY(5px) rotate(calc(var(--dir) * 11deg)) scale(1.06, 0.9); }
+.cub[data-pose="run"][data-move="prep"] .cub-arm-l { transform: rotate(-30deg); }
+.cub[data-pose="run"][data-move="prep"] .cub-arm-r { transform: rotate(30deg); }
+.cub[data-pose="run"][data-move="prep"] .cub-eye { transform: scale(1.12); }
+/* slow down, little hop, turn around */
+.cub[data-pose="run"][data-move="turn"] .cub-rig { transform: translateY(-22px) scale(0.97, 1.04); transition: transform 0.24s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.cub[data-pose="run"][data-move="turn"] .cub-arm-l { transform: rotate(120deg); transition: transform 0.24s; }
+.cub[data-pose="run"][data-move="turn"] .cub-arm-r { transform: rotate(-120deg); transition: transform 0.24s; }
+/* stop and sit back down */
+.cub[data-pose="run"][data-move="settle"] .cub-rig { animation: cub-settle 0.65s ease-out both; }
+.cub[data-pose="run"][data-move="settle"] .cub-thigh { opacity: 0; transition: opacity 0.4s 0.2s; }
+@keyframes cub-settle { 0% { transform: translateY(-14px) rotate(calc(var(--dir) * 5deg)); } 45% { transform: translateY(3px) scale(1.07, 0.9); } 75% { transform: translateY(-2px) scale(0.98, 1.03); } 100% { transform: none; } }
+
+/* ---------------------------------------------------------------- jump (anticipation, air, landing) */
+.cub[data-pose="jump"] .cub-rig { animation: cub-jump 1.7s ease-in-out both; }
+.cub[data-pose="jump"] .cub-arm-l { animation: cub-jump-arm-l 1.7s ease-in-out both; }
+.cub[data-pose="jump"] .cub-arm-r { animation: cub-jump-arm-r 1.7s ease-in-out both; }
+.cub[data-pose="jump"] .cub-leg-l, .cub[data-pose="jump"] .cub-leg-r { animation: cub-jump-legs 1.7s ease-in-out both; }
+.cub[data-pose="jump"] .cub-eyes-open { animation: cub-hide-mid 1.7s both; }
+.cub[data-pose="jump"] .cub-eyes-happy { animation: cub-show-mid 1.7s both; }
+@keyframes cub-jump {
+  0% { transform: none; }
+  22% { transform: translateY(8px) scale(1.12, 0.84); }
+  32% { transform: translateY(-30px) scale(0.9, 1.14); }
+  47% { transform: translateY(calc(-78px * var(--cub-amp))) scale(1, 1); }
+  64% { transform: translateY(-10px) scale(0.95, 1.06); }
+  72% { transform: translateY(6px) scale(1.14, 0.84); }
+  84% { transform: translateY(-4px) scale(0.98, 1.03); }
+  100% { transform: none; }
+}
+@keyframes cub-jump-arm-l { 0%, 22% { transform: rotate(-20deg); } 34%, 62% { transform: rotate(150deg); } 76%, 100% { transform: rotate(0deg); } }
+@keyframes cub-jump-arm-r { 0%, 22% { transform: rotate(20deg); } 34%, 62% { transform: rotate(-150deg); } 76%, 100% { transform: rotate(0deg); } }
+@keyframes cub-jump-legs { 0%, 28% { transform: translateY(0px); } 40%, 58% { transform: translateY(-6px) scale(0.9); } 72%, 100% { transform: translateY(0px); } }
+
+/* ---------------------------------------------------------------- dance */
+.cub[data-pose="dance"] .cub-rig { animation: cub-dance 1s ease-in-out infinite; }
+.cub[data-pose="dance"] .cub-arm-l { animation: cub-dance-arm 1s ease-in-out infinite; }
+.cub[data-pose="dance"] .cub-arm-r { animation: cub-dance-arm-r 1s ease-in-out infinite; }
+.cub[data-pose="dance"] .cub-leg-l { animation: cub-dance-leg 0.5s ease-in-out infinite alternate; }
+.cub[data-pose="dance"] .cub-leg-r { animation: cub-dance-leg 0.5s ease-in-out infinite alternate-reverse; }
+.cub[data-pose="dance"] .cub-head { animation: cub-dance-head 0.5s ease-in-out infinite alternate; }
+.cub[data-pose="dance"] .cub-ear-l { animation: cub-ear-l 1s infinite; }
+@keyframes cub-dance {
+  0%, 100% { transform: translate(-9px, -10px) rotate(-10deg); }
+  25% { transform: translate(0px, -24px) rotate(0deg) scale(0.97, 1.04); }
+  50% { transform: translate(9px, -10px) rotate(10deg); }
+  75% { transform: translate(0px, -6px) rotate(0deg) scale(1.05, 0.94); }
+}
+@keyframes cub-dance-arm { 0%, 100% { transform: rotate(150deg); } 50% { transform: rotate(-25deg); } }
+@keyframes cub-dance-arm-r { 0%, 100% { transform: rotate(25deg); } 50% { transform: rotate(-150deg); } }
+@keyframes cub-dance-leg { from { transform: translate(-4px, 8px) rotate(-14deg); } to { transform: translate(4px, 2px) rotate(14deg); } }
+@keyframes cub-dance-head { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+
+/* ---------------------------------------------------------------- spin around (never mirrored: the logo stays readable) */
+.cub[data-pose="spin"] .cub-rig { animation: cub-spin 1.6s ease-in-out both; transform-origin: 120px 160px; }
+.cub[data-pose="spin"] .cub-arm-l { transform: rotate(110deg); }
+.cub[data-pose="spin"] .cub-arm-r { transform: rotate(-110deg); }
+@keyframes cub-spin {
+  0% { transform: none; }
+  12% { transform: translateY(6px) scale(1.08, 0.9); }
+  24% { transform: translateY(-34px) scale(0.06, 1); }
+  38% { transform: translateY(-46px) scale(1, 1); }
+  52% { transform: translateY(-42px) scale(0.06, 1); }
+  66% { transform: translateY(-20px) scale(1, 1); }
+  80% { transform: translateY(4px) scale(1.1, 0.88); }
+  100% { transform: none; }
+}
+
+/* ---------------------------------------------------------------- backflip (rigid rotation of the whole rig) */
+.cub[data-pose="backflip"] .cub-rig { animation: cub-backflip 1.9s cubic-bezier(0.4, 0, 0.3, 1) both; transform-origin: 120px 160px; }
+.cub[data-pose="backflip"] .cub-arm-l { animation: cub-jump-arm-l 1.9s both; }
+.cub[data-pose="backflip"] .cub-arm-r { animation: cub-jump-arm-r 1.9s both; }
+.cub[data-pose="backflip"] .cub-eyes-open { animation: cub-hide-mid 1.9s both; }
+.cub[data-pose="backflip"] .cub-eyes-happy { animation: cub-show-mid 1.9s both; }
+@keyframes cub-backflip {
+  0% { transform: none; }
+  18% { transform: translateY(10px) scale(1.12, 0.85); }
+  28% { transform: translateY(-50px) rotate(0deg) scale(0.94, 1.08); }
+  45% { transform: translateY(calc(-96px * var(--cub-amp))) rotate(-180deg); }
+  64% { transform: translateY(-40px) rotate(-345deg); }
+  70% { transform: translateY(0px) rotate(-360deg); }
+  76% { transform: translateY(6px) rotate(-360deg) scale(1.14, 0.84); }
+  88% { transform: translateY(-3px) rotate(-360deg) scale(0.98, 1.03); }
+  100% { transform: rotate(-360deg); }
+}
+
+/* ---------------------------------------------------------------- happy */
+.cub[data-pose="happy"] .cub-rig { animation: cub-happy 0.55s ease-in-out infinite; }
+.cub[data-pose="happy"] .cub-arm-l { animation: cub-happy-arm 0.55s ease-in-out infinite alternate; }
+.cub[data-pose="happy"] .cub-arm-r { animation: cub-happy-arm-r 0.55s ease-in-out infinite alternate; }
+@keyframes cub-happy { 0%, 100% { transform: translateY(0px) scale(1.04, 0.95); } 50% { transform: translateY(calc(-22px * var(--cub-amp))) scale(0.97, 1.04); } }
+@keyframes cub-happy-arm { from { transform: rotate(60deg); } to { transform: rotate(130deg); } }
+@keyframes cub-happy-arm-r { from { transform: rotate(-60deg); } to { transform: rotate(-130deg); } }
+
+/* ---------------------------------------------------------------- wave / goodbye */
+.cub[data-pose="wave"] .cub-arm-l { animation: cub-wave-long 3.5s ease-in-out both; }
+.cub[data-pose="wave"] .cub-head { animation: cub-wave-head 3.5s ease-in-out both; }
+.cub[data-pose="wave"] .cub-mouth-smile { animation: cub-hide-mid 3.5s both; }
+.cub[data-pose="wave"] .cub-mouth-open { animation: cub-show-mid 3.5s both; }
+@keyframes cub-wave-long {
+  0% { transform: rotate(0deg); }
+  12% { transform: rotate(146deg); }
+  20%, 36%, 52%, 68% { transform: rotate(122deg); }
+  28%, 44%, 60%, 76% { transform: rotate(152deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+@keyframes cub-wave-head { 0%, 100% { transform: rotate(0deg); } 15%, 80% { transform: rotate(-6deg); } }
+
+/* ---------------------------------------------------------------- wake up: yawn and stretch */
+.cub[data-pose="wake"] .cub-eyes-open { animation: cub-wake-open 3.4s both; }
+.cub[data-pose="wake"] .cub-eyes-closed { animation: cub-wake-closed 3.4s both; }
+.cub[data-pose="wake"] .cub-rig { animation: cub-stretch 3.4s ease-in-out both; }
+.cub[data-pose="wake"] .cub-arm-l { animation: cub-stretch-arm 3.4s ease-in-out both; }
+.cub[data-pose="wake"] .cub-arm-r { animation: cub-stretch-arm-r 3.4s ease-in-out both; }
+.cub[data-pose="wake"] .cub-mouth-smile { animation: cub-wake-smile 3.4s both; }
+.cub[data-pose="wake"] .cub-mouth-open { animation: cub-wake-yawn 3.4s both; }
+@keyframes cub-wake-open { 0%, 52% { opacity: 0; } 56%, 100% { opacity: 1; } }
+@keyframes cub-wake-closed { 0%, 52% { opacity: 1; } 56%, 100% { opacity: 0; } }
+@keyframes cub-wake-yawn { 0%, 22% { opacity: 0; } 28%, 50% { opacity: 1; } 56%, 100% { opacity: 0; } }
+@keyframes cub-wake-smile { 0%, 22% { opacity: 1; } 28%, 50% { opacity: 0; } 56%, 100% { opacity: 1; } }
+@keyframes cub-stretch { 0%, 20% { transform: translateY(4px) rotate(5deg); } 40%, 52% { transform: translateY(-10px) scale(0.96, 1.09); } 66% { transform: translateY(2px) scale(1.06, 0.93); } 76% { transform: translateY(-16px); } 86%, 100% { transform: none; } }
+@keyframes cub-stretch-arm { 0%, 22% { transform: rotate(0deg); } 38%, 52% { transform: rotate(165deg); } 64%, 100% { transform: rotate(0deg); } }
+@keyframes cub-stretch-arm-r { 0%, 22% { transform: rotate(0deg); } 38%, 52% { transform: rotate(-165deg); } 64%, 100% { transform: rotate(0deg); } }
+
+/* ---------------------------------------------------------------- peek from the bottom edge */
+.cub[data-pose="peek"] .cub-rig { animation: cub-peek 4.2s ease-in-out both; }
+.cub[data-pose="peek"] .cub-pupil { animation: cub-peek-look 4.2s ease-in-out both; }
+@keyframes cub-peek {
+  0% { transform: translateY(0px); }
+  12% { transform: translateY(170px); }
+  26%, 52% { transform: translateY(96px); }
+  60% { transform: translateY(170px); }
+  74% { transform: translateY(calc(-40px * var(--cub-amp))) scale(0.95, 1.07); }
+  84% { transform: translateY(4px) scale(1.08, 0.9); }
+  92%, 100% { transform: none; }
+}
+@keyframes cub-peek-look { 0%, 28% { transform: none; } 34%, 40% { transform: translate(-4px, -1px); } 44%, 50% { transform: translate(4px, -1px); } 56%, 100% { transform: none; } }
+
+/* ---------------------------------------------------------------- the live greeting (about 13 s) */
+.cub[data-pose="greet"] .cub-portal { animation: cub-greet-portal 13s ease-out both; }
+.cub[data-pose="greet"] .cub-bigglow { animation: cub-greet-glow 13s ease-in-out both; }
+.cub[data-pose="greet"] .cub-rig { animation: cub-greet-rig 13s ease-in-out both; }
+.cub[data-pose="greet"] .cub-arm-l { animation: cub-greet-wave 13s ease-in-out both; }
+.cub[data-pose="greet"] .cub-mouth-smile { animation: cub-greet-smile 13s both; }
+.cub[data-pose="greet"] .cub-mouth-open { animation: cub-greet-talk 13s both; }
+.cub[data-pose="greet"] .cub-eyes-open { animation: cub-greet-eyes 13s both; }
+.cub[data-pose="greet"] .cub-eyes-happy { animation: cub-greet-happy 13s both; }
+@keyframes cub-greet-portal { 0% { opacity: 0; transform: scale(0.1); } 5% { opacity: 1; transform: scale(1.1); } 14% { opacity: 1; transform: scale(1); } 22%, 100% { opacity: 0; transform: scale(1.25); } }
+@keyframes cub-greet-glow { 0%, 3% { opacity: 0; transform: scale(0.5); } 9% { opacity: 0.9; transform: scale(1); } 22% { opacity: 0.35; } 80% { opacity: 0.3; } 88% { opacity: 1; transform: scale(1.06); } 100% { opacity: 0; } }
+@keyframes cub-greet-rig {
+  0%, 3% { transform: translateY(170px); }
+  9% { transform: translateY(calc(-44px * var(--cub-amp))) scale(0.95, 1.07); }
+  13% { transform: translateY(4px) scale(1.08, 0.9); }
+  16%, 82% { transform: none; }
+  85% { transform: translateY(6px) scale(1.1, 0.88); }
+  89% { transform: translateY(calc(-62px * var(--cub-amp))) scale(0.95, 1.07); }
+  94% { transform: translateY(4px) scale(1.08, 0.9); }
+  100% { transform: none; }
+}
+@keyframes cub-greet-wave {
+  0%, 15% { transform: rotate(0deg); }
+  18%, 24%, 30%, 36%, 42% { transform: rotate(148deg); }
+  21%, 27%, 33%, 39% { transform: rotate(122deg); }
+  48%, 84% { transform: rotate(0deg); }
+  88%, 92% { transform: rotate(150deg); }
+  97%, 100% { transform: rotate(0deg); }
+}
+@keyframes cub-greet-talk { 0%, 16% { opacity: 0; } 18%, 30%, 46%, 60%, 74%, 92% { opacity: 1; } 24%, 38%, 53%, 67%, 80% { opacity: 0.25; } 98%, 100% { opacity: 0; } }
+@keyframes cub-greet-smile { 0%, 16% { opacity: 1; } 18%, 97% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes cub-greet-eyes { 0%, 84% { opacity: 1; } 86%, 96% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes cub-greet-happy { 0%, 84% { opacity: 0; } 86%, 96% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---------------------------------------------------------------- reduced motion for the new poses: still poses */
+.cub[data-motion="reduced"][data-pose="run"] .cub-rig { transform: rotate(calc(var(--dir) * 7deg)); }
+.cub[data-motion="reduced"][data-pose="jump"] .cub-arm-l,
+.cub[data-motion="reduced"][data-pose="dance"] .cub-arm-l,
+.cub[data-motion="reduced"][data-pose="wave"] .cub-arm-l,
+.cub[data-motion="reduced"][data-pose="greet"] .cub-arm-l { transform: rotate(140deg); }
+.cub[data-motion="reduced"][data-pose="jump"] .cub-arm-r,
+.cub[data-motion="reduced"][data-pose="dance"] .cub-arm-r { transform: rotate(-140deg); }
+.cub[data-motion="reduced"][data-pose="wake"] .cub-eyes-open { opacity: 1; }
+.cub[data-motion="reduced"][data-pose="wake"] .cub-eyes-closed { opacity: 0; }

@@ -8,6 +8,8 @@ export type ArenaBroadcastEventType =
   | "settings.celebration.updated"
   | "settings.appearance.updated"
   | "settings.leaderboard.updated"
+  | "settings.mascot.updated"
+  | "arena.cub.action"
   | "arena.availability.updated"
   | "arena.screens.updated"
   | "arena.screen.changed"

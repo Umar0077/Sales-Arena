@@ -8,6 +8,7 @@ import { HydrationGate } from "@/components/common/HydrationGate";
 import { ArenaContent, WhenArenaOnline } from "@/components/arena/ArenaSwitch";
 import { PoweredBy } from "@/components/brand/PoweredBy";
 import { RewardRuntime } from "@/components/rewards/RewardRuntime";
+import { ArenaCub } from "@/components/cub/ArenaCub";
 import { LiveApiSync } from "@/components/arena/LiveApiSync";
 import { LiveDataGate, ArenaSkeleton } from "@/components/arena/LiveDataGate";
 
@@ -31,6 +32,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         <CelebrationOverlay />
         <SpinFlow />
         <RewardRuntime />
+        <ArenaCub />
       </WhenArenaOnline>
       {/* Data + settings sync keeps running while offline, so an admin can switch the arena back on remotely. */}
       <LiveApiSync />

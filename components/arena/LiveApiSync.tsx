@@ -20,6 +20,7 @@ const CONFIG_EVENTS = [
   "settings.celebration.updated",
   "settings.appearance.updated",
   "settings.leaderboard.updated",
+  "settings.mascot.updated",
 ] as const;
 import { arenaBus } from "@/lib/events/bus";
 import { getPeriodDateRange } from "@/lib/time/business";
@@ -422,6 +423,7 @@ export function LiveApiSync() {
         void syncCatalog();
         void fetchGlobalDisplay();
         void fetchArenaConfig();
+        arenaBus.emit("cub:resync", {}, { broadcast: false });
         if (connectedOnce) {
           scheduleProgramsSync();
           scheduleLiveSync(300); // awards / sales missed during the gap (announced only if newer than page load)
@@ -450,6 +452,13 @@ export function LiveApiSync() {
               if (first) seenSales.delete(first);
             }
           }
+
+          // Arena Cub: same stream, same dedupe (it keeps its own bounded memory too).
+          arenaBus.emit(
+            "cub:sale",
+            { caseId: saleKey, closerName: String(payload.closerName || payload.userCode || ""), validatedAt: String(payload.validatedAt || ""), source: payload.source ? String(payload.source) : null },
+            { broadcast: false },
+          );
 
           // Broadcast celebratory announcement
           arenaBus.emit("celebration:enqueue", {
@@ -508,6 +517,15 @@ export function LiveApiSync() {
             scheduleLiveSync(400); // award list visibility changed
           }
         });
+
+      // Arena Cub: an admin action validated, audited and broadcast by the server.
+      eventSource.addEventListener("arena.cub.action", (e) => {
+        try {
+          arenaBus.emit("cub:command", JSON.parse((e as MessageEvent).data), { broadcast: false });
+        } catch {
+          /* malformed: ignored */
+        }
+      });
 
       eventSource.addEventListener("arena.screen.changed", (e) => {
         try {

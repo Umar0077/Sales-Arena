@@ -20,6 +20,12 @@ export interface ArenaEventMap {
   "data:reset": Record<string, never>;
   "data:changed": { reason: string };
   "integration:event": { payload: unknown; accepted: boolean; message: string };
+  /** Arena Cub: a committed validated sale from the server stream (never mirrored to other tabs). */
+  "cub:sale": { caseId: string; closerName: string; validatedAt: string; source: string | null };
+  /** Arena Cub: the stream (re)connected, re-read the authoritative activity. */
+  "cub:resync": Record<string, never>;
+  /** Arena Cub: a trusted admin action from the server stream (never mirrored to other tabs). */
+  "cub:command": import("@/lib/cub/actions").CubCommand;
 }
 
 export type ArenaEventName = keyof ArenaEventMap;

@@ -16,6 +16,7 @@ export const GLOBAL_SETTING_KEYS = [
   "spinnerTheme", "segmentColorMode", "glowIntensity", "spinnerLights", "lightSpeed", "spinDurationScale", "spinnerFallback2D",
   "leaderboardVisible", "leaderboardCount", "leaderboardCriteria", "leaderboardPeriod", "leaderboardTeamId",
   "leaderboardCampaignId", "leaderboardAnimations", "leaderboardSize", "topPerformerStyle",
+  "arenaCub",
 ] as const;
 
 const SET = new Set<string>(GLOBAL_SETTING_KEYS);

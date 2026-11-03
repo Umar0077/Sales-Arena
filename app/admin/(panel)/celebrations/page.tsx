@@ -3,6 +3,7 @@
 import { saveSettings } from "@/lib/admin/global-settings";
 import { useSettingsStore, fillTemplate } from "@/store/settings-store";
 import { Section, Toggle, Range, Choice, TextField } from "@/components/admin/ui";
+import { ArenaCubSettings } from "@/components/admin/cub/ArenaCubSettings";
 
 export default function CelebrationSettingsPage() {
   const s = useSettingsStore();
@@ -66,6 +67,8 @@ export default function CelebrationSettingsPage() {
         />
         <Toggle label="Confetti & particles" checked={s.particles} onChange={(v) => update({ particles: v })} />
       </Section>
+
+      <ArenaCubSettings />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { DisplaySettings, SoundCategory } from "@/types";
+import { DEFAULT_CUB } from "@/lib/cub/config";
 
 /** Defaults shared by the browser stores and the server (no "use client": safe to import in route handlers). */
 export const DEFAULT_SOUND_CATEGORIES: Record<SoundCategory, boolean> = {
@@ -93,4 +94,5 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   announceAutoSpins: true,
   announceManualSpins: true,
   celebrationPopups: true,
+  arenaCub: DEFAULT_CUB,
 };
