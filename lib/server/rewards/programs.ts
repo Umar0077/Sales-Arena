@@ -15,6 +15,7 @@ import { arenaBroadcaster } from "../events/broadcaster";
 export const REWARD_TYPES = ["cash", "physical", "voucher", "badge", "time_off", "custom"] as const;
 export type RewardType = (typeof REWARD_TYPES)[number];
 export type ProgramKind = "daily" | "weekly" | "monthly";
+export type TierPolicy = "highest_tier" | "additive";
 export type ProgramStatus = "active" | "paused" | "scheduled" | "expired" | "archived";
 
 export interface RewardProgram {
@@ -36,6 +37,10 @@ export interface RewardProgram {
   scopeType: "all" | "campaign" | "agents";
   scopeIds: string[];
   stackable: boolean;
+  /** highest_tier: competes with the other cash tiers of the same kind + group (only the highest achieved counts). additive: pays independently. */
+  tierPolicy: TierPolicy;
+  /** Programs compete only within the same kind and reward group. */
+  rewardGroup: string;
   /** Program Active: new awards can be earned. */
   enabled: boolean;
   /** Show on Live Arena: popups / cards for this program appear publicly. */
@@ -63,7 +68,7 @@ export class ProgramError extends Error {
 
 export const COLS = `id, kind, name, description, reward_type, amount, currency, prize_label, sales_required, max_awards, max_total_awards,
   to_char(start_date, 'YYYY-MM-DD') AS start_date, to_char(end_date, 'YYYY-MM-DD') AS end_date, scope_type, scope_ids, stackable,
-  enabled, show_on_arena, headline, message, reward_line, sound, accent, popup_seconds, leaderboard_count, active_since,
+  tier_policy, reward_group, enabled, show_on_arena, headline, message, reward_line, sound, accent, popup_seconds, leaderboard_count, active_since,
   archived_at, revision, created_at, updated_at`;
 
 const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
@@ -90,6 +95,8 @@ export function rowToProgram(r: Record<string, unknown>, today = todayIn(process
     scopeType: (r.scope_type as RewardProgram["scopeType"]) ?? "all",
     scopeIds: (r.scope_ids as string[]) ?? [],
     stackable: r.stackable !== false,
+    tierPolicy: (r.tier_policy as TierPolicy) ?? "highest_tier",
+    rewardGroup: String(r.reward_group ?? "default"),
     enabled: Boolean(r.enabled),
     showOnArena: r.show_on_arena !== false,
     headline: String(r.headline),
@@ -191,6 +198,13 @@ export function normalizeProgram(input: Input, base?: RewardProgram): Omit<Rewar
     scopeType: scopeType as RewardProgram["scopeType"],
     scopeIds: scopeType === "all" ? [] : scopeIds,
     stackable: flag("stackable", true),
+    // Cash tiers in one kind + group compete (highest achieved only) unless set to additive. Non-cash rewards are independent.
+    tierPolicy: !cash ? "additive" : (() => {
+      const v = get("tierPolicy") ?? "highest_tier";
+      if (v !== "highest_tier" && v !== "additive") throw new ProgramError("Choose a tier policy: highest tier only, or additive.");
+      return v as TierPolicy;
+    })(),
+    rewardGroup: (text(get("rewardGroup"), "Reward group", 64) || "default").toLowerCase(),
     enabled: flag("enabled", false),
     showOnArena: flag("showOnArena", true),
     headline: text(get("headline"), "Popup headline", 120) || `${KIND_WORD[k]} BONUS UNLOCKED!`,
@@ -231,11 +245,12 @@ export async function snapshot(c: PoolClient, id: string, action: string, adminI
 
 const VALUES_SQL = `kind = $2, name = $3, description = $4, reward_type = $5, amount = $6, currency = $7, prize_label = $8, sales_required = $9,
   max_awards = $10, max_total_awards = $11, start_date = $12, end_date = $13, scope_type = $14, scope_ids = $15, stackable = $16, enabled = $17,
-  show_on_arena = $18, headline = $19, message = $20, reward_line = $21, sound = $22, accent = $23, popup_seconds = $24, leaderboard_count = $25`;
+  show_on_arena = $18, headline = $19, message = $20, reward_line = $21, sound = $22, accent = $23, popup_seconds = $24, leaderboard_count = $25,
+  tier_policy = $26, reward_group = $27`;
 const valuesOf = (n: ReturnType<typeof normalizeProgram>) => [
   n.kind, n.name, n.description, n.rewardType, n.amount, n.currency, n.prizeLabel, n.salesRequired, n.maxAwards, n.maxTotalAwards,
   n.startDate, n.endDate, n.scopeType, n.scopeIds, n.stackable, n.enabled, n.showOnArena, n.headline, n.message, n.rewardLine,
-  n.sound, n.accent, n.popupSeconds, n.leaderboardCount,
+  n.sound, n.accent, n.popupSeconds, n.leaderboardCount, n.tierPolicy, n.rewardGroup,
 ];
 
 export function publish(p: Pick<RewardProgram, "id" | "kind" | "revision">, action: string) {
@@ -302,7 +317,7 @@ export async function updateProgram(pool: Pool, id: string, input: Input, actor:
     else if (n.showOnArena !== cur.showOnArena && Object.keys(fields).length === 1) action = n.showOnArena ? "shown" : "hidden";
     await client.query(
       `UPDATE reward_programs SET ${VALUES_SQL}, active_since = ${activeSinceSql}, archived_at = ${archivedSql},
-         revision = revision + 1, updated_by = $26, updated_at = NOW() WHERE id = $1`,
+         revision = revision + 1, updated_by = $28, updated_at = NOW() WHERE id = $1`,
       [id, ...valuesOf(n), actor.adminId],
     );
     p = await snapshot(client, id, action, actor.adminId);
@@ -331,8 +346,8 @@ export async function programHistory(db: Pool | PoolClient, id: string) {
 }
 
 /** Programs that would pay the same milestone twice: same period, threshold, eligibility and reward type. */
-export function programSignature(p: Pick<RewardProgram, "kind" | "salesRequired" | "scopeType" | "scopeIds" | "rewardType">): string {
-  return [p.kind, p.salesRequired, p.scopeType, [...p.scopeIds].sort().join(","), p.rewardType].join("|");
+export function programSignature(p: Pick<RewardProgram, "kind" | "salesRequired" | "scopeType" | "scopeIds" | "rewardType"> & Partial<Pick<RewardProgram, "tierPolicy" | "rewardGroup">>): string {
+  return [p.kind, p.salesRequired, p.scopeType, [...p.scopeIds].sort().join(","), p.rewardType, p.tierPolicy ?? "highest_tier", p.rewardGroup ?? "default"].join("|");
 }
 
 /** Ids of the newer copies among identical active programs (the oldest of each group is kept). */

@@ -31,6 +31,8 @@ export interface Program {
   scopeType: "all" | "campaign" | "agents";
   scopeIds: string[];
   stackable: boolean;
+  tierPolicy: "highest_tier" | "additive";
+  rewardGroup: string;
   enabled: boolean;
   showOnArena: boolean;
   headline: string;
@@ -96,6 +98,8 @@ function toDraft(kind: Kind, p?: Program, currency = "Rs."): Draft {
     scopeIds: p?.scopeIds ?? [],
     scopeText: (p?.scopeIds ?? []).join(", "),
     stackable: p?.stackable ?? true,
+    tierPolicy: p?.tierPolicy ?? "highest_tier",
+    rewardGroup: p?.rewardGroup ?? "default",
     enabled: p?.enabled ?? false,
     showOnArena: p?.showOnArena ?? true,
     headline: p?.headline ?? "",
@@ -123,6 +127,8 @@ function fromDraft(d: Draft) {
     scopeType: d.scopeType,
     scopeIds: d.scopeType === "all" ? [] : d.scopeText.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean),
     stackable: d.stackable,
+    tierPolicy: d.tierPolicy,
+    rewardGroup: d.rewardGroup.trim() || "default",
     enabled: d.enabled,
     showOnArena: d.showOnArena,
     headline: d.headline || undefined,
@@ -281,7 +287,8 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
                       <h3 className="font-heading font-bold text-white">{p.name}</h3>
                       <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider", STATUS_STYLE[p.status])} data-testid="program-status">{p.status}</span>
                       {!p.showOnArena && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">hidden on arena</span>}
-                      {!p.stackable && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">non-stackable</span>}
+                      {p.rewardType === "cash" && p.tierPolicy === "additive" ? <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-200">additive</span> : p.rewardType === "cash" && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted" title="Only the highest tier reached in this group counts">highest tier · {p.rewardGroup}</span>}
+                      {p.tierPolicy === "additive" && !p.stackable && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">non-stackable</span>}
                       {dupRole.get(p.id) === "awarding" && <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300" data-testid="dup-awarding">duplicate · this one awards</span>}
                       {dupRole.get(p.id) === "skipped" && <span className="rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[11px] font-semibold text-rose-300" data-testid="dup-skipped">duplicate · not awarding</span>}
                     </div>
@@ -483,11 +490,36 @@ function ProgramEditorForm({ kind, program, currency, onCancel, onSaved }: {
           <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#7568FF]" checked={d.showOnArena} onChange={(e) => set({ showOnArena: e.target.checked })} />
           <span><b className="text-white">Show on Live Arena</b><br />Announce awards publicly (popup + cards).</span>
         </label>
-        <label className="flex items-start gap-2 text-sm text-text-secondary">
-          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#7568FF]" checked={d.stackable} onChange={(e) => set({ stackable: e.target.checked })} />
-          <span><b className="text-white">Stackable</b><br />Off: not given if the agent already has another {KIND_LABEL[kind].title.toLowerCase()} award this period; the highest tier wins when several unlock together.</span>
-        </label>
+        {cash && d.tierPolicy === "additive" && (
+          <label className="flex items-start gap-2 text-sm text-text-secondary">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#7568FF]" checked={d.stackable} onChange={(e) => set({ stackable: e.target.checked })} />
+            <span><b className="text-white">Stackable</b><br />Off: not given if the agent already has another {KIND_LABEL[kind].title.toLowerCase()} award this period.</span>
+          </label>
+        )}
       </div>
+      {cash && (
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <label className="space-y-1.5 md:col-span-2">
+            <span className={label}>How tiers combine</span>
+            <select className={inputClass} value={d.tierPolicy} onChange={(e) => set({ tierPolicy: e.target.value as Draft["tierPolicy"] })} data-testid="pe-tier-policy">
+              <option value="highest_tier" className="bg-[#0D1426]">Highest tier only: replaces lower tiers in the same group (recommended)</option>
+              <option value="additive" className="bg-[#0D1426]">Additive: pays in addition to other tiers (independent incentive)</option>
+            </select>
+            <span className="block text-xs text-text-muted">
+              {d.tierPolicy === "highest_tier"
+                ? `Only the highest ${KIND_LABEL[kind].title.toLowerCase()} milestone reached counts: e.g. reaching a 3-sales tier replaces the 2-sales tier (the agent gets the 3-sales amount, not both).`
+                : "This program pays on its own, on top of any other tier."}
+            </span>
+          </label>
+          {d.tierPolicy === "highest_tier" && (
+            <label className="space-y-1.5">
+              <span className={label}>Reward group</span>
+              <input className={inputClass} value={d.rewardGroup} maxLength={64} onChange={(e) => set({ rewardGroup: e.target.value })} placeholder="default" data-testid="pe-group" />
+              <span className="block text-xs text-text-muted">Tiers compete only within the same group.</span>
+            </label>
+          )}
+        </div>
+      )}
 
       <div className="mt-4 rounded-xl border border-white/10 bg-[#0A0F22] p-4 text-center" data-testid="pe-preview">
         <p className="text-[11px] font-bold tracking-[0.25em] text-gold">AWARD PREVIEW</p>

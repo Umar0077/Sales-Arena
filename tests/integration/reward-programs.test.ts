@@ -85,7 +85,7 @@ describe("reward programs, automated awards and global settings (PostgreSQL)", (
     // Admin Award History (PostgreSQL) shows it; the public feed shows it without customer data.
     const hist = await (await listAwardsRoute(req("/api/admin/awards", { cookie: sess.cookie }))).json();
     expect(hist.awards).toHaveLength(1);
-    expect(hist.totals).toEqual({ count: 1, cash: 3000 });
+    expect(hist.totals).toMatchObject({ count: 1, cash: 3000, paid: 0, outstanding: 3000 });
     const pub = await (await publicAwards(req("/api/arena/awards"))).json();
     expect(pub.awards[0]).toMatchObject({ agentName: "Hamna Nasir", amount: 3000 });
     expect(JSON.stringify(pub)).not.toContain(s2.caseId);
@@ -126,7 +126,7 @@ describe("reward programs, automated awards and global settings (PostgreSQL)", (
   });
 
   it("Scenario E: hiding announcements still earns awards (no popup); a paused category or program earns nothing new", async () => {
-    const p = await program({ kind: "daily", name: "Daily One", rewardType: "cash", amount: 1000, salesRequired: 1, maxAwards: 10 });
+    const p = await program({ kind: "daily", name: "Daily One", rewardType: "cash", amount: 1000, salesRequired: 1, maxAwards: 10, tierPolicy: "additive" }); // repeat awards per day = an additive program
     await backdate(p.id);
     await config({ rewardCategories: { daily: { active: true, showOnArena: false }, weekly: { active: true, showOnArena: true }, monthly: { active: true, showOnArena: true } } });
     await ingestValidatedSale(pool(), sale("EV1", 50), "sse");
@@ -153,7 +153,7 @@ describe("reward programs, automated awards and global settings (PostgreSQL)", (
   });
 
   it("concurrent sales for one agent: the threshold-2 award is created exactly once and never lost", async () => {
-    const p = await program({ kind: "daily", name: "Pair", rewardType: "cash", amount: 3000, salesRequired: 2, maxAwards: 5 });
+    const p = await program({ kind: "daily", name: "Pair", rewardType: "cash", amount: 3000, salesRequired: 2, maxAwards: 5, tierPolicy: "additive" });
     await backdate(p.id);
     await Promise.all(Array.from({ length: 6 }, (_, i) => ingestValidatedSale(pool(), sale("CC1", 30 - i), "sse")));
     expect((await awards()).map((r) => r.n).sort()).toEqual([1, 2, 3]);

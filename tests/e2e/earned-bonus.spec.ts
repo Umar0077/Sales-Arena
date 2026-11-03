@@ -8,7 +8,7 @@ import { test, expect, type Page } from "@playwright/test";
 async function open(page: Page) {
   await page.goto("/");
   await expect(page.getByTestId("top3-weekly")).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId("closer-rows").locator("li").first()).toBeVisible();
+  await expect(page.getByTestId("top3-weekly").locator("li[data-code]").first()).toBeVisible();
 }
 
 test.use({ storageState: { cookies: [], origins: [] }, viewport: { width: 1920, height: 1080 } });
@@ -27,14 +27,11 @@ test("indicators show the stored amounts per agent and period, nothing for agent
     await route.fulfill({ response: res, json: j });
   });
   await open(page);
-  // Real agents from the live leaderboard (no names or codes hard-coded).
-  codes = await page.getByTestId("closer-rows").locator("li[data-code]").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code!.toUpperCase()));
+  // Real agents from this week's podium (no names or codes hard-coded).
+  codes = await page.getByTestId("top3-weekly").locator("li[data-code]").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.code!.toUpperCase()));
   expect(codes.length).toBeGreaterThan(1);
   await page.getByRole("button", { name: /refresh/i }).first().click();
-
-  const row = page.getByTestId("closer-rows").locator(`li[data-code="${codes[0]}" i]`);
-  await expect(row.getByTestId("earned-bonus")).toHaveText("Earned today: PKR 2,000", { timeout: 15_000 });
-  await expect(page.getByTestId("closer-rows").locator(`li[data-code="${codes[1]}" i]`).getByTestId("earned-bonus")).toHaveCount(0);
+  await expect(page.getByTestId("top3-weekly").locator(`li[data-code="${codes[0]}" i]`).getByTestId("earned-bonus")).toHaveText("Earned this week: PKR 5,000", { timeout: 15_000 });
 
   const podium = page.getByTestId("top3-weekly");
   const cards = podium.locator("li");
@@ -52,7 +49,48 @@ test("indicators show the stored amounts per agent and period, nothing for agent
     expect(b!.y + b!.height).toBeLessThanOrEqual(1080);
   }
   await expect(page.getByTestId("bonus-popup")).toHaveCount(0); // a data refresh never triggers a popup
+
+  // Weekly Arena leaderboard rows: the agent with an award shows it; agents without awards show nothing.
+  await page.getByRole("tablist", { name: "Live Arena screen" }).getByRole("tab", { name: "Weekly Arena" }).click();
+  const row = page.getByTestId("closer-rows").locator(`li[data-code="${codes[0]}" i]`);
+  await expect(row.getByTestId("earned-bonus")).toHaveText("Earned this week: PKR 5,000", { timeout: 15_000 });
+  await expect(page.getByTestId("closer-rows").locator(`li[data-code="${codes[1]}" i]`).getByTestId("earned-bonus")).toHaveCount(0);
 });
+
+for (const fresh of [true, false]) {
+  test(`tier upgrade popup shows the new TOTAL and the increase${fresh ? "" : " — but never replays an award older than the page"}`, async ({ page }) => {
+    const codes = ["E2E-AGENT"]; // fixture code: the popup uses the award payload only
+    let createdAt = "";
+    await page.route("**/api/arena/awards**", async (route) => {
+      const res = await route.fetch();
+      const j = await res.json();
+      if (codes.length && createdAt)
+        j.awards = [
+          {
+            id: `e2e-upgrade-${codes[0]}`, programId: "e2e-p3", kind: "daily", agentId: `agt_${codes[0]}`, userCode: codes[0], agentName: "E2E Agent",
+            periodKey: "D:e2e", n: 1, validatedAtAward: 3, amount: 3000, prizeLabel: "", programName: "Daily 3", salesRequired: 3, rewardType: "cash",
+            currency: "PKR", announce: true, createdAt, upgrade: true, previousAmount: 2000, incrementAmount: 1000,
+          },
+        ];
+      await route.fulfill({ response: res, json: j });
+    });
+    if (!fresh) createdAt = new Date(Date.now() - 60 * 60_000).toISOString(); // created an hour before the page opened
+    await open(page);
+    if (fresh) createdAt = new Date(Date.now() + 1000).toISOString();
+    await page.getByRole("button", { name: /refresh/i }).first().click();
+    const popup = page.getByTestId("bonus-popup");
+    if (fresh) {
+      await expect(popup).toBeVisible({ timeout: 15_000 });
+      await expect(popup.locator("#bonus-title")).toHaveText("DAILY BONUS UPGRADED!");
+      await expect(popup.getByTestId("bonus-reward-line")).toHaveText("PKR 3,000 TOTAL DAILY BONUS");
+      await expect(popup.getByTestId("bonus-increase")).toHaveText("+PKR 1,000 INCREASE");
+      await expect(popup).not.toContainText("5,000");
+    } else {
+      await page.waitForTimeout(3000);
+      await expect(popup).toHaveCount(0);
+    }
+  });
+}
 
 test("when award data cannot be loaded the podium says unavailable instead of a fake zero", async ({ page }) => {
   await page.route("**/api/arena/awards**", (route) => route.fulfill({ status: 503, json: { ok: false, error: "Awards are unavailable right now." } }));

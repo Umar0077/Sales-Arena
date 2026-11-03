@@ -232,6 +232,10 @@ export function publicAward(b: BonusAwardRecord, userCode: string, agentName: st
     currency: b.currency,
     prizeLabel: b.prizeLabel,
     announce: b.announce,
+    // Tier upgrade: amount is the new TOTAL entitlement; incrementAmount is the increase over the previous tier.
+    upgrade: b.upgrade,
+    previousAmount: b.previousAmount,
+    incrementAmount: b.incrementAmount,
     createdAt: b.createdAt,
   };
 }

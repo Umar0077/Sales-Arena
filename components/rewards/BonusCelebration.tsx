@@ -37,6 +37,8 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
   const accent = program?.accent ?? "#FFC857";
   const total = awards.reduce((t, a) => t + a.amount, 0);
   const cur = last.currency || currency;
+  const word = kind.toUpperCase();
+  const upgrade = last.upgrade === true && (last.previousAmount ?? 0) > 0;
   const seconds = program?.popupSeconds ?? 6;
   const doneRef = useRef(onDone);
   useEffect(() => {
@@ -58,7 +60,8 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
     program: (program?.name ?? last.programName).toUpperCase(),
     count: awards.length,
   };
-  const headline = fillTemplate(program?.headline ?? `${kind.toUpperCase()} BONUS UNLOCKED!`, vals);
+  // A tier upgrade shows the new TOTAL and the increase, never the full tier amount as if it were added on top.
+  const headline = upgrade ? `${word} BONUS UPGRADED!` : fillTemplate(program?.headline ?? `${word} BONUS UNLOCKED!`, vals);
   const message = fillTemplate(program?.message ?? "{name}", vals);
   const rewardLine = fillTemplate(program?.rewardLine ?? (total > 0 ? "{amount} BONUS EARNED" : "{amount} EARNED"), vals);
 
@@ -110,8 +113,13 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
         <h2 id="bonus-title" className="mt-4 font-heading text-3xl font-extrabold text-white sm:text-4xl">{headline}</h2>
         <p className="mt-3 text-lg font-semibold text-secondary">{message}</p>
         <p className="mt-2 font-heading text-2xl font-extrabold sm:text-3xl" style={{ color: accent, textShadow: `0 0 22px ${accent}88` }} data-testid="bonus-reward-line">
-          {rewardLine}
+          {upgrade ? `${cur} ${Math.round(last.amount).toLocaleString("en-US")} TOTAL ${word} BONUS`.toUpperCase() : rewardLine}
         </p>
+        {upgrade && (
+          <p className="mt-1 font-heading text-lg font-bold text-emerald-300" data-testid="bonus-increase">
+            +{cur} {Math.round(last.incrementAmount ?? 0).toLocaleString("en-US")} INCREASE
+          </p>
+        )}
 
         {total > 0 && (
           <div className="mt-5 font-heading text-5xl font-black text-white tabular sm:text-6xl" style={{ textShadow: `0 0 30px ${accent}66` }}>

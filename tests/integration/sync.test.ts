@@ -154,8 +154,9 @@ describe("sales sync and automatic rewards", () => {
 
   it("bonus programs award once per threshold, only from eligible sales", async () => {
     await pool().query(
-      `INSERT INTO reward_programs (id, kind, name, sales_required, amount, max_awards, headline, message, reward_line, active_since)
-       VALUES ('prog_daily', 'daily', 'Daily Bonus', 1, 1000, 2, 'h', 'm', 'r', NOW() - INTERVAL '1 day')`,
+      // Repeat awards per day (max 2) = an additive program.
+      `INSERT INTO reward_programs (id, kind, name, sales_required, amount, max_awards, headline, message, reward_line, active_since, tier_policy)
+       VALUES ('prog_daily', 'daily', 'Daily Bonus', 1, 1000, 2, 'h', 'm', 'r', NOW() - INTERVAL '1 day', 'additive')`,
     );
     const s1 = sale("CLS-BON");
     await ingestValidatedSale(pool(), s1, "sse");

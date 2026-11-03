@@ -33,6 +33,22 @@ interface Award {
   recoveredBy: string | null;
   recoveredAt: string | null;
   createdAt: string;
+  tierPolicy: "highest_tier" | "additive";
+  effective: boolean;
+  supersededBy: string | null;
+  supersededByName: string | null;
+  supersededAt: string | null;
+  supersedesId: string | null;
+  previousAmount: number;
+  incrementAmount: number;
+  payableAmount: number;
+}
+interface Totals {
+  count: number;
+  cash: number;
+  paid: number;
+  outstanding: number;
+  superseded: number;
 }
 
 const STATUS_LABEL: Record<Status, string> = {
@@ -57,7 +73,7 @@ export function AwardHistoryTab() {
   const awardsRev = useAdminSync((s) => s.awardsRev);
   const [kind, setKind] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [status, setStatus] = useState<"all" | Status>("all");
-  const [data, setData] = useState<{ awards: Award[]; totals: { count: number; cash: number } } | null>(null);
+  const [data, setData] = useState<{ awards: Award[]; totals: Totals } | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -65,7 +81,7 @@ export function AwardHistoryTab() {
     const q = new URLSearchParams({ limit: "300" });
     if (kind !== "all") q.set("kind", kind);
     if (status !== "all") q.set("status", status);
-    const r = await adminApi<{ awards: Award[]; totals: { count: number; cash: number } }>(`/api/admin/awards?${q}`);
+    const r = await adminApi<{ awards: Award[]; totals: Totals }>(`/api/admin/awards?${q}`);
     if (r.ok) setData(r.data);
     else setMsg({ kind: "error", text: r.error });
   }, [kind, status]);
@@ -91,7 +107,7 @@ export function AwardHistoryTab() {
   return (
     <Section
       title="Award history"
-      description="Every award earned from genuine validated sales, stored in PostgreSQL with the rule as it was at the time. Editing or archiving a program never changes past awards. A cash bonus that is earned is not paid until an admin marks it paid."
+      description="Every award earned from genuine validated sales, stored in PostgreSQL with the rule as it was at the time. Highest-tier programs: reaching a higher milestone supersedes the previous tier (kept here for history), so only the current tier counts and the upgrade owes only the difference. Earned is not paid until an admin marks it paid."
     >
       <div className="flex flex-wrap gap-4">
         <Choice label="Category" value={kind} options={[{ value: "all", label: "All" }, { value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }]} onChange={setKind} />
@@ -106,12 +122,14 @@ export function AwardHistoryTab() {
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       {data && (
         <p className="text-sm text-text-secondary">
-          {data.totals.count} award{data.totals.count === 1 ? "" : "s"} · cash earned (excluding cancelled / reversed) <b className="text-white">{data.totals.cash.toLocaleString("en-US")}</b>
+          {data.totals.count} award record{data.totals.count === 1 ? "" : "s"}{data.totals.superseded ? ` (${data.totals.superseded} superseded by a higher tier)` : ""} · effective cash entitlement{" "}
+          <b className="text-white" data-testid="totals-effective">{data.totals.cash.toLocaleString("en-US")}</b> · paid <b className="text-white">{data.totals.paid.toLocaleString("en-US")}</b> · outstanding{" "}
+          <b className="text-gold" data-testid="totals-outstanding">{data.totals.outstanding.toLocaleString("en-US")}</b>
         </p>
       )}
       <Table head={["Agent", "Program", "Period", "Qualified with", "Reward", "Source", "Status", "When", "Action"]} empty={!!data && data.awards.length === 0} testId="award-history">
         {(data?.awards ?? []).map((a) => (
-          <tr key={a.id} data-testid="award-row">
+          <tr key={a.id} data-testid="award-row" data-effective={a.effective} className={a.supersededBy ? "opacity-60" : undefined}>
             <td className={`${td} font-medium text-white`}>
               {a.agentName}
               <div className="text-xs text-text-muted">{a.userCode}</div>
@@ -125,7 +143,18 @@ export function AwardHistoryTab() {
               {a.validatedAtAward} validated (rule {a.salesRequired})
               {a.triggerCaseId && <div className="font-mono text-[10px]" title="Sale that reached the milestone">{a.triggerCaseId}</div>}
             </td>
-            <td className={`${td} font-semibold text-gold`}>{rewardText(a)}</td>
+            <td className={td} data-testid="award-amount">
+              <span className={a.supersededBy ? "font-semibold text-text-muted line-through" : "font-semibold text-gold"}>{rewardText(a)}</span>
+              {a.supersedesId && a.rewardType === "cash" && (
+                <div className="text-[11px] text-emerald-300">
+                  Upgrade: +{a.currency} {a.incrementAmount.toLocaleString("en-US")} (was {a.currency} {a.previousAmount.toLocaleString("en-US")})
+                </div>
+              )}
+              {a.supersededBy && <div className="text-[11px] text-text-muted">Superseded by {a.supersededByName ?? "a higher tier"}{a.supersededAt ? ` · ${fmtDate(a.supersededAt)}` : ""}</div>}
+              {a.rewardType === "cash" && a.status !== "paid" && !a.supersededBy && a.payableAmount !== a.amount && (
+                <div className="text-[11px] text-text-muted">Payable now: {a.currency} {a.payableAmount.toLocaleString("en-US")}</div>
+              )}
+            </td>
             <td className={td} data-testid="award-source">
               {a.source === "recovery" ? <span className="text-amber-200">Owner recovery</span> : a.recoveredBy ? <span className="text-sky-300">Automatic (Owner catch-up)</span> : <span className="text-text-secondary">Automatic</span>}
               {a.recoveredBy && <div className="text-[10px] text-text-muted">by {a.recoveredBy}{a.recoveredAt ? ` · ${fmtDate(a.recoveredAt)}` : ""}</div>}
@@ -138,7 +167,9 @@ export function AwardHistoryTab() {
             </td>
             <td className={`${td} text-text-muted`}>{fmtDate(a.createdAt)}</td>
             <td className={td}>
-              {NEXT[a.status].length > 0 ? (
+              {a.supersededBy ? (
+                <span className="text-xs text-text-muted" title="Manage the current (highest) tier instead">Superseded</span>
+              ) : NEXT[a.status].length > 0 ? (
                 <select
                   aria-label="Change award status"
                   value=""

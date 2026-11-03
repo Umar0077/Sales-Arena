@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
     const cats = cfg.rewardCategories as Record<string, { showOnArena: boolean }>;
     const visibleKinds = ["daily", "weekly", "monthly"].filter((k) => cats?.[k]?.showOnArena !== false);
     const params: unknown[] = [visibleKinds];
-    let where = `a.kind = ANY($1) AND p.show_on_arena AND a.status NOT IN ('reversed', 'cancelled')`;
+    // Only effective awards: a superseded lower tier is history, not a separately earned bonus.
+    let where = `a.kind = ANY($1) AND p.show_on_arena AND a.superseded_by IS NULL AND a.status NOT IN ('reversed', 'cancelled')`;
     if (kind) {
       params.push(kind);
       where += ` AND a.kind = $${params.length}`;
@@ -35,7 +36,8 @@ export async function GET(req: NextRequest) {
     params.push(limit);
     const res = await pool.query(
       `SELECT a.id, a.program_id, a.kind, a.agent_id, a.user_code, a.agent_name, a.period_key, a.n, a.validated_at_award, a.amount,
-              a.prize_label, a.program_name, a.sales_required, a.reward_type, a.currency, a.announce, a.created_at
+              a.prize_label, a.program_name, a.sales_required, a.reward_type, a.currency, a.announce, a.created_at,
+              a.supersedes_id, a.previous_amount, a.increment_amount
          FROM bonus_awards a JOIN reward_programs p ON p.id = a.program_id
         WHERE ${where} ORDER BY a.created_at DESC LIMIT $${params.length}`,
       params,
@@ -57,6 +59,9 @@ export async function GET(req: NextRequest) {
       rewardType: r.reward_type,
       currency: r.currency,
       announce: r.announce,
+      upgrade: !!r.supersedes_id,
+      previousAmount: Number(r.previous_amount ?? 0),
+      incrementAmount: Number(r.increment_amount ?? r.amount),
       createdAt: new Date(r.created_at).toISOString(),
     }));
 
@@ -66,9 +71,10 @@ export async function GET(req: NextRequest) {
     const keys = { daily: periodWindow("daily", now, cal).key, weekly: periodWindow("weekly", now, cal).key, monthly: periodWindow("monthly", now, cal).key };
     const totals = await pool.query(
       `SELECT a.kind,
-              COUNT(*) FILTER (WHERE a.status NOT IN ('reversed', 'cancelled'))::int AS count,
-              COALESCE(SUM(a.amount) FILTER (WHERE a.reward_type = 'cash' AND a.status NOT IN ('reversed', 'cancelled')), 0)::float AS earned,
-              COALESCE(SUM(a.amount) FILTER (WHERE a.reward_type = 'cash' AND a.status = 'paid'), 0)::float AS paid,
+              COUNT(*) FILTER (WHERE a.superseded_by IS NULL AND a.status NOT IN ('reversed', 'cancelled'))::int AS count,
+              -- Effective entitlement only: a superseded lower tier is never added to its replacement.
+              COALESCE(SUM(a.amount) FILTER (WHERE a.reward_type = 'cash' AND a.superseded_by IS NULL AND a.status NOT IN ('reversed', 'cancelled')), 0)::float AS earned,
+              COALESCE(SUM(a.payable_amount) FILTER (WHERE a.reward_type = 'cash' AND a.status = 'paid'), 0)::float AS paid,
               MIN(a.currency) FILTER (WHERE a.reward_type = 'cash') AS currency
          FROM bonus_awards a JOIN reward_programs p ON p.id = a.program_id
         WHERE p.show_on_arena AND ((a.kind = 'daily' AND a.period_key = $1) OR (a.kind = 'weekly' AND a.period_key = $2) OR (a.kind = 'monthly' AND a.period_key = $3))
@@ -88,27 +94,36 @@ export async function GET(req: NextRequest) {
       }),
     );
 
-    // Per-agent earned cash for the leaderboard / podium, in ONE grouped query (not one per row).
-    //   today      = daily awards for today
-    //   this week  = daily awards dated inside this business week + this week's weekly awards
-    //   this month = daily / weekly awards dated in this month + this month's monthly awards
+    // Per-agent EFFECTIVE earned cash for the leaderboard / podium, in ONE grouped query (not one per row).
+    // A superseded lower tier is never added to its replacement (2,000 → 3,000 shows 3,000, not 5,000).
+    //   today      = the effective daily entitlement for today
+    //   this week  = effective daily entitlements of days in this business week
+    //              + the effective weekly entitlement of this week
+    //              + the monthly entitlement INCREASES earned during this week (sum of increment_amount of
+    //                monthly tiers reached this week: each upgrade counts only the extra it added)
+    //   this month = effective daily (days in month) + effective weekly (weeks starting in month)
+    //              + the effective monthly entitlement of this month
     const weekStart = keys.weekly.slice(2);
     const weekEnd = new Date(Date.parse(`${weekStart}T00:00:00Z`) + 6 * 86400_000).toISOString().slice(0, 10);
+    const weekWin = periodWindow("weekly", now, cal);
     const month = keys.monthly.slice(2);
+    const EFF = `a.superseded_by IS NULL`;
     const per = await pool.query(
       `SELECT a.user_code,
-              COALESCE(SUM(a.amount) FILTER (WHERE a.kind = 'daily' AND a.period_key = $1), 0)::float AS day,
-              COUNT(*) FILTER (WHERE a.kind = 'daily' AND a.period_key = $1)::int AS day_n,
-              COALESCE(SUM(a.amount) FILTER (WHERE (a.kind = 'daily' AND substr(a.period_key, 3) BETWEEN $2 AND $3) OR (a.kind = 'weekly' AND a.period_key = $4)), 0)::float AS week,
-              COUNT(*) FILTER (WHERE (a.kind = 'daily' AND substr(a.period_key, 3) BETWEEN $2 AND $3) OR (a.kind = 'weekly' AND a.period_key = $4))::int AS week_n,
-              COALESCE(SUM(a.amount) FILTER (WHERE (a.kind IN ('daily', 'weekly') AND substr(a.period_key, 3, 7) = $5) OR (a.kind = 'monthly' AND a.period_key = $6)), 0)::float AS month,
-              COUNT(*) FILTER (WHERE (a.kind IN ('daily', 'weekly') AND substr(a.period_key, 3, 7) = $5) OR (a.kind = 'monthly' AND a.period_key = $6))::int AS month_n,
+              COALESCE(SUM(a.amount) FILTER (WHERE ${EFF} AND a.kind = 'daily' AND a.period_key = $1), 0)::float AS day,
+              COUNT(*) FILTER (WHERE ${EFF} AND a.kind = 'daily' AND a.period_key = $1)::int AS day_n,
+              (COALESCE(SUM(a.amount) FILTER (WHERE ${EFF} AND ((a.kind = 'daily' AND substr(a.period_key, 3) BETWEEN $2 AND $3) OR (a.kind = 'weekly' AND a.period_key = $4))), 0)
+               + COALESCE(SUM(a.increment_amount) FILTER (WHERE a.kind = 'monthly' AND a.created_at >= $8 AND a.created_at < $9), 0))::float AS week,
+              COUNT(*) FILTER (WHERE (${EFF} AND ((a.kind = 'daily' AND substr(a.period_key, 3) BETWEEN $2 AND $3) OR (a.kind = 'weekly' AND a.period_key = $4)))
+                                OR (a.kind = 'monthly' AND a.created_at >= $8 AND a.created_at < $9))::int AS week_n,
+              COALESCE(SUM(a.amount) FILTER (WHERE ${EFF} AND ((a.kind IN ('daily', 'weekly') AND substr(a.period_key, 3, 7) = $5) OR (a.kind = 'monthly' AND a.period_key = $6))), 0)::float AS month,
+              COUNT(*) FILTER (WHERE ${EFF} AND ((a.kind IN ('daily', 'weekly') AND substr(a.period_key, 3, 7) = $5) OR (a.kind = 'monthly' AND a.period_key = $6)))::int AS month_n,
               MIN(a.currency) AS currency
          FROM bonus_awards a JOIN reward_programs p ON p.id = a.program_id
         WHERE a.reward_type = 'cash' AND a.status NOT IN ('reversed', 'cancelled') AND p.show_on_arena AND a.kind = ANY($7)
           AND (a.period_key IN ($1, $4, $6) OR substr(a.period_key, 3, 7) = $5 OR substr(a.period_key, 3) BETWEEN $2 AND $3)
         GROUP BY a.user_code`,
-      [keys.daily, weekStart, weekEnd, keys.weekly, month, keys.monthly, visibleKinds],
+      [keys.daily, weekStart, weekEnd, keys.weekly, month, keys.monthly, visibleKinds, weekWin.start, weekWin.end],
     );
     const byAgent = Object.fromEntries(
       per.rows

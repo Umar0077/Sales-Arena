@@ -86,29 +86,32 @@ describe("public Live Arena reward display", () => {
     expect((await programs()).some((p) => p.name === "Two")).toBe(false);
   });
 
-  it("earned totals come from bonus_awards: stackable tiers add up, cancelled/reversed excluded, earned ≠ paid", async () => {
+  it("earned totals come from bonus_awards: only the highest tier counts, cancelled excluded, earned ≠ paid", async () => {
     for (const [n, amt] of DAILY) await create({ kind: "daily", name: `D${n}`, salesRequired: n, amount: amt });
     const weekly8 = await create({ kind: "weekly", name: "W8", salesRequired: 8, amount: 8000 });
+    const single = await create({ kind: "monthly", name: "M1", salesRequired: 1, amount: 500 });
     expect(await summary()).toMatchObject({ daily: { earned: 0, count: 0 }, weekly: { earned: 0 }, monthly: { earned: 0 } }); // a genuine zero
     for (let i = 0; i < 3; i++) await ingestValidatedSale(pool(), sale("RA01", 30 - i), "sse");
     let s = await summary();
-    expect(s.daily).toMatchObject({ earned: 5000, paid: 0, count: 2, currency: "PKR" }); // 2-sales 2,000 + 3-sales 3,000 (stackable)
+    expect(s.daily).toMatchObject({ earned: 3000, paid: 0, count: 1, currency: "PKR" }); // 3 sales: 3,000 supersedes 2,000 (never 5,000)
     expect(s.daily.periodKey).toMatch(/^D:\d{4}-\d{2}-\d{2}$/);
     // Re-delivered sales never double count.
     const dup = (await pool().query(`SELECT case_id FROM validated_sales LIMIT 1`)).rows[0].case_id;
     await ingestValidatedSale(pool(), { ...sale("RA01", 1), caseId: dup }, "reconciliation");
-    expect((await summary()).daily.earned).toBe(5000);
+    expect((await summary()).daily.earned).toBe(3000);
 
-    const ids = (await pool().query(`SELECT id, amount FROM bonus_awards ORDER BY amount`)).rows;
+    const top = (await pool().query(`SELECT id FROM bonus_awards WHERE kind = 'daily' AND superseded_by IS NULL`)).rows[0].id;
     const setStatus = (id: string, status: string, note?: string) =>
       patchAward(req(`/api/admin/awards/x`, { method: "PATCH", body: { status, note }, cookie: sess.cookie, csrf: sess.csrf }), { params: Promise.resolve({ id: encodeURIComponent(id) }) });
-    await setStatus(ids[1].id, "approved");
-    await setStatus(ids[1].id, "paid");
+    await setStatus(top, "approved");
+    await setStatus(top, "paid");
     s = await summary();
-    expect(s.daily).toMatchObject({ earned: 5000, paid: 3000 });
-    await setStatus(ids[0].id, "cancelled", "Test cancel");
-    s = await summary();
-    expect(s.daily).toMatchObject({ earned: 3000, count: 1 });
+    expect(s.daily).toMatchObject({ earned: 3000, paid: 3000 });
+    // Cancelled awards are excluded (a single, un-chained award can be cancelled).
+    const m1 = (await pool().query(`SELECT id FROM bonus_awards WHERE program_id = $1`, [single.id])).rows[0].id;
+    expect((await summary()).monthly.earned).toBe(500);
+    await setStatus(m1, "cancelled", "Test cancel");
+    expect((await summary()).monthly).toMatchObject({ earned: 0, count: 0 });
     // Hidden programs are not counted publicly either.
     await patch(weekly8.id, { showOnArena: false });
     expect((await summary()).weekly.earned).toBe(0);

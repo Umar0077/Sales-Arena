@@ -73,6 +73,10 @@ export interface BonusAward {
   currency?: string;
   /** The server allowed a public announcement when the award was created. */
   announce?: boolean;
+  /** Highest-tier upgrade: amount is the new total; incrementAmount is the increase over the previous tier. */
+  upgrade?: boolean;
+  previousAmount?: number;
+  incrementAmount?: number;
 }
 
 export const DEFAULT_PROGRAMS: BonusProgram[] = [
