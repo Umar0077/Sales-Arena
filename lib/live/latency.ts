@@ -1,5 +1,8 @@
 "use client";
 
+import { displayId } from "./display-id";
+import { toServerTime } from "./sync-check";
+
 /**
  * Live delivery timeline, per genuine sale / award, measured in this browser from real timestamps:
  *
@@ -21,6 +24,8 @@ export interface Timeline {
   broadcastAt?: string | null;
   receivedAt: string;
   shownAt?: string | null;
+  /** How this display got it: the live stream, or the background sync after the stream missed it. */
+  via?: "sse" | "sync";
 }
 
 const MAX = 50;
@@ -47,16 +52,20 @@ function expose() {
 
 export function noteReceived(t: Omit<Timeline, "receivedAt">): void {
   if (!t.key || items.some((x) => x.kind === t.kind && x.key === t.key)) return;
-  items.push({ ...t, receivedAt: new Date().toISOString() });
+  const now = Date.now();
+  items.push({ ...t, via: t.via ?? "sse", receivedAt: new Date(now).toISOString() });
   if (items.length > MAX) items.splice(0, items.length - MAX);
   expose();
+  report({ kind: t.kind, key: t.key, receivedAt: toServerTime(now), via: t.via ?? "sse" });
 }
 
 export function noteShown(kind: Timeline["kind"], key: string): void {
   const t = items.find((x) => x.kind === kind && x.key === key);
   if (!t || t.shownAt) return;
-  t.shownAt = new Date().toISOString();
+  const now = Date.now();
+  t.shownAt = new Date(now).toISOString();
   expose();
+  report({ kind, key, shownAt: toServerTime(now), via: t.via ?? "sse" });
   const s = stages(t);
   if (s.total !== null && s.total > WARN_MS) {
     const f = (v: number | null) => (v === null ? "?" : `${(v / 1000).toFixed(1)}s`);
@@ -68,3 +77,21 @@ export function noteShown(kind: Timeline["kind"], key: string): void {
 }
 
 export const latencyLog = () => items.map((t) => ({ ...t, stages: stages(t) }));
+
+// ── Reports to the server (System Health → Live delivery). Batched, best effort, never retried. ──
+type Report = { kind: Timeline["kind"]; key: string; receivedAt?: string; shownAt?: string; via: "sse" | "sync" };
+const outbox: Report[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+function report(r: Report) {
+  if (typeof window === "undefined") return;
+  outbox.push(r);
+  if (outbox.length >= 20) return flush();
+  flushTimer ??= setTimeout(flush, 1500);
+}
+function flush() {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = null;
+  const items = outbox.splice(0, 20);
+  if (!items.length) return;
+  void fetch("/api/arena/delivery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ display: displayId(), items }), keepalive: true }).catch(() => {});
+}

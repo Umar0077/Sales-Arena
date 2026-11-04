@@ -73,6 +73,7 @@ export function AwardHistoryTab() {
   const awardsRev = useAdminSync((s) => s.awardsRev);
   const [kind, setKind] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [status, setStatus] = useState<"all" | Status>("all");
+  const [audience, setAudience] = useState<"all" | "senior" | "junior">("all");
   const [data, setData] = useState<{ awards: Award[]; totals: Totals } | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -81,10 +82,11 @@ export function AwardHistoryTab() {
     const q = new URLSearchParams({ limit: "300" });
     if (kind !== "all") q.set("kind", kind);
     if (status !== "all") q.set("status", status);
+    if (audience !== "all") q.set("audience", audience);
     const r = await adminApi<{ awards: Award[]; totals: Totals }>(`/api/admin/awards?${q}`);
     if (r.ok) setData(r.data);
     else setMsg({ kind: "error", text: r.error });
-  }, [kind, status]);
+  }, [kind, status, audience]);
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
@@ -110,6 +112,7 @@ export function AwardHistoryTab() {
       description="Every award earned from genuine validated sales, stored in PostgreSQL with the rule as it was at the time. Highest-tier programs: reaching a higher milestone supersedes the previous tier (kept here for history), so only the current tier counts and the upgrade owes only the difference. Earned is not paid until an admin marks it paid."
     >
       <div className="flex flex-wrap gap-4">
+        <Choice label="Bonuses" value={audience} options={[{ value: "all", label: "All" }, { value: "senior", label: "Senior" }, { value: "junior", label: "Junior" }]} onChange={setAudience} />
         <Choice label="Category" value={kind} options={[{ value: "all", label: "All" }, { value: "daily", label: "Daily" }, { value: "weekly", label: "Weekly" }, { value: "monthly", label: "Monthly" }]} onChange={setKind} />
         <Choice
           label="Status"

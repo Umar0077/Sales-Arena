@@ -14,6 +14,11 @@ export interface SseHealthInfo {
   lastEventAt: string | null;
   lastError: string | null;
   eventsProcessed: number;
+  /**
+   * Upstream event names this consumer does not map to a sale status, with counts and the field names they
+   * carried (names only, never values). Each one triggers an immediate check of Safe Quote's validated sales.
+   */
+  unrecognizedEvents: Record<string, { count: number; lastAt: string; fields: string[] }>;
   /** Validated sales actually written to PostgreSQL (not just received). */
   salesPersisted: number;
   lastPersistedAt: string | null;
@@ -34,6 +39,8 @@ export class SafeQuoteSseConsumer {
   private lastEventId: string | null = null;
   private isRunning = false;
   private salesPersisted = 0;
+  private unrecognized: SseHealthInfo["unrecognizedEvents"] = {};
+  private activityListeners = new Set<(info: { caseId: string; eventType: string }) => void>();
   private lastPersistedAt: string | null = null;
   private persistFailures = 0;
   private lastPersistError: string | null = null;
@@ -51,7 +58,23 @@ export class SafeQuoteSseConsumer {
       lastPersistedAt: this.lastPersistedAt,
       persistFailures: this.persistFailures,
       lastPersistError: this.lastPersistError,
+      unrecognizedEvents: this.unrecognized,
     };
+  }
+
+  /** Called for upstream case events this consumer does not store itself (see handleIncomingEvent). */
+  public onCaseActivity(fn: (info: { caseId: string; eventType: string }) => void): () => void {
+    this.activityListeners.add(fn);
+    return () => this.activityListeners.delete(fn);
+  }
+
+  private noteUnrecognized(rawType: string, data: unknown) {
+    const name = String(rawType || "message").slice(0, 64);
+    const fields = data && typeof data === "object" ? Object.keys(data as object).slice(0, 25).map((k) => k.slice(0, 40)) : [];
+    const cur = this.unrecognized[name];
+    if (!cur && Object.keys(this.unrecognized).length >= 20) return; // bounded
+    if (!cur) console.warn(`[SafeQuote SSE] Unrecognized upstream event "${name}" (fields: ${fields.join(", ") || "none"}); checking validated sales instead.`);
+    this.unrecognized[name] = { count: (cur?.count ?? 0) + 1, lastAt: new Date().toISOString(), fields: [...new Set([...(cur?.fields ?? []), ...fields])].slice(0, 25) };
   }
 
   public start(): void {
@@ -237,6 +260,21 @@ export class SafeQuoteSseConsumer {
     if (!normalized) {
       // Unrecognized event or heartbeat without sales payload
       return;
+    }
+
+    // Any upstream event about a case that is not a validation we can store directly (an event name this
+    // consumer does not know, a submission, a status change) means something just happened at Safe Quote:
+    // check its authoritative VALIDATED list right away (scheduler.ts) instead of waiting for the next poll.
+    // Nothing is inferred from an unknown event itself.
+    if (normalized.eventType !== "heartbeat" && normalized.eventType !== "sale.validated" && normalized.caseId) {
+      if (normalized.eventType === "unknown") this.noteUnrecognized(eventType, parsedData);
+      for (const fn of this.activityListeners) {
+        try {
+          fn({ caseId: normalized.caseId, eventType: normalized.eventType === "unknown" ? eventType : normalized.eventType });
+        } catch {
+          /* a listener never breaks the stream */
+        }
+      }
     }
 
     if (normalized.eventType === "heartbeat") {

@@ -7,6 +7,7 @@
 export const GLOBAL_SETTING_KEYS = [
   "arenaEnabled", "arenaOfflineMessage",
   "arenaModes", "defaultArenaMode", "showModeSelector", "businessTimezone", "weekStartDay", "currencyLabel",
+  "liveSyncSeconds", "teamsTabVisible",
   "rewardCategories", "announceCash", "announcePrizes", "announceAutoSpins", "announceManualSpins",
   "celebrationPopups", "intensity", "particles", "celebrationDuration", "saleCelebrationStyle", "announceMilestones",
   "announceTeamTargets", "spinFeatureEnabled", "spinFlowEnabled", "spinPopupTimeoutSec", "achievementHeadline",

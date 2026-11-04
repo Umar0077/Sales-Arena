@@ -64,7 +64,10 @@ test.describe("spin rewards", () => {
 
     // Test-only agent and prize in the dev database (admin APIs; no Safe Quote sale is faked).
     test.skip(!(await createDevAgent(code, "E2E Test Closer")), "Needs the local sales_arena_dev database.");
-    await api.post("/api/admin/catalog", { headers, data: { title: "E2E Prize", icon: "gift", color: "#FFC857", weight: 1, quantity: null } });
+    // Reuse the test prize if it exists (adding one per run used to fill the wheel up to its 12-prize limit).
+    const catalog = await (await api.get("/api/admin/catalog")).json();
+    if (!(catalog.prizes ?? []).some((p: { title: string; active: boolean }) => p.title === "E2E Prize" && p.active))
+      await api.post("/api/admin/catalog", { headers, data: { title: "E2E Prize", icon: "gift", color: "#FFC857", weight: 1, quantity: null } });
 
     // The Live Arena display (this browser has an admin session, so it may spin).
     await page.goto("/");

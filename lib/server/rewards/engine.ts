@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import { periodWindow, type BusinessCalendar, type PeriodWindow, type RulePeriod } from "../spins/rules";
 import { COLS, duplicateProgramIds, rowToProgram, type RewardProgram } from "./programs";
+import { designationOn } from "../teams/repo";
 
 /**
  * Daily / weekly / monthly bonus engine (server side). Programs come only from reward_programs.
@@ -65,6 +66,15 @@ export const KIND_TO_PERIOD: Record<string, RulePeriod> = { daily: "daily", week
 
 function ymdInZone(d: Date, tz: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+
+/**
+ * Senior / Junior audience: "all" programmes apply to everyone (the behaviour before designations); a
+ * "senior" or "junior" programme only to an agent with that designation on the sale's business date. An
+ * agent without a designation never qualifies for a Senior-only or Junior-only programme.
+ */
+export function audienceOk(p: Pick<RewardProgram, "audience">, designation: "senior" | "junior" | null): boolean {
+  return !p.audience || p.audience === "all" || p.audience === designation;
 }
 
 export function inScope(p: RewardProgram, userCode: string, campaignId: string | null): boolean {
@@ -304,7 +314,10 @@ export async function evaluateBonusAwards(
   if (!all.length) return [];
   const campaignId = ((await client.query(`SELECT campaign_id FROM agents WHERE user_code = $1`, [args.userCode])).rows[0]?.campaign_id as string | null) ?? null;
   const saleDay = ymdInZone(args.validatedAt, args.calendar.timezone);
-  const eligible = all.filter((p) => !(p.startDate && saleDay < p.startDate) && !(p.endDate && saleDay > p.endDate) && inScope(p, args.userCode, campaignId));
+  const designation = all.some((p) => p.audience && p.audience !== "all") ? await designationOn(client, args.userCode, saleDay) : null;
+  const eligible = all.filter(
+    (p) => !(p.startDate && saleDay < p.startDate) && !(p.endDate && saleDay > p.endDate) && inScope(p, args.userCode, campaignId) && audienceOk(p, designation),
+  );
   const out: BonusAwardRecord[] = [];
 
   // Highest-tier groups.

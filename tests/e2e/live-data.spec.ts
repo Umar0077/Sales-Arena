@@ -123,7 +123,7 @@ test.describe("live data (production mode)", () => {
     // Every summary request was date-filtered (never all-time data labelled as a period).
     expect(urls.length).toBeGreaterThan(0);
     expect(urls.every((u) => /from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/.test(u))).toBe(true);
-    await expect(page.getByRole("link", { name: "Team Management" })).toHaveCount(0);
+    // Teams live in Admin → Team Management (Teams Arena); the Overview stays per-closer.
     await expect(page.getByText("Total Teams")).toHaveCount(0);
   });
 });

@@ -142,7 +142,7 @@ export interface AwardTotals {
 
 export async function listAwards(
   db: Pool | PoolClient,
-  f: { kind?: string | null; status?: string | null; programId?: string | null; userCode?: string | null; limit?: number; effectiveOnly?: boolean } = {},
+  f: { kind?: string | null; status?: string | null; programId?: string | null; userCode?: string | null; limit?: number; effectiveOnly?: boolean; audience?: string | null } = {},
 ): Promise<{ awards: AwardRow[]; totals: AwardTotals }> {
   const where: string[] = [];
   const params: unknown[] = [];
@@ -155,6 +155,9 @@ export async function listAwards(
   if (f.programId) add("a.program_id = ?", f.programId);
   if (f.userCode) add("a.user_code = ?", f.userCode.toUpperCase());
   if (f.effectiveOnly) where.push("a.superseded_by IS NULL");
+  // Junior awards carry a "junior…" reward group (enforced on their programmes); everything else is Senior / all-agent.
+  if (f.audience === "junior") where.push("a.reward_group LIKE 'junior%'");
+  if (f.audience === "senior") where.push("a.reward_group NOT LIKE 'junior%'");
   const w = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const limit = Math.min(500, Math.max(1, f.limit ?? 200));
   const { rows } = await db.query(`${SELECT} ${w} ORDER BY a.created_at DESC, a.id LIMIT ${limit}`, params);

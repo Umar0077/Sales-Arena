@@ -45,6 +45,16 @@ const oneOf = (...opts: string[]): Validator => (v) => {
   return v;
 };
 const nullable = (inner: Validator): Validator => (v) => (v === null ? null : inner(v));
+/** Like flags(), plus switches that may be missing (older clients / stored values): missing = off. */
+const flagsWithOptional = (keys: string[], optional: string[]): Validator => (v) => {
+  const base = flags(keys)(v) as Record<string, boolean>;
+  for (const k of optional) {
+    const x = (v as Record<string, unknown>)[k];
+    if (x !== undefined && typeof x !== "boolean") throw new Bad(`${k} must be on or off`);
+    base[k] = x === true;
+  }
+  return base;
+};
 const flags = (keys: string[]): Validator => (v) => {
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new Bad("must be a set of switches");
   const out: Record<string, boolean> = {};
@@ -85,12 +95,15 @@ const SCHEMA: Record<string, { v: Validator; group: ArenaBroadcastEventType }> =
   arenaEnabled: { v: bool, group: "arena.availability.updated" },
   arenaOfflineMessage: { v: str(200), group: "arena.availability.updated" },
   // screens
-  arenaModes: { v: flags(["daily", "weekly", "monthly", "spin"]), group: "arena.screens.updated" },
-  defaultArenaMode: { v: oneOf("daily", "weekly", "monthly", "spin"), group: "arena.screens.updated" },
+  arenaModes: { v: flagsWithOptional(["daily", "weekly", "monthly", "spin"], ["teams"]), group: "arena.screens.updated" },
+  defaultArenaMode: { v: oneOf("daily", "weekly", "monthly", "teams", "spin"), group: "arena.screens.updated" },
+  teamsTabVisible: { v: bool, group: "arena.screens.updated" },
   showModeSelector: { v: bool, group: "arena.screens.updated" },
   businessTimezone: { v: timezone, group: "arena.screens.updated" },
   weekStartDay: { v: num(0, 6, true), group: "arena.screens.updated" },
   currencyLabel: { v: str(6, false), group: "arena.screens.updated" },
+  // background sync check interval (seconds); bounded so many displays can never overload the server
+  liveSyncSeconds: { v: num(10, 120, true), group: "arena.screens.updated" },
   // reward categories & announcements
   rewardCategories: { v: categories, group: "rewards.program.visibility.updated" },
   announceCash: { v: bool, group: "rewards.program.visibility.updated" },
@@ -177,7 +190,7 @@ export interface ArenaConfig {
   updatedBy: string | null;
 }
 export interface ScreenSwitch {
-  screen: "daily" | "weekly" | "monthly" | "spin" | null;
+  screen: "daily" | "weekly" | "monthly" | "teams" | "spin" | null;
   revision: number;
   at: string | null;
 }
@@ -264,7 +277,7 @@ export async function saveArenaConfig(pool: Pool, patch: unknown, actor: Actor):
     if (clean.defaultArenaMode !== undefined && !modes[clean.defaultArenaMode as string])
       throw new ConfigError("The default screen must be one of the enabled screens.");
     // Disabling the current default moves the default to the first enabled screen.
-    if (!modes[merged.defaultArenaMode as string]) merged.defaultArenaMode = ["daily", "weekly", "monthly", "spin"].find((m) => modes[m]) ?? merged.defaultArenaMode;
+    if (!modes[merged.defaultArenaMode as string]) merged.defaultArenaMode = ["daily", "weekly", "monthly", "teams", "spin"].find((m) => modes[m]) ?? merged.defaultArenaMode;
     const changed: Record<string, { from: unknown; to: unknown }> = {};
     for (const k of Object.keys(merged))
       if (JSON.stringify(before[k]) !== JSON.stringify(merged[k])) {
@@ -284,7 +297,7 @@ export async function saveArenaConfig(pool: Pool, patch: unknown, actor: Actor):
 
 /** "Switch the Live Arena now": every connected display moves to this screen. */
 export async function switchArenaScreen(pool: Pool, screen: unknown, actor: Actor): Promise<ScreenSwitch> {
-  if (typeof screen !== "string" || !["daily", "weekly", "monthly", "spin"].includes(screen)) throw new ConfigError("Choose a screen.");
+  if (typeof screen !== "string" || !["daily", "weekly", "monthly", "teams", "spin"].includes(screen)) throw new ConfigError("Choose a screen.");
   const cfg = await readArenaConfig(pool);
   if (!(cfg.values.arenaModes as Record<string, boolean>)[screen]) throw new ConfigError("That screen is disabled. Enable it first.");
   const next = await inTx(pool, async (c) => {

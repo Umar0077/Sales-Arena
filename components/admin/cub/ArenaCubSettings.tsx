@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadAdminConfig, rememberConfirmed, useSaveStatus } from "@/lib/admin/global-settings";
+import { loadAdminConfig, registerPendingEdits, rememberConfirmed, useSaveStatus } from "@/lib/admin/global-settings";
 import { appliedConfigRevision, applyArenaConfig } from "@/lib/live/config-sync";
 import { useLiveStore } from "@/store/live-store";
 import { useAdminSync } from "@/components/admin/AdminLiveSync";
@@ -22,6 +22,7 @@ const SCREENS: Array<{ k: CubScreen; label: string }> = [
   { k: "daily", label: "Daily Arena" },
   { k: "weekly", label: "Weekly Arena" },
   { k: "monthly", label: "Monthly Arena" },
+  { k: "teams", label: "Teams Arena" },
   { k: "spin", label: "Spin & Win" },
 ];
 const DIALOGUE: Array<{ k: CubDialogue; label: string }> = [
@@ -43,6 +44,13 @@ let pendingCub: Partial<ArenaCubConfig> = {};
 let cubTimer: ReturnType<typeof setTimeout> | null = null;
 let cubInflight: Promise<void> | null = null;
 let cubWaiters: Array<(r: { ok: boolean; error?: string }) => void> = [];
+// A settings reload (another admin, a live event) never overwrites cub edits that are queued or being saved.
+registerPendingEdits(() => cubTimer !== null || cubInflight !== null || Object.keys(pendingCub).length > 0);
+/** Edits made while a save was in flight stay on screen when its (older) answer arrives. */
+function reapplyPending() {
+  const { allowOnLiveArena: _ignored, ...visible } = pendingCub;
+  if (Object.keys(visible).length) useSettingsStore.getState().update({ arenaCub: { ...useSettingsStore.getState().arenaCub, ...visible } });
+}
 
 /**
  * Sends ONLY the changed Arena Cub keys; the server merges them onto the stored settings. A save can
@@ -65,11 +73,13 @@ async function flushCub(): Promise<void> {
     if (r.ok) {
       rememberConfirmed(r.data.values);
       applyArenaConfig({ revision: r.data.revision, values: r.data.values });
+      reapplyPending();
       useSaveStatus.getState().set({ state: "saved", message: "Saved. All connected screens are updating.", at: Date.now(), revision: r.data.revision });
       waiters.forEach((w) => w({ ok: true }));
     } else {
       useSaveStatus.getState().set({ state: "error", message: `Not saved: ${r.error}`, at: Date.now() });
-      await loadAdminConfig(); // show what is really stored
+      await loadAdminConfig({ recovery: true }); // show what is really stored (the request may have been saved)
+      reapplyPending(); // …without losing edits made meanwhile
       waiters.forEach((w) => w({ ok: false, error: r.error }));
     }
   })();

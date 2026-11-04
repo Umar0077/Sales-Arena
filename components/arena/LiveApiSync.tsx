@@ -6,12 +6,20 @@ import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useRewardsStore } from "@/store/rewards-store";
 import { useLiveStore } from "@/store/live-store";
-import { applyGlobalDisplay, fetchGlobalDisplay } from "@/lib/live/display-sync";
+import { appliedDisplayRevision, applyGlobalDisplay, fetchGlobalDisplay } from "@/lib/live/display-sync";
+import { createBackgroundSync } from "@/lib/live/background-sync";
+import { changedDatasets, fetchSyncSnapshot, missedSales, serverOffsetMs, type SyncFingerprints } from "@/lib/live/sync-check";
 import { appliedConfigRevision, applyScreenSwitch, fetchArenaConfig, fetchLivePrograms } from "@/lib/live/config-sync";
 import type { BonusAward } from "@/store/rewards-store";
 
-/** Silent full reconciliation interval (SSE stays the primary real-time channel). */
+/**
+ * Full silent refresh of every live dataset at most this often (Safe Quote figures can change without a
+ * PostgreSQL change, e.g. a returned sale). Between full refreshes the background sync check (every
+ * liveSyncSeconds, default 15 s) re-fetches only what changed. SSE stays the primary real-time channel.
+ */
 export const RECONCILE_MS = 180_000;
+/** When this display opened (browser clock). Sales stored before it are history, never announced. */
+const OPENED_AT = Date.now();
 /** Settings events that all mean "the global arena configuration has a new revision". */
 const CONFIG_EVENTS = [
   "arena.availability.updated",
@@ -347,7 +355,8 @@ export function LiveApiSync() {
     const seenSales = new Set<string>();
     const seenSpinEvents = new Set<string>();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let syncInterval: ReturnType<typeof setInterval> | null = null;
+    /** When the stats / awards were last re-fetched (so the background check never repeats a live refresh). */
+    let statsAt = 0;
     let programsTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Coalesce rapid live updates into a single efficient batch
@@ -355,6 +364,7 @@ export function LiveApiSync() {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         if (isMountedRef.current && document.visibilityState === "visible") {
+          statsAt = Date.now();
           void fetchRef.current();
         }
       }, delay);
@@ -385,33 +395,106 @@ export function LiveApiSync() {
 
     // Initial check (deferred a tick so it does not set state during the effect)
     const initialCheck = setTimeout(() => {
+      statsAt = Date.now();
       void fetchRef.current(true).then(() => {
         lastReconcileRef.current = Date.now();
       });
       void syncCatalog();
     }, 0);
 
-    // Silent reconciliation every 3 minutes while visible (backup for SSE, not a replacement).
-    const startPeriodicSync = () => {
-      if (syncInterval) clearInterval(syncInterval);
-      syncInterval = setInterval(() => {
-        if (document.visibilityState === "visible") void reconcile();
-      }, RECONCILE_MS);
-    };
-
-    startPeriodicSync();
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        // Back on screen: refresh right away only if the data is stale.
-        if (Date.now() - lastReconcileRef.current >= RECONCILE_MS) void reconcile();
-        startPeriodicSync();
-      } else {
-        if (syncInterval) clearInterval(syncInterval);
+    // A validated sale, from the live stream or (missed there) from the background check: one popup and one
+    // Arena Cub feeding, deduped by case id across both paths.
+    const handleSale = (payload: Record<string, unknown>, via: "sse" | "sync") => {
+      const saleKey = String(payload.caseId || "");
+      if (saleKey && seenSales.has(saleKey)) return false;
+      // Delivery timeline (diagnostics): server stamps + the moment this browser received it.
+      if (saleKey && payload.source !== "backfill")
+        noteReceived({
+          kind: "sale",
+          key: saleKey,
+          source: payload.source as string,
+          validatedAt: payload.validatedAt as string,
+          firstSeenAt: payload.firstSeenAt as string,
+          storedAt: payload.storedAt as string,
+          broadcastAt: payload.broadcastAt as string,
+          via,
+        });
+      if (saleKey) {
+        seenSales.add(saleKey);
+        if (seenSales.size > 200) {
+          const first = seenSales.values().next().value;
+          if (first) seenSales.delete(first);
+        }
       }
+
+      // Arena Cub: same stream, same dedupe (it keeps its own bounded memory too).
+      arenaBus.emit(
+        "cub:sale",
+        { caseId: saleKey, closerName: String(payload.closerName || payload.userCode || ""), validatedAt: String(payload.validatedAt || ""), source: payload.source ? String(payload.source) : null },
+        { broadcast: false },
+      );
+
+      // Broadcast celebratory announcement
+      arenaBus.emit("celebration:enqueue", {
+        event: {
+          id: `celeb_sale_${payload.caseId || Date.now()}`,
+          tier: "sale",
+          headline: "SALE VALIDATED!",
+          subline: `${payload.closerName || payload.userCode} · +1 Validated Sale — great work!`,
+          agentId: String(payload.userCode ?? ""),
+          agentName: String(payload.closerName || payload.userCode || ""),
+          teamName: "FE Sales Arena",
+          teamColor: "#36E0B5",
+          value: (payload.premium as number) || null,
+          createdAt: String(payload.validatedAt || new Date().toISOString()),
+          preview: false,
+        },
+      });
+      return true;
     };
 
-    document.addEventListener("visibilitychange", handleVisibility);
+    // Background sync (default every 15 s, no page reload): a small fingerprint check; only a dataset that
+    // changed is re-fetched, everything at most every RECONCILE_MS, and a sale the live stream missed still
+    // gets its popup (stored after this display opened, within the server's recovery window, never twice).
+    let prevFp: SyncFingerprints | null = null;
+    let prevCheckAt = 0;
+    const background = createBackgroundSync({
+      intervalMs: () => (Number(useSettingsStore.getState().liveSyncSeconds) || 15) * 1000,
+      run: async (signal) => {
+        const snap = await fetchSyncSnapshot(signal);
+        if (signal.aborted || !isMountedRef.current) return;
+        const changed = changedDatasets(prevFp, snap.fp);
+        const first = prevFp === null;
+        const since = prevCheckAt;
+        prevFp = snap.fp;
+        prevCheckAt = Date.now();
+        document.documentElement.dataset.lastSyncCheck = new Date(prevCheckAt).toISOString();
+
+        const missed = missedSales(snap.recentSales, {
+          seen: (k) => seenSales.has(k),
+          openedAtServerMs: OPENED_AT + serverOffsetMs(),
+          nowServerMs: new Date(snap.serverTime).getTime(),
+          windowMs: snap.recoveryWindowSec * 1000,
+        });
+        for (const sale of missed) handleSale({ ...sale, storedAt: sale.firstSeenAt }, "sync");
+
+        if (Date.now() - lastReconcileRef.current >= RECONCILE_MS) return void (await reconcile());
+        if (first && !missed.length) return; // the page has just loaded everything
+        const jobs: Promise<unknown>[] = [];
+        // A missed sale always refreshes; a sales change already refreshed by its live event is not repeated.
+        if (missed.length || (changed.has("sales") && statsAt < since)) {
+          statsAt = Date.now();
+          jobs.push(fetchRef.current()); // includes the awards
+        } else if (changed.has("awards")) scheduleAwardsSync(); // one small PostgreSQL read
+        if (snap.fp.config > appliedConfigRevision()) jobs.push(fetchArenaConfig());
+        if (snap.fp.display > appliedDisplayRevision()) jobs.push(fetchGlobalDisplay());
+        if (snap.fp.catalog && snap.fp.catalog !== catalogRevRef.current) jobs.push(syncCatalog());
+        if (changed.has("programs") && useArenaStore.getState().liveMode) jobs.push(fetchLivePrograms());
+        if (changed.has("teams")) arenaBus.emit("teams:updated", {}, { broadcast: false }); // Teams Arena reloads its standings
+        await Promise.allSettled(jobs);
+      },
+    });
+    background.start();
 
     // Setup internal SSE stream: one per display, reopened automatically if the browser closes it for good
     // (e.g. a 502 during a deploy). A reopened stream counts as a reconnect: everything missed is resynced.
@@ -429,9 +512,11 @@ export function LiveApiSync() {
             void fetchGlobalDisplay();
             void fetchArenaConfig();
             arenaBus.emit("cub:resync", {}, { broadcast: false });
+            if (connectedOnce) arenaBus.emit("teams:updated", {}, { broadcast: false }); // reconnected: restore standings
             if (connectedOnce) {
               scheduleProgramsSync();
               scheduleLiveSync(300); // awards / sales missed during the gap (announced only if newer than page load)
+              void background.trigger(); // sale popups missed during the gap (bounded window, never history)
             }
             connectedOnce = true;
             try {
@@ -447,45 +532,8 @@ export function LiveApiSync() {
 
           eventSource.addEventListener("sale.validated", (e) => {
             try {
-              const payload = JSON.parse(e.data);
-              const saleKey = String(payload.caseId || "");
-              if (saleKey && seenSales.has(saleKey)) return;
-              // Delivery timeline (diagnostics): server stamps + the moment this browser received it.
-              if (saleKey && payload.source !== "backfill")
-                noteReceived({ kind: "sale", key: saleKey, source: payload.source, validatedAt: payload.validatedAt, firstSeenAt: payload.firstSeenAt, storedAt: payload.storedAt, broadcastAt: payload.broadcastAt });
-              if (saleKey) {
-                seenSales.add(saleKey);
-                if (seenSales.size > 200) {
-                  const first = seenSales.values().next().value;
-                  if (first) seenSales.delete(first);
-                }
-              }
-
-              // Arena Cub: same stream, same dedupe (it keeps its own bounded memory too).
-              arenaBus.emit(
-                "cub:sale",
-                { caseId: saleKey, closerName: String(payload.closerName || payload.userCode || ""), validatedAt: String(payload.validatedAt || ""), source: payload.source ? String(payload.source) : null },
-                { broadcast: false },
-              );
-
-              // Broadcast celebratory announcement
-              arenaBus.emit("celebration:enqueue", {
-                event: {
-                  id: `celeb_sale_${payload.caseId || Date.now()}`,
-                  tier: "sale",
-                  headline: "SALE VALIDATED!",
-                  subline: `${payload.closerName || payload.userCode} · +1 Validated Sale — great work!`,
-                  agentId: payload.userCode,
-                  agentName: payload.closerName || payload.userCode,
-                  teamName: "FE Sales Arena",
-                  teamColor: "#36E0B5",
-                  value: payload.premium || null,
-                  createdAt: payload.validatedAt || new Date().toISOString(),
-                  preview: false,
-                },
-              });
-              // Debounced batch refresh statistics
-              scheduleLiveSync(800);
+              // Debounced batch refresh of the statistics (only for a sale not seen yet).
+              if (handleSale(JSON.parse(e.data), "sse")) scheduleLiveSync(800);
             } catch (err) {
               console.error("[LiveApiSync] Failed to process sale event", err);
             }
@@ -527,6 +575,9 @@ export function LiveApiSync() {
                 scheduleLiveSync(400); // award list visibility changed
               }
             });
+
+          // Teams Arena: an Admin changed teams / memberships / designations.
+          eventSource.addEventListener("teams.updated", () => arenaBus.emit("teams:updated", {}, { broadcast: false }));
 
           // Arena Cub: an admin action validated, audited and broadcast by the server.
           eventSource.addEventListener("arena.cub.action", (e) => {
@@ -619,8 +670,7 @@ export function LiveApiSync() {
       if (programsTimer) clearTimeout(programsTimer);
       if (awardsTimer) clearTimeout(awardsTimer);
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (syncInterval) clearInterval(syncInterval);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      background.stop();
       closeStream?.();
     };
   }, [reconcile, syncCatalog, setApiStatus]);

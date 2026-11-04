@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BadgeCheck, Send, Users, Target, TrendingUp, Flame, RefreshCw, AlertTriangle, Trophy, Clock } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { adminApi } from "@/components/admin/admin-api";
+import { useAdminSync } from "@/components/admin/AdminLiveSync";
 import { useSettingsStore } from "@/store/settings-store";
 import { getPeriodDateRange, type PeriodDateRange } from "@/lib/time/business";
 import { targetProgress, formatPercent, datesBetween, type TargetPeriod } from "@/lib/live/targets";
@@ -144,6 +145,15 @@ export default function AdminOverviewPage() {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
   }, [load]);
+  // A validated sale was stored (live event or background sync): refresh the figures, silently.
+  const salesRev = useAdminSync((s) => s.salesRev);
+  const firstRev = useRef(salesRev);
+  useEffect(() => {
+    if (salesRev === firstRev.current) return;
+    firstRev.current = salesRev;
+    const t = setTimeout(() => void load(), 1500); // coalesces a burst of sales into one reload
+    return () => clearTimeout(t);
+  }, [salesRev, load]);
 
   const d = data[period];
   const progress = targetProgress(d?.summary.validated ?? 0, d?.target ?? null);

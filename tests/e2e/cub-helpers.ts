@@ -16,6 +16,8 @@ interface RigState {
   /** Last sale this many minutes before the display FIRST asks for activity (then frozen, like the server). */
   saleMinsAgo?: number;
   mode?: string;
+  /** Extra global settings for this display (e.g. liveSyncSeconds). */
+  values?: Record<string, unknown>;
   events: string;
   /** Deprecated (kept for old call sites): delivery is now controlled by stream(events, times). */
   retry?: number;
@@ -56,6 +58,7 @@ export async function rig(page: Page) {
       j.values.arenaEnabled = true;
       j.values.arenaModes = { daily: true, weekly: true, monthly: true, spin: true };
       if (st.mode) j.values.defaultArenaMode = st.mode;
+      Object.assign(j.values, st.values ?? {});
       await route.fulfill({ status: 200, json: j });
     }),
   );
@@ -70,6 +73,7 @@ export async function rig(page: Page) {
         j.config.values.arenaEnabled = true;
         j.config.values.arenaModes = { daily: true, weekly: true, monthly: true, spin: true };
         if (st.mode) j.config.values.defaultArenaMode = st.mode;
+        Object.assign(j.config.values, st.values ?? {});
       }
       await route.fulfill({ status: 200, json: j });
     }),
@@ -98,6 +102,7 @@ export async function rig(page: Page) {
       st.lastSaleAt = "lastSaleAt" in o ? o.lastSaleAt : undefined;
       st.saleMinsAgo = o.saleMinsAgo;
       st.mode = o.mode;
+      st.values = o.values;
       st.events = "";
       st.deliveries = 0;
       st.served = 0;

@@ -23,6 +23,7 @@ const ADMIN_NAV: Array<{ href: string; label: string; icon: typeof Shield; exact
   { href: "/admin/programs", label: "Reward Programs", icon: Award },
   { href: "/admin/arena", label: "Live Arena Controls", icon: MonitorPlay },
   { href: "/admin/agents", label: "Agent Management", icon: Users },
+  { href: "/admin/teams", label: "Team Management", icon: Shield },
   { href: "/admin/performance", label: "Sales & Performance", icon: BarChart3 },
   { href: "/admin/targets", label: "Target Management", icon: Target },
   { href: "/admin/rewards", label: "Spin & Rewards", icon: Gift },
@@ -136,9 +137,12 @@ export default function AdminShell({ children, admin, csrfToken }: { children: R
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <SaveStatusPill />
+            {/* Opens a separate window (full page load), so prefetching "/" here was never used and only made this
+                tab preload the Live Arena stylesheet ("preloaded but not used" console warning). */}
             <Link
               href="/"
               target="sales-arena-live"
+              prefetch={false}
               className="inline-flex items-center gap-2 rounded-xl border border-secondary/30 bg-secondary/10 px-3.5 py-2 text-sm font-semibold text-secondary transition-colors hover:bg-secondary/20"
             >
               <ExternalLink className="h-4 w-4" />

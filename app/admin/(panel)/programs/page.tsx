@@ -12,6 +12,7 @@ import { Section, Field, Toggle, Choice, SelectField, TextField, GhostButton, in
 import { Notice } from "@/components/admin/spins/shared";
 import { ProgramsTab } from "@/components/admin/rewards/ProgramsTab";
 import { AwardHistoryTab } from "@/components/admin/rewards/AwardHistoryTab";
+import { AudienceReview } from "@/components/admin/rewards/AudienceReview";
 import { cn } from "@/lib/utils";
 import type { ArenaMode } from "@/types";
 
@@ -23,6 +24,9 @@ const COMMON_TZ = ["Asia/Karachi", "Asia/Dubai", "Asia/Kolkata", "Europe/London"
 
 export default function RewardProgramsPage() {
   const [tab, setTab] = useState<Tab>("Arena Display");
+  // Senior / Junior bonus audience for the Daily / Weekly / Monthly tabs (same reward engine, separate programmes).
+  const [audience, setAudience] = useState<"senior" | "junior">("senior");
+  const bonusTab = tab === "Daily Rewards" || tab === "Weekly Rewards" || tab === "Monthly Rewards";
 
   return (
     <div className="space-y-6">
@@ -48,10 +52,34 @@ export default function RewardProgramsPage() {
         ))}
       </div>
 
+      {bonusTab && (
+        <div className="space-y-4">
+          <div role="tablist" aria-label="Bonus audience" className="inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1" data-testid="audience-tabs">
+            {(["senior", "junior"] as const).map((a) => (
+              <button
+                key={a}
+                role="tab"
+                aria-selected={audience === a}
+                onClick={() => setAudience(a)}
+                data-testid={`audience-${a}`}
+                className={cn("rounded-lg px-4 py-2 text-sm font-semibold transition-colors", audience === a ? (a === "senior" ? "bg-secondary/20 text-secondary" : "bg-[#A855F7]/20 text-[#C9A3FF]") : "text-text-secondary hover:text-white")}
+              >
+                {a === "senior" ? "Senior Bonuses" : "Junior Bonuses"}
+              </button>
+            ))}
+          </div>
+          {audience === "senior" ? <AudienceReview /> : (
+            <Notice kind="info">
+              Junior bonus programmes use the same reward engine (highest-tier upgrades, Award History, popups, Missing Awards recovery) with their own
+              reward groups, so they never replace a Senior tier. None exist yet: Juniors earn no cash bonus until the Owner creates and activates one.
+            </Notice>
+          )}
+        </div>
+      )}
       {tab === "Arena Display" && <ArenaDisplayTab />}
-      {tab === "Daily Rewards" && <ProgramsTab kind="daily" />}
-      {tab === "Weekly Rewards" && <ProgramsTab kind="weekly" />}
-      {tab === "Monthly Rewards" && <ProgramsTab kind="monthly" />}
+      {tab === "Daily Rewards" && <ProgramsTab key={`daily-${audience}`} kind="daily" audience={audience} />}
+      {tab === "Weekly Rewards" && <ProgramsTab key={`weekly-${audience}`} kind="weekly" audience={audience} />}
+      {tab === "Monthly Rewards" && <ProgramsTab key={`monthly-${audience}`} kind="monthly" audience={audience} />}
       {tab === "Spin & Win" && <SpinTab />}
       {tab === "Award History" && <AwardHistoryTab />}
     </div>
@@ -79,7 +107,7 @@ function ArenaDisplayTab() {
       >
         <div className="grid gap-x-6 sm:grid-cols-2" data-testid="screen-toggles">
           {ARENA_MODE_ORDER.map((m) => (
-            <Toggle key={m} label={ARENA_MODE_LABEL[m]} checked={s.arenaModes[m]} onChange={(v) => void saveSettings({ arenaModes: { ...s.arenaModes, [m]: v } }, { immediate: true })} />
+            <Toggle key={m} label={ARENA_MODE_LABEL[m]} checked={s.arenaModes[m] === true} onChange={(v) => void saveSettings({ arenaModes: { ...s.arenaModes, [m]: v } }, { immediate: true })} />
           ))}
         </div>
         {enabled.length === 0 && (
@@ -99,6 +127,12 @@ function ArenaDisplayTab() {
           hint="Off: the selector is hidden on every public display. Admins can still switch screens from here."
           checked={s.showModeSelector}
           onChange={(v) => void saveSettings({ showModeSelector: v }, { immediate: true })}
+        />
+        <Toggle
+          label="Show the Teams Arena tab"
+          hint="Off: Teams Arena stays reachable as the default screen, with “Switch the Live Arena now” or /?screen=teams, but its tab is hidden from the public selector."
+          checked={s.teamsTabVisible !== false}
+          onChange={(v) => void saveSettings({ teamsTabVisible: v }, { immediate: true })}
         />
         <Field label="Switch the Live Arena now" hint="Moves every connected display to this screen right away (also displays that reconnect later).">
           <div className="flex flex-wrap gap-2">

@@ -33,6 +33,13 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let inflight: Promise<void> | null = null;
 let waiters: Array<(ok: boolean) => void> = [];
 
+/** Other save queues (e.g. Arena Cub) report unsent / in-flight edits, so a reload never overwrites them. */
+const pendingEdits = new Set<() => boolean>();
+export function registerPendingEdits(fn: () => boolean): () => void {
+  pendingEdits.add(fn);
+  return () => pendingEdits.delete(fn);
+}
+
 export function rememberConfirmed(values: Partial<DisplaySettings>) {
   confirmed = { ...confirmed, ...values };
 }
@@ -66,6 +73,18 @@ async function flush(): Promise<void> {
   inflight = null;
 }
 
+// A change still waiting for its short debounce when the page is hidden, reloaded or closed is sent at once
+// (keepalive lets the request finish after the page is gone), so a quick reload never loses it.
+if (typeof window !== "undefined")
+  window.addEventListener("pagehide", () => {
+    if (!Object.keys(queued).length) return;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    const patch = queued;
+    queued = {};
+    void adminApi("/api/admin/arena-config", { method: "PUT", body: { values: patch }, keepalive: true });
+  });
+
 /** Use in admin pages instead of useSettingsStore().update. Resolves true once saved. */
 export function saveSettings(patch: Partial<DisplaySettings>, opts: { immediate?: boolean } = {}): Promise<boolean> {
   const local: Record<string, unknown> = {};
@@ -81,13 +100,14 @@ export function saveSettings(patch: Partial<DisplaySettings>, opts: { immediate?
 }
 
 /** Loads the authoritative config into this admin tab (on open, on events, on reconnect). */
-export async function loadAdminConfig(): Promise<boolean> {
+/** `recovery`: a save queue re-syncing after its own failed request (its pending-edit guard does not apply). */
+export async function loadAdminConfig(opts: { recovery?: boolean } = {}): Promise<boolean> {
   const r = await adminApi<{ revision: number; values: Partial<DisplaySettings>; screen: { screen: null; revision: number } }>("/api/admin/arena-config");
   if (!r.ok) {
     useSaveStatus.getState().set({ state: "error", message: `Settings could not be loaded from the server: ${r.error}`, at: Date.now() });
     return false;
   }
-  if (Object.keys(queued).length || inflight) return true; // don't overwrite an edit that is being saved
+  if (Object.keys(queued).length || inflight || (!opts.recovery && [...pendingEdits].some((f) => f()))) return true; // don't overwrite an edit that is being saved
   rememberConfirmed(r.data.values);
   applyArenaConfig({ revision: r.data.revision, values: r.data.values });
   return true;

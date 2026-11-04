@@ -53,6 +53,9 @@ export function applyGlobalDisplay(d: Partial<GlobalDisplay> | null | undefined)
 }
 
 /** Reconcile with PostgreSQL (on reconnect and the existing 30 s check). One small GET. */
+/** Revision this display last applied (-1 before the first). */
+export const appliedDisplayRevision = () => appliedRevision;
+
 export async function fetchGlobalDisplay(): Promise<void> {
   try {
     const res = await fetch("/api/arena/display-settings", { cache: "no-store" });

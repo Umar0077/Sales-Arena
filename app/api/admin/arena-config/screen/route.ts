@@ -5,7 +5,7 @@ import { ConfigError, switchArenaScreen } from "@/lib/server/settings/arena-conf
 
 export const dynamic = "force-dynamic";
 
-/** "Switch the Live Arena now". Body: { screen: "daily" | "weekly" | "monthly" | "spin" }. */
+/** "Switch the Live Arena now". Body: { screen: "daily" | "weekly" | "monthly" | "teams" | "spin" }. */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req, { mutating: true });
   if (!auth.ok) return auth.response;

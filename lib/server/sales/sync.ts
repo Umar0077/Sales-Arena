@@ -50,7 +50,7 @@ async function saveCheckpoint(pool: Pool, id: string, endpoint: string, report: 
   );
 }
 
-async function importDays(pool: Pool, days: string[], source: SaleSource): Promise<SyncReport> {
+async function importDays(pool: Pool, days: string[], source: SaleSource, opts: { summary?: boolean } = {}): Promise<SyncReport> {
   const client = getSafeQuoteClient();
   const report: SyncReport = {
     source, from: days[0], to: days[days.length - 1], fetched: 0, inserted: 0, duplicates: 0, invalid: 0,
@@ -88,12 +88,23 @@ async function importDays(pool: Pool, days: string[], source: SaleSource): Promi
       }
     }
   }
+  if (opts.summary === false) return report;
   try {
     report.upstreamValidated = (await client.getSummary({ from: report.from, to: report.to }, true)).validated;
   } catch {
     report.upstreamValidated = null;
   }
   return report;
+}
+
+/**
+ * Fast discovery: today's validated sales only (one Safe Quote request), so a sale the live stream did not
+ * deliver is stored within seconds instead of waiting for the next full reconciliation. Same ingest path
+ * (idempotent by case id, same reward rules); no checkpoint row, no summary request.
+ */
+export async function discoverTodaySales(pool: Pool): Promise<SyncReport> {
+  const tz = process.env.SALES_ARENA_TIMEZONE || "America/New_York";
+  return importDays(pool, [ymd(new Date(), tz)], "reconciliation", { summary: false });
 }
 
 /**

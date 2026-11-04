@@ -41,6 +41,12 @@ export interface RewardProgram {
   tierPolicy: TierPolicy;
   /** Programs compete only within the same kind and reward group. */
   rewardGroup: string;
+  /**
+   * Who may earn it, by the agent's sales designation on the sale's business date: "senior", "junior" or
+   * "all" (every agent, the behaviour before designations existed). Junior programmes always use their own
+   * "junior…" reward groups, so Senior and Junior tier chains never supersede each other.
+   */
+  audience: Audience;
   /** Program Active: new awards can be earned. */
   enabled: boolean;
   /** Show on Live Arena: popups / cards for this program appear publicly. */
@@ -60,6 +66,9 @@ export interface RewardProgram {
   updatedAt: string;
 }
 
+export type Audience = "all" | "senior" | "junior";
+export const AUDIENCES: Audience[] = ["all", "senior", "junior"];
+
 export class ProgramError extends Error {
   constructor(message: string, readonly status = 400) {
     super(message);
@@ -68,7 +77,7 @@ export class ProgramError extends Error {
 
 export const COLS = `id, kind, name, description, reward_type, amount, currency, prize_label, sales_required, max_awards, max_total_awards,
   to_char(start_date, 'YYYY-MM-DD') AS start_date, to_char(end_date, 'YYYY-MM-DD') AS end_date, scope_type, scope_ids, stackable,
-  tier_policy, reward_group, enabled, show_on_arena, headline, message, reward_line, sound, accent, popup_seconds, leaderboard_count, active_since,
+  tier_policy, reward_group, audience, enabled, show_on_arena, headline, message, reward_line, sound, accent, popup_seconds, leaderboard_count, active_since,
   archived_at, revision, created_at, updated_at`;
 
 const iso = (v: unknown) => (v ? new Date(v as string).toISOString() : null);
@@ -97,6 +106,7 @@ export function rowToProgram(r: Record<string, unknown>, today = todayIn(process
     stackable: r.stackable !== false,
     tierPolicy: (r.tier_policy as TierPolicy) ?? "highest_tier",
     rewardGroup: String(r.reward_group ?? "default"),
+    audience: (AUDIENCES.includes(r.audience as Audience) ? r.audience : "all") as Audience,
     enabled: Boolean(r.enabled),
     showOnArena: r.show_on_arena !== false,
     headline: String(r.headline),
@@ -149,6 +159,25 @@ const date = (v: unknown, field: string): string | null => {
   if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v))) throw new ProgramError(`${field} must be a date (YYYY-MM-DD).`);
   return v;
 };
+
+/**
+ * Audience and reward group together: a Junior programme's group always starts with "junior" (default
+ * "junior"); any other programme's group never does. An existing programme's audience is changed only through
+ * the Owner's reviewed eligibility change (rewards/audience.ts), never by an ordinary edit.
+ */
+function audienceAndGroup(rawAudience: unknown, rawGroup: string, base?: RewardProgram): { audience: Audience; rewardGroup: string } {
+  const audience = (rawAudience ?? base?.audience ?? "all") as Audience;
+  if (!AUDIENCES.includes(audience)) throw new ProgramError("Choose who can earn it: Senior, Junior or all agents.");
+  if (base && audience !== base.audience) throw new ProgramError("A programme's Senior / Junior audience is changed only through the Owner's eligibility review.", 409);
+  if (audience === "junior") {
+    const group = !rawGroup || rawGroup === "default" ? "junior" : rawGroup;
+    if (!group.startsWith("junior")) throw new ProgramError('A Junior programme\'s reward group must start with "junior" (e.g. "junior").');
+    return { audience, rewardGroup: group };
+  }
+  const group = rawGroup || "default";
+  if (group.startsWith("junior")) throw new ProgramError('Reward groups starting with "junior" are reserved for Junior programmes.');
+  return { audience, rewardGroup: group };
+}
 
 /** Validates a full program (create) or a partial patch merged onto the current one (edit). */
 export function normalizeProgram(input: Input, base?: RewardProgram): Omit<RewardProgram, "id" | "status" | "activeSince" | "archivedAt" | "revision" | "createdAt" | "updatedAt"> {
@@ -204,7 +233,7 @@ export function normalizeProgram(input: Input, base?: RewardProgram): Omit<Rewar
       if (v !== "highest_tier" && v !== "additive") throw new ProgramError("Choose a tier policy: highest tier only, or additive.");
       return v as TierPolicy;
     })(),
-    rewardGroup: (text(get("rewardGroup"), "Reward group", 64) || "default").toLowerCase(),
+    ...audienceAndGroup(get("audience"), text(get("rewardGroup"), "Reward group", 64).toLowerCase(), base),
     enabled: flag("enabled", false),
     showOnArena: flag("showOnArena", true),
     headline: text(get("headline"), "Popup headline", 120) || `${KIND_WORD[k]} BONUS UNLOCKED!`,
@@ -246,11 +275,11 @@ export async function snapshot(c: PoolClient, id: string, action: string, adminI
 const VALUES_SQL = `kind = $2, name = $3, description = $4, reward_type = $5, amount = $6, currency = $7, prize_label = $8, sales_required = $9,
   max_awards = $10, max_total_awards = $11, start_date = $12, end_date = $13, scope_type = $14, scope_ids = $15, stackable = $16, enabled = $17,
   show_on_arena = $18, headline = $19, message = $20, reward_line = $21, sound = $22, accent = $23, popup_seconds = $24, leaderboard_count = $25,
-  tier_policy = $26, reward_group = $27`;
+  tier_policy = $26, reward_group = $27, audience = $28`;
 const valuesOf = (n: ReturnType<typeof normalizeProgram>) => [
   n.kind, n.name, n.description, n.rewardType, n.amount, n.currency, n.prizeLabel, n.salesRequired, n.maxAwards, n.maxTotalAwards,
   n.startDate, n.endDate, n.scopeType, n.scopeIds, n.stackable, n.enabled, n.showOnArena, n.headline, n.message, n.rewardLine,
-  n.sound, n.accent, n.popupSeconds, n.leaderboardCount, n.tierPolicy, n.rewardGroup,
+  n.sound, n.accent, n.popupSeconds, n.leaderboardCount, n.tierPolicy, n.rewardGroup, n.audience,
 ];
 
 export function publish(p: Pick<RewardProgram, "id" | "kind" | "revision">, action: string) {
@@ -317,7 +346,7 @@ export async function updateProgram(pool: Pool, id: string, input: Input, actor:
     else if (n.showOnArena !== cur.showOnArena && Object.keys(fields).length === 1) action = n.showOnArena ? "shown" : "hidden";
     await client.query(
       `UPDATE reward_programs SET ${VALUES_SQL}, active_since = ${activeSinceSql}, archived_at = ${archivedSql},
-         revision = revision + 1, updated_by = $28, updated_at = NOW() WHERE id = $1`,
+         revision = revision + 1, updated_by = $29, updated_at = NOW() WHERE id = $1`,
       [id, ...valuesOf(n), actor.adminId],
     );
     p = await snapshot(client, id, action, actor.adminId);
@@ -346,8 +375,8 @@ export async function programHistory(db: Pool | PoolClient, id: string) {
 }
 
 /** Programs that would pay the same milestone twice: same period, threshold, eligibility and reward type. */
-export function programSignature(p: Pick<RewardProgram, "kind" | "salesRequired" | "scopeType" | "scopeIds" | "rewardType"> & Partial<Pick<RewardProgram, "tierPolicy" | "rewardGroup">>): string {
-  return [p.kind, p.salesRequired, p.scopeType, [...p.scopeIds].sort().join(","), p.rewardType, p.tierPolicy ?? "highest_tier", p.rewardGroup ?? "default"].join("|");
+export function programSignature(p: Pick<RewardProgram, "kind" | "salesRequired" | "scopeType" | "scopeIds" | "rewardType"> & Partial<Pick<RewardProgram, "tierPolicy" | "rewardGroup" | "audience">>): string {
+  return [p.kind, p.salesRequired, p.scopeType, [...p.scopeIds].sort().join(","), p.rewardType, p.tierPolicy ?? "highest_tier", p.rewardGroup ?? "default", p.audience ?? "all"].join("|");
 }
 
 /** Ids of the newer copies among identical active programs (the oldest of each group is kept). */
@@ -382,8 +411,24 @@ export function duplicateProgramGroups(programs: RewardProgram[]) {
 
 /** Refuses a second ACTIVE program that would pay the same milestone (kind, threshold, eligibility, reward type). */
 export async function assertNoDuplicate(db: PoolClient, n: ReturnType<typeof normalizeProgram>, selfId?: string) {
-  const sig = programSignature({ kind: n.kind, salesRequired: n.salesRequired, scopeType: n.scopeType, scopeIds: n.scopeIds, rewardType: n.rewardType });
-  const clash = (await listPrograms(db)).find((p) => p.id !== selfId && p.enabled && programSignature(p) === sig);
+  // Same audience only: a Junior 2-sale tier never clashes with the Senior 2-sale tier.
+  // Unchanged for existing (audience "all") programmes; a Junior programme is compared with Junior ones only.
+  const sig = programSignature({ kind: n.kind, salesRequired: n.salesRequired, scopeType: n.scopeType, scopeIds: n.scopeIds, rewardType: n.rewardType, audience: n.audience, rewardGroup: n.audience === "junior" ? n.rewardGroup : undefined });
+  const same = (p: RewardProgram) => programSignature(p) === sig;
+  const all = await listPrograms(db);
+  // A Junior programme may only run once the Owner has scoped the "all agents" programmes of that period
+  // (otherwise a Junior would earn from both); and an "all agents" programme may not start next to Junior ones.
+  const mixed = all.find(
+    (p) => p.id !== selfId && p.enabled && p.kind === n.kind && ((n.audience === "junior" && p.audience === "all") || (n.audience === "all" && p.audience === "junior")),
+  );
+  if (mixed)
+    throw new ProgramError(
+      n.audience === "junior"
+        ? `"${mixed.name}" is active for ALL agents. Apply the Senior / Junior eligibility review (Owner) before activating a Junior ${n.kind} programme, so no Junior earns from both.`
+        : `Active Junior ${n.kind} programmes exist ("${mixed.name}"). Choose Senior as the audience instead of all agents.`,
+      409,
+    );
+  const clash = all.find((p) => p.id !== selfId && p.enabled && same(p));
   if (clash)
     throw new ProgramError(
       `An active ${n.kind} program already pays for ${n.salesRequired} validated sales: "${clash.name}". Edit or pause that program instead, so the same milestone is never paid twice.`,

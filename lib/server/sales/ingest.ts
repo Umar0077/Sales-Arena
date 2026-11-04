@@ -1,5 +1,9 @@
 import type { Pool } from "pg";
 import { arenaBroadcaster } from "../events/broadcaster";
+import { traceBroadcast } from "./delivery-trace";
+
+/** A sale stored this long after Safe Quote validated it is logged as a slow discovery. */
+const SLOW_DISCOVERY_SEC = 60;
 import { grantAutomaticSpins, readSpinSettings, type AutoGrant } from "../spins/ledger";
 import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { evaluateBonusAwards, type BonusAwardRecord } from "../rewards/engine";
@@ -55,7 +59,7 @@ export function agentIdFor(userCode: string): string {
   return `agt_${userCode.slice(0, 60)}`;
 }
 
-function initialsFor(name: string): string {
+export function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const s = parts.length >= 2 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : name.slice(0, 2);
   return (s || "CL").toUpperCase().slice(0, 8);
@@ -167,7 +171,13 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
     // `source` lets displays tell a live sale from a historical import (Arena Cub never celebrates imports).
     // Delivery timeline: validatedAt (Safe Quote) → firstSeenAt (received here) → storedAt (committed) → broadcastAt.
     const storedAt = new Date().toISOString();
-    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source, firstSeenAt, storedAt, broadcastAt: new Date().toISOString() });
+    const saleBroadcastAt = new Date().toISOString();
+    traceBroadcast("sale", caseId, { source, validatedAt: validatedAt.toISOString(), firstSeenAt, storedAt, broadcastAt: saleBroadcastAt });
+    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source, firstSeenAt, storedAt, broadcastAt: saleBroadcastAt });
+    // Slow discovery (Safe Quote validated it long before this server learned of it): logged once, no customer data.
+    const discoverySec = firstSeenAt ? (new Date(firstSeenAt).getTime() - validatedAt.getTime()) / 1000 : 0;
+    if (source !== "backfill" && discoverySec > SLOW_DISCOVERY_SEC)
+      console.warn(`[sales-delivery] slow discovery: case ${caseId} stored ${Math.round(discoverySec)}s after Safe Quote validated it (source ${source})`);
     if (result.spinGrants.length) {
       const last = result.spinGrants[result.spinGrants.length - 1];
       arenaBroadcaster.broadcast("spin.unlocked", {
@@ -181,7 +191,11 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
       });
     }
     // One event per committed award row (the displays dedupe by awardId).
-    for (const b of result.bonuses) arenaBroadcaster.broadcast("rewards.award.created", { award: publicAward(b, userCode, closerName), validatedAt: validatedAt.toISOString(), source, firstSeenAt, broadcastAt: new Date().toISOString() });
+    for (const b of result.bonuses) {
+      const broadcastAt = new Date().toISOString();
+      traceBroadcast("award", b.id, { source, validatedAt: validatedAt.toISOString(), firstSeenAt, storedAt, broadcastAt });
+      arenaBroadcaster.broadcast("rewards.award.created", { award: publicAward(b, userCode, closerName), validatedAt: validatedAt.toISOString(), source, firstSeenAt, broadcastAt });
+    }
   }
   return result;
 }

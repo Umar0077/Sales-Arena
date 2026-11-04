@@ -1,15 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CalendarDays, CalendarRange, CalendarClock, Disc3 } from "lucide-react";
+import { CalendarDays, CalendarRange, CalendarClock, Disc3, Shield } from "lucide-react";
 import { useSettingsStore } from "@/store/settings-store";
 import { ARENA_MODE_LABEL, ARENA_MODE_ORDER, useArenaMode, useArenaModeStore } from "@/store/arena-mode-store";
 import { audioEngine } from "@/lib/audio/engine";
 import { cn } from "@/lib/utils";
 import type { ArenaMode } from "@/types";
 
-const ICONS: Record<ArenaMode, typeof Disc3> = { daily: CalendarDays, weekly: CalendarRange, monthly: CalendarClock, spin: Disc3 };
-const SHORT: Record<ArenaMode, string> = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", spin: "Spin & Win" };
+const ICONS: Record<ArenaMode, typeof Disc3> = { daily: CalendarDays, weekly: CalendarRange, monthly: CalendarClock, teams: Shield, spin: Disc3 };
+const SHORT: Record<ArenaMode, string> = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", teams: "Teams", spin: "Spin & Win" };
 
 /** Segmented control (dropdown on phones) for the Live Arena screens. */
 export function ArenaModeSelector() {
@@ -18,7 +18,9 @@ export function ArenaModeSelector() {
   const online = useSettingsStore((s) => s.arenaEnabled);
   const mode = useArenaMode();
   const setPicked = useArenaModeStore((s) => s.setPicked);
-  const modes = ARENA_MODE_ORDER.filter((m) => enabled[m]);
+  const teamsTab = useSettingsStore((s) => s.teamsTabVisible !== false);
+  // Teams Arena can be enabled (default screen / Admin switch / URL) while its tab is hidden.
+  const modes = ARENA_MODE_ORDER.filter((m) => enabled[m] && (m !== "teams" || teamsTab || m === mode));
   if (!show || !online || modes.length < 2) return null;
 
   const pick = (m: ArenaMode) => {

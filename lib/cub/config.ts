@@ -3,7 +3,7 @@
  * and the browser. No "use client": safe to import in route handlers.
  */
 
-export type CubScreen = "daily" | "weekly" | "monthly" | "spin";
+export type CubScreen = "daily" | "weekly" | "monthly" | "teams" | "spin";
 export type CubDialogue = "intro" | "hungry" | "angry" | "sad" | "feeding" | "bonus";
 export type CubIntroFrequency = "every_load" | "hourly" | "daily" | "off";
 /** Home position. "auto" is the legacy value (same as bottom-right). */
@@ -62,13 +62,13 @@ export interface ArenaCubConfig {
   reducedMotion: CubReducedMotion;
 }
 
-export const CUB_SCREENS: CubScreen[] = ["daily", "weekly", "monthly", "spin"];
+export const CUB_SCREENS: CubScreen[] = ["daily", "weekly", "monthly", "teams", "spin"];
 export const CUB_DIALOGUES: CubDialogue[] = ["intro", "hungry", "angry", "sad", "feeding", "bonus"];
 
 export const DEFAULT_CUB: ArenaCubConfig = {
   allowOnLiveArena: false,
   enabled: true,
-  screens: { daily: true, weekly: true, monthly: true, spin: false },
+  screens: { daily: true, weekly: true, monthly: true, teams: true, spin: false },
   intro: true,
   feeding: true,
   bonus: true,

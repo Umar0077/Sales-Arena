@@ -1,15 +1,26 @@
 "use client";
 
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useArenaMode } from "@/store/arena-mode-store";
+import { ARENA_MODE_ORDER, useArenaMode, useArenaModeStore } from "@/store/arena-mode-store";
+import { TeamsScreen } from "@/components/arena/screens/TeamsScreen";
+import type { ArenaMode } from "@/types";
 import { useReducedMotion } from "@/lib/performance/reduced-motion";
 import { FloorScreen } from "@/components/arena/screens/FloorScreen";
 import { PeriodScreen } from "@/components/arena/screens/PeriodScreen";
 
-/** Live Arena: Daily, Weekly, Monthly or Spin & Win, switched in place with a soft transition. */
+/** Live Arena: Daily, Weekly, Monthly, Teams or Spin & Win, switched in place with a soft transition. */
 export default function LiveArenaPage() {
   const mode = useArenaMode();
   const reduced = useReducedMotion();
+
+  // Direct link: /?screen=daily|weekly|monthly|teams|spin opens that screen (only if the Admin enabled it;
+  // otherwise the display falls back to the default screen as usual).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const screen = sp.get("screen") as ArenaMode | null;
+    if (screen && ARENA_MODE_ORDER.includes(screen)) useArenaModeStore.getState().setPicked(screen);
+  }, []);
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -26,6 +37,7 @@ export default function LiveArenaPage() {
         {mode === "daily" && <FloorScreen variant="daily" />}
         {mode === "weekly" && <PeriodScreen kind="weekly" />}
         {mode === "monthly" && <PeriodScreen kind="monthly" />}
+        {mode === "teams" && <TeamsScreen />}
       </motion.div>
     </AnimatePresence>
   );

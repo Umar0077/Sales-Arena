@@ -5,8 +5,9 @@ import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { periodWindow } from "../spins/rules";
 import { readSpinSettings } from "../spins/ledger";
 import { publicAward } from "../sales/ingest";
+import { designationOn } from "../teams/repo";
 import {
-  achievedTiers, automaticFrom, effectiveOf, evaluateTierGroup, inScope, KIND_TO_PERIOD, loadActivePrograms, loadChain, loadTierSales,
+  achievedTiers, audienceOk, automaticFrom, effectiveOf, evaluateTierGroup, inScope, KIND_TO_PERIOD, loadActivePrograms, loadChain, loadTierSales,
   planTierAward, tierGroups, type RewardEngineConfig,
 } from "./engine";
 import type { RewardProgram } from "./programs";
@@ -100,9 +101,12 @@ export async function previewGroup(db: Db, input: GroupInput) {
   const catActive = (cfg.rewardCategories as Record<string, { active: boolean }>)?.[q.kind]?.active !== false;
   if (!catActive) blockers.push(`The ${q.kind} category is paused (Program Active is off): nothing can be earned.`);
   const group = tierGroups(await loadActivePrograms(db, [q.kind])).find((g) => g.rewardGroup === q.rewardGroup);
+  // Senior / Junior audience: the designation in force on the chosen business date.
+  const designation = (group?.programs ?? []).some((p) => p.audience !== "all") ? await designationOn(db, q.userCode, q.periodDate) : null;
   const programs: RewardProgram[] = (group?.programs ?? []).filter(
-    (p) => inScope(p, q.userCode, agent.campaign_id ?? null) && !(p.startDate && q.periodDate < p.startDate) && !(p.endDate && q.periodDate > p.endDate),
+    (p) => inScope(p, q.userCode, agent.campaign_id ?? null) && audienceOk(p, designation) && !(p.startDate && q.periodDate < p.startDate) && !(p.endDate && q.periodDate > p.endDate),
   );
+  if ((group?.programs ?? []).some((p) => p.audience !== "all") && !designation) notes.push("This agent has no Senior / Junior designation on that date: Senior-only and Junior-only programmes do not apply.");
   if (!programs.length) blockers.push("No active highest-tier program of this group applies to this agent in this period.");
 
   const sales = await loadTierSales(db, q.userCode, q.kind, q.rewardGroup, win);
@@ -252,7 +256,9 @@ export async function applyGroup(pool: Pool, input: GroupInput & { reason?: unkn
  * every highest-tier group × every period touched. Lists only real upgrades (never a lower tier than the
  * one already effective). Nothing is written.
  */
-export async function scanRecovery(db: Db, input: { from?: unknown; to?: unknown; includeBackfill?: unknown }) {
+export async function scanRecovery(db: Db, input: { from?: unknown; to?: unknown; includeBackfill?: unknown; audience?: unknown }) {
+  // Senior = Senior-only and all-agent programmes (the existing ones); Junior = Junior programmes only.
+  const audience = input.audience === "senior" || input.audience === "junior" ? input.audience : "all";
   const from = typeof input.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.from) ? input.from : "";
   const to = typeof input.to === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.to) ? input.to : "";
   if (!from || !to || to < from) throw new RecoveryError("Choose a valid date range (from ≤ to).");
@@ -267,7 +273,9 @@ export async function scanRecovery(db: Db, input: { from?: unknown; to?: unknown
   const sales = (await db.query(`SELECT user_code, validated_at FROM validated_sales WHERE status = 'validated' AND validated_at >= $1 AND validated_at < $2`, [start, end])).rows;
   const days = new Map<string, Set<string>>();
   for (const s of sales) days.set(s.user_code, (days.get(s.user_code) ?? new Set()).add(fmt.format(new Date(s.validated_at))));
-  const groups = tierGroups(await loadActivePrograms(db, ["daily", "weekly", "monthly"]));
+  const groups = tierGroups(await loadActivePrograms(db, ["daily", "weekly", "monthly"])).filter((g) =>
+    audience === "all" ? true : audience === "junior" ? g.programs.some((p) => p.audience === "junior") : g.programs.some((p) => p.audience !== "junior"),
+  );
   const items = [];
   const periodCounts = new Map<string, Map<string, number>>(); // kind|periodKey → user → validated count in the whole period
   for (const g of groups) {
@@ -291,6 +299,7 @@ export async function scanRecovery(db: Db, input: { from?: unknown; to?: unknown
           agentName: pv.agent.name,
           kind: g.kind,
           rewardGroup: g.rewardGroup,
+          audience: g.programs.some((p) => p.audience === "junior") ? "junior" : "senior",
           periodKey: pv.period.key,
           periodDate: day,
           existing: pv.effective,
@@ -302,7 +311,7 @@ export async function scanRecovery(db: Db, input: { from?: unknown; to?: unknown
       }
     }
   }
-  return { range: { from, to, notBefore, notAfter, timezone: cal.timezone }, agents: days.size, sales: sales.length, items };
+  return { range: { from, to, notBefore, notAfter, timezone: cal.timezone }, audience, programGroups: groups.length, agents: days.size, sales: sales.length, items };
 }
 
 /** Public preview (internal fields removed). */

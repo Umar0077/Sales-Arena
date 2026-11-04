@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { noteShown } from "@/lib/live/latency";
 import { motion, AnimatePresence } from "motion/react";
 import { useCelebrationStore } from "@/store/celebration-store";
+import { useBonusFlowStore } from "@/store/bonus-flow-store";
+import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { audioEngine } from "@/lib/audio/engine";
 import { ConfettiCanvas } from "./ConfettiCanvas";
@@ -36,6 +38,16 @@ export function CelebrationOverlay() {
       }
     }
   }, [current, queue, paused, advance]);
+
+  // A pause belongs to an open bonus popup or spin journey. If neither is open any more (an owner unmounted
+  // before resuming), the pause is stale: release it so sale popups never wait for minutes.
+  useEffect(() => {
+    if (!paused) return;
+    const id = setInterval(() => {
+      if (!useBonusFlowStore.getState().active && useSpinFlowStore.getState().stage === "idle") resume();
+    }, 5000);
+    return () => clearInterval(id);
+  }, [paused, resume]);
 
   // Auto-finish after tier duration
   useEffect(() => {

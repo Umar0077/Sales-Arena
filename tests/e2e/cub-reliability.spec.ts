@@ -46,8 +46,8 @@ test.describe("Arena Cub reliability (Admin UI → separate display)", () => {
     let dropped = false;
     await page.route("**/api/admin/arena-config", async (route) => {
       if (route.request().method() === "PUT" && !dropped) {
-        dropped = true;
         await route.fetch(); // reaches the server and is committed
+        dropped = true; // only now: the answer existed, and is thrown away below
         return route.abort("connectionreset");
       }
       return route.fallback();

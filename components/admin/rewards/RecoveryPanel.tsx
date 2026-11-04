@@ -34,6 +34,8 @@ interface ScanItem {
 }
 interface Scan {
   range: { from: string; to: string; notBefore: string; notAfter: string; timezone: string };
+  audience?: "all" | "senior" | "junior";
+  programGroups?: number;
   agents: number;
   sales: number;
   items: ScanItem[];
@@ -77,6 +79,7 @@ export function RecoveryPanel({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState(monthRange);
   const [includeBackfill, setIncludeBackfill] = useState(false);
+  const [audience, setAudience] = useState<"all" | "senior" | "junior">("all");
   const [scan, setScan] = useState<Scan | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState("");
@@ -92,7 +95,7 @@ export function RecoveryPanel({ onCreated }: { onCreated: () => void }) {
     setScan(null);
     setPicked(new Set());
     setDetail(null);
-    const r = await adminApi<Scan>("/api/admin/awards/recovery/scan", { method: "POST", body: { ...range, includeBackfill } });
+    const r = await adminApi<Scan>("/api/admin/awards/recovery/scan", { method: "POST", body: { ...range, includeBackfill, audience } });
     setBusy(false);
     if (!r.ok) return setMsg({ kind: "error", text: r.status === 403 ? "Only the Owner can scan for missing awards." : r.error });
     setScan(r.data);
@@ -157,6 +160,14 @@ export function RecoveryPanel({ onCreated }: { onCreated: () => void }) {
           <span className={lbl}>To</span>
           <input type="date" className={inputClass} value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} data-testid="scan-to" />
         </label>
+        <label className="space-y-1.5">
+          <span className={lbl}>Bonuses</span>
+          <select className={inputClass} value={audience} onChange={(e) => setAudience(e.target.value as typeof audience)} data-testid="scan-audience">
+            <option value="all" className="bg-[#0D1426]">All</option>
+            <option value="senior" className="bg-[#0D1426]">Senior</option>
+            <option value="junior" className="bg-[#0D1426]">Junior</option>
+          </select>
+        </label>
         <label className="flex items-center gap-2 pb-2 text-xs text-text-secondary">
           <input type="checkbox" className="h-4 w-4 accent-[#7568FF]" checked={includeBackfill} onChange={(e) => setIncludeBackfill(e.target.checked)} />
           Also allow historical-import (backfill) sales
@@ -171,7 +182,11 @@ export function RecoveryPanel({ onCreated }: { onCreated: () => void }) {
             {scan.range.from} → {scan.range.to} ({scan.range.timezone}) · {scan.sales} validated sale(s) by {scan.agents} agent(s) · {scan.items.length} upgrade(s) found.
           </p>
           {scan.items.length === 0 ? (
-            <Notice kind="info">No missing awards or upgrades in this range.</Notice>
+            <Notice kind="info">
+              {scan.audience === "junior" && scan.programGroups === 0
+                ? <span data-testid="scan-no-junior">No Junior bonus programmes are configured, so there are no missing Junior awards.</span>
+                : "No missing awards or upgrades in this range."}
+            </Notice>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-white/[0.07]">
               <table className="w-full min-w-[920px] text-xs">

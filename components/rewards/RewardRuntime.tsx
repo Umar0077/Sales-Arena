@@ -10,13 +10,14 @@ import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useArenaModeStore } from "@/store/arena-mode-store";
 import { arenaBus } from "@/lib/events/bus";
-import { noteShown } from "@/lib/live/latency";
+import { noteReceived, noteShown } from "@/lib/live/latency";
+import { serverOffsetMs } from "@/lib/live/sync-check";
 import { useReducedMotion } from "@/lib/performance/reduced-motion";
 import { BonusCelebration } from "./BonusCelebration";
 import type { DisplaySettings } from "@/types";
 
 const ANNOUNCED_KEY = "sales-arena:announced-awards";
-/** Awards older than this are not announced (e.g. the TV was off). */
+/** Awards older than this are not announced (e.g. the TV was off, or its stream was down). */
 const ANNOUNCE_WINDOW_MS = 10 * 60_000;
 
 /** When this display opened. Live awards created before it are history, never re-announced. */
@@ -88,9 +89,14 @@ export function RewardRuntime() {
       const s = useSettingsStore.getState();
       for (const a of sorted) {
         if (live) {
-          // Server awards: only ones created after this display opened (a refresh never replays
-          // history), and only when the admin allows the announcement right now.
-          if (new Date(a.createdAt).getTime() < LOADED_AT || !canAnnounce(a, s)) continue;
+          // Server awards: only ones created after this display opened (a refresh never replays history)
+          // and within the recovery window (a long disconnection never replays a backlog), on the server
+          // clock, and only when the admin allows the announcement right now.
+          const created = new Date(a.createdAt).getTime();
+          const serverNow = now + serverOffsetMs();
+          if (created < LOADED_AT + serverOffsetMs() || serverNow - created > ANNOUNCE_WINDOW_MS || !canAnnounce(a, s)) continue;
+          // Delivery timeline: a live event already noted it; otherwise the background sync recovered it.
+          noteReceived({ kind: "award", key: a.id, storedAt: a.createdAt, via: "sync" });
         } else {
           const program = st.programs.find((p) => p.id === a.programId);
           if (!program?.enabled || now - new Date(a.createdAt).getTime() > ANNOUNCE_WINDOW_MS) continue;
@@ -119,6 +125,17 @@ export function RewardRuntime() {
     }, 400);
     return () => clearTimeout(t);
   }, [active, queueLength, spinStage]);
+
+  // Safety net: a bonus popup never stays up (and holds the queues) past its time, even if its own timer
+  // was lost (throttled tab, interrupted animation). Normally BonusCelebration ends it first.
+  useEffect(() => {
+    if (!active) return;
+    const secs = Math.min(30, Math.max(3, programs.find((p) => p.id === active.awards[0].programId)?.popupSeconds ?? 8));
+    const t = setTimeout(() => {
+      if (useBonusFlowStore.getState().active === active) useBonusFlowStore.getState().finish();
+    }, (secs + 15) * 1000);
+    return () => clearTimeout(t);
+  }, [active, programs]);
 
   // Hold normal sale toasts while a bonus popup is up.
   useEffect(() => {

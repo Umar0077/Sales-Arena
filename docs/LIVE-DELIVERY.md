@@ -15,7 +15,7 @@ Two ways a sale reaches the app:
 | `validated_sales.source` | How | Normal delay |
 | --- | --- | --- |
 | `sse` | Safe Quote's live event stream (`/events`) | seconds |
-| `reconciliation` | the recent-sales poll every `SALES_ARENA_RECONCILE_MINUTES` (default 5) | up to that many minutes |
+| `reconciliation` | a check of Safe Quote's validated recent sales: within ~2 s of any upstream case event, every `SALES_ARENA_DISCOVERY_SECONDS` (default 20) for today, and a full check every `SALES_ARENA_RECONCILE_MINUTES` (default 5) | seconds (before this release: up to 5 minutes) |
 | `backfill` | historical import (never celebrated) | — |
 
 Many recent `reconciliation` rows mean the **live stream did not deliver** those sales. Before this release, a
@@ -130,3 +130,43 @@ sudo journalctl -u sales-arena --since "today" | grep -E "Started|Stopped|exited
 Recommended (Sales Arena server block only, after `sudo cp` backup and `sudo nginx -t`): the dedicated stream
 location from `docs/DEPLOYMENT.md` (`proxy_buffering off; gzip off; proxy_read_timeout 1h; proxy_set_header Connection "";`).
 The app already disables buffering per response with `X-Accel-Buffering: no`, so this is defence in depth.
+
+## 7. The remaining 4–8 minute delay (November 2026): root cause and fix
+
+Evidence (production, read-only, 4 Nov 2026):
+
+* Bonus awards are written in the same transaction as their sale, so `award.createdAt − sale.validatedAt` is the time
+  the server needed to learn of the sale. The last three awards: **145 s, 229 s and 248 s**, spread evenly inside the
+  5-minute reconciliation window, i.e. those sales were found by the poll, not by the live stream.
+* The upstream live stream was connected without interruption for over 40 minutes (`reconnectAttempts 0`) but had
+  stored **0** sales (`salesPersisted 0`).
+* During that time Safe Quote **did** send live events in real time (cases `SQ-26-U89A-TJB7` at 18:31:54 and
+  `SQ-26-6TNJ-F2QR` at 18:34:49 UTC). This app classified every one as `unknown`: their event names are not the
+  `sale.validated` / `sale.submitted` names the consumer was written for. A validation sent the same way is ignored
+  and waits for the 5-minute poll; a display then shows the popup when that sale is finally stored.
+* Browser side was not the bottleneck: popups appear within a second of the event reaching a display.
+
+Fix (no guessing about unknown events, which could otherwise create a real bonus for a sale that is not validated):
+
+1. Any upstream case event the consumer does not store itself triggers a check of Safe Quote's **validated** list
+   within ~2 s, then every 5 s for 30 s. A validation is stored within seconds whatever the event is called.
+2. Today's validated sales are also checked every 20 s (`SALES_ARENA_DISCOVERY_SECONDS`), so even a validation with no
+   live event at all waits seconds, not minutes. The full reconciliation stays every 5 minutes.
+3. Unknown event names are recorded (names and field names only, never values) in System Health → Live delivery and
+   logged once each: `journalctl -u sales-arena | grep "Unrecognized upstream event"`. With those names the consumer
+   can later map Safe Quote's validation event directly (with the Safe Quote team's confirmation).
+
+Displays (no page reloads):
+
+* SSE stays the instant path. Every display also checks `/api/arena/sync` every 15 s (Admin → System Health → Live
+  delivery → Background sync, 10–120 s): a few hundred bytes of fingerprints, shared by all displays for 2 s on the
+  server. Only a dataset whose fingerprint changed is re-fetched; everything is refreshed at most every 3 minutes.
+* A sale the display's stream missed still gets its popup from that check: only sales stored after the display opened,
+  within the last 10 minutes, never twice (deduped with the live stream). A refresh or a long disconnection never
+  replays history; missed bonus popups follow the same rule.
+
+Monitoring: System Health → Live delivery → **End-to-end stage** shows, per sale and award since the app started,
+Discovery (Safe Quote → server), Backend (stored → broadcast), Live delivery (broadcast → first display) and Display
+queue (received → popup), with median / p95 / max once 5 samples exist. Displays report their receipt and popup times
+(corrected to the server clock). A sale stored more than 60 s after its validation is logged:
+`journalctl -u sales-arena | grep "slow discovery"`.

@@ -6,12 +6,22 @@ import { create } from "zustand";
 import { CheckCircle2, CircleAlert, Loader2 } from "lucide-react";
 import { loadAdminConfig, useSaveStatus } from "@/lib/admin/global-settings";
 import { appliedConfigRevision } from "@/lib/live/config-sync";
+import { createBackgroundSync } from "@/lib/live/background-sync";
+import { changedDatasets, fetchSyncSnapshot, type SyncFingerprints } from "@/lib/live/sync-check";
+import { useSettingsStore } from "@/store/settings-store";
 
 /** Bumped when another admin (or the reward engine) changed programs / awards, so open pages reload. */
 interface AdminSync {
   programsRev: number;
   awardsRev: number;
-  bump: (k: "programsRev" | "awardsRev") => void;
+  /** Validated sales changed in PostgreSQL (Overview and other live figures reload). */
+  salesRev: number;
+  /** Teams / memberships / designations changed. */
+  teamsRev: number;
+  bump: (k: "programsRev" | "awardsRev" | "salesRev" | "teamsRev") => void;
+  /** Last background sync check (diagnostics). */
+  lastCheckAt: number | null;
+  checkFailures: number;
   /** This admin tab's live stream (diagnostics). */
   stream: "connecting" | "live" | "reconnecting";
   setStream: (s: AdminSync["stream"]) => void;
@@ -19,6 +29,10 @@ interface AdminSync {
 export const useAdminSync = create<AdminSync>()((set, get) => ({
   programsRev: 0,
   awardsRev: 0,
+  salesRev: 0,
+  teamsRev: 0,
+  lastCheckAt: null,
+  checkFailures: 0,
   bump: (k) => set({ [k]: get()[k] + 1 } as Pick<AdminSync, typeof k>),
   stream: "connecting",
   setStream: (stream) => {
@@ -44,8 +58,38 @@ export function AdminLiveSync() {
   useEffect(() => {
     void loadAdminConfig();
     let first = true;
+
+    // Background sync (default every 15 s): one small fingerprint check per tab; an open page reloads only
+    // the data that changed (awards, programs, sales) and never touches a form (pages reload read-only
+    // lists; settings reload only for a newer server revision and never over an edit being saved).
+    let prevFp: SyncFingerprints | null = null;
+    const background = createBackgroundSync({
+      intervalMs: () => (Number(useSettingsStore.getState().liveSyncSeconds) || 15) * 1000,
+      run: async (signal) => {
+        let snap;
+        try {
+          snap = await fetchSyncSnapshot(signal);
+        } catch (e) {
+          if (!signal.aborted) useAdminSync.setState((s) => ({ checkFailures: s.checkFailures + 1 }));
+          throw e;
+        }
+        const changed = changedDatasets(prevFp, snap.fp);
+        const initial = prevFp === null;
+        prevFp = snap.fp;
+        useAdminSync.setState({ lastCheckAt: Date.now(), checkFailures: 0 });
+        if (initial) return; // pages loaded their data on open
+        const sync = useAdminSync.getState();
+        if (changed.has("awards")) sync.bump("awardsRev");
+        if (changed.has("programs")) sync.bump("programsRev");
+        if (changed.has("sales")) sync.bump("salesRev");
+        if (changed.has("teams")) sync.bump("teamsRev");
+        if (snap.fp.config > appliedConfigRevision()) await loadAdminConfig();
+      },
+    });
+    background.start();
+
     // Reopened automatically if the browser closes the stream for good (e.g. a 502 during a deploy).
-    return openResilientStream("/api/arena/stream", (es) => {
+    const closeStream = openResilientStream("/api/arena/stream", (es) => {
     es.addEventListener("error", () => useAdminSync.getState().setStream("reconnecting"));
     es.addEventListener("ready", () => {
       useAdminSync.getState().setStream("live");
@@ -53,6 +97,8 @@ export function AdminLiveSync() {
         void loadAdminConfig(); // reconnected: catch up on anything missed
         useAdminSync.getState().bump("programsRev");
         useAdminSync.getState().bump("awardsRev");
+        useAdminSync.getState().bump("salesRev");
+        void background.trigger();
       }
       first = false;
     });
@@ -69,7 +115,13 @@ export function AdminLiveSync() {
     es.addEventListener("rewards.program.updated", () => useAdminSync.getState().bump("programsRev"));
     es.addEventListener("rewards.award.created", () => useAdminSync.getState().bump("awardsRev"));
     es.addEventListener("rewards.award.updated", () => useAdminSync.getState().bump("awardsRev"));
+    es.addEventListener("sale.validated", () => useAdminSync.getState().bump("salesRev"));
+    es.addEventListener("teams.updated", () => useAdminSync.getState().bump("teamsRev"));
     });
+    return () => {
+      background.stop();
+      closeStream();
+    };
   }, []);
   return null;
 }

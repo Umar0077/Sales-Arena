@@ -22,6 +22,8 @@ export interface ArenaEventMap {
   "integration:event": { payload: unknown; accepted: boolean; message: string };
   /** Arena Cub: a committed validated sale from the server stream (never mirrored to other tabs). */
   "cub:sale": { caseId: string; closerName: string; validatedAt: string; source: string | null };
+  /** Teams Arena: teams / memberships / designations changed on the server (stream or background sync). */
+  "teams:updated": Record<string, never>;
   /** Arena Cub: the stream (re)connected, re-read the authoritative activity. */
   "cub:resync": Record<string, never>;
   /** Arena Cub: a trusted admin action from the server stream (never mirrored to other tabs). */

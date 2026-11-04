@@ -155,7 +155,7 @@ export default function LiveArenaControlsPage() {
         title="Sales simulator"
         description="Record demo sales for an agent. Keep the Live Arena open in another tab (same browser) to watch celebrations and the SPIN NOW popup."
         actions={
-          <Link href="/" target="sales-arena-live" className="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary hover:underline">
+          <Link href="/" target="sales-arena-live" prefetch={false} className="inline-flex items-center gap-1.5 text-sm font-semibold text-secondary hover:underline">
             Open Live Arena <ExternalLink className="h-3.5 w-3.5" />
           </Link>
         }

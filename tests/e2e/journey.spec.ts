@@ -145,6 +145,9 @@ test("Demo spin button runs the whole journey from the Live Arena", async ({ pag
   await open(page, "/");
   // With Safe Quote configured, wait for live data so the click is not undone by the first sync.
   if (await liveDataConfigured(page)) await expect(page.getByText("SAFE QUOTE LIVE")).toBeVisible({ timeout: 20_000 });
+  // The demo button lives on the Spin screen; the default screen is an admin setting other tests change.
+  const spinTab = page.getByRole("tablist", { name: "Live Arena screen" }).getByRole("tab", { name: /spin/i });
+  if (await spinTab.isVisible().catch(() => false)) await spinTab.click();
   await page.getByTestId("demo-spin").click();
   const popup = page.getByRole("dialog", { name: /CONGRATULATIONS/ });
   await expect(popup).toBeVisible({ timeout: 10_000 });

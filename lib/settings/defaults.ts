@@ -21,6 +21,8 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   volume: 0.7,
   soundCategories: DEFAULT_SOUND_CATEGORIES,
   celebrationDuration: 5,
+  liveSyncSeconds: 15,
+  teamsTabVisible: true,
   quality: "auto",
   spinnerFallback2D: false,
   motion: "system",
@@ -73,7 +75,8 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   revealMessage: "YOU WON {prize}!",
   revealStyle: "cinematic",
 
-  arenaModes: { daily: true, weekly: true, monthly: true, spin: true },
+  // Teams Arena starts OFF: the Admin enables it once teams have been imported and reviewed.
+  arenaModes: { daily: true, weekly: true, monthly: true, teams: false, spin: true },
   defaultArenaMode: "daily",
   showModeSelector: true,
   // Opt-in: by default only the default screen's bonus program awards.

@@ -32,17 +32,15 @@ test.describe("Sales Arena routes", () => {
     }
   });
 
-  test("Admin Panel has its own layout with all 12 sections", async ({ page }) => {
+  test("Admin Panel has its own layout with all 13 sections", async ({ page }) => {
     await open(page, "/admin");
     const nav = page.getByRole("navigation", { name: "Admin" }).first();
     for (const label of [
       "Overview Dashboard", "Reward Programs", "Live Arena Controls", "Agent Management", "Sales & Performance", "Target Management",
-      "Spin & Rewards", "Leaderboard Settings", "Celebration Settings", "Spin History", "Appearance & Sound", "Integration Preview",
+      "Spin & Rewards", "Leaderboard Settings", "Celebration Settings", "Spin History", "Appearance & Sound", "Integration Preview", "Team Management",
     ]) {
       await expect(nav.getByRole("link", { name: label })).toBeVisible();
     }
-    // The FE campaign has no team hierarchy (closers are individual userCodes)
-    await expect(nav.getByRole("link", { name: "Team Management" })).toHaveCount(0);
     // Public Live Arena header is not part of the admin shell.
     await expect(page.getByText("LIVE ARENA", { exact: true })).toHaveCount(0);
   });

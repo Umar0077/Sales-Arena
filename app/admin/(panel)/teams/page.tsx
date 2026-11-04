@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { TeamManagement } from "@/components/admin/teams/TeamManagement";
 
-/** The FE campaign has no team structure; closers are managed individually by Safe Quote userCode. */
-export default function TeamsRemovedPage() {
-  redirect("/admin");
+/** Admin → Team Management (Teams Arena): teams, members, designations, initial roster import, history. */
+export default function TeamManagementPage() {
+  return <TeamManagement />;
 }

@@ -37,7 +37,8 @@ Variables:
 | `APP_ORIGIN` | yes | Public site origin, e.g. `https://arena.example.com` (CSRF check) |
 | `SALES_ARENA_TIMEZONE` | yes | `America/New_York` |
 | `SALES_ARENA_SYNC_ENABLED` | no | `false` pauses SSE + reconciliation (default on in production) |
-| `SALES_ARENA_RECONCILE_MINUTES` | no | Reconciliation interval, default `5` |
+| `SALES_ARENA_RECONCILE_MINUTES` | no | Full reconciliation (yesterday + today) interval, default `5` |
+| `SALES_ARENA_DISCOVERY_SECONDS` | no | Fast check of today's validated sales, default `20` (min `10`, `0` = off). Also runs within ~2 s of any upstream case event |
 | `SAFEQUOTE_RECENT_SALES_LIMIT` | no | Upstream page size used to flag truncated days, default `50` |
 | `ADMIN_COOKIE_SECURE` | no | `false` only for a plain-HTTP preview; leave unset behind HTTPS |
 

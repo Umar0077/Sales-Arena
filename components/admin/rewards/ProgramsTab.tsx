@@ -33,6 +33,8 @@ export interface Program {
   stackable: boolean;
   tierPolicy: "highest_tier" | "additive";
   rewardGroup: string;
+  /** Who can earn it: Senior / Junior designation on the sale date, or every agent ("all", pre-designation programmes). */
+  audience: "all" | "senior" | "junior";
   enabled: boolean;
   showOnArena: boolean;
   headline: string;
@@ -80,7 +82,7 @@ type Draft = Omit<Program, "id" | "status" | "revision" | "createdAt" | "updated
   scopeText: string;
 };
 
-function toDraft(kind: Kind, p?: Program, currency = "Rs."): Draft {
+function toDraft(kind: Kind, p?: Program, currency = "Rs.", audience: "senior" | "junior" = "senior"): Draft {
   return {
     kind,
     name: p?.name ?? "",
@@ -99,7 +101,8 @@ function toDraft(kind: Kind, p?: Program, currency = "Rs."): Draft {
     scopeText: (p?.scopeIds ?? []).join(", "),
     stackable: p?.stackable ?? true,
     tierPolicy: p?.tierPolicy ?? "highest_tier",
-    rewardGroup: p?.rewardGroup ?? "default",
+    rewardGroup: p?.rewardGroup ?? (audience === "junior" ? "junior" : "default"),
+    audience: p?.audience ?? audience,
     enabled: p?.enabled ?? false,
     showOnArena: p?.showOnArena ?? true,
     headline: p?.headline ?? "",
@@ -128,7 +131,8 @@ function fromDraft(d: Draft) {
     scopeIds: d.scopeType === "all" ? [] : d.scopeText.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean),
     stackable: d.stackable,
     tierPolicy: d.tierPolicy,
-    rewardGroup: d.rewardGroup.trim() || "default",
+    rewardGroup: d.rewardGroup.trim() || (d.audience === "junior" ? "junior" : "default"),
+    audience: d.audience,
     enabled: d.enabled,
     showOnArena: d.showOnArena,
     headline: d.headline || undefined,
@@ -140,7 +144,7 @@ function fromDraft(d: Draft) {
 }
 
 /** One category (Daily / Weekly / Monthly): its two global switches and its list of programs. */
-export function ProgramsTab({ kind }: { kind: Kind }) {
+export function ProgramsTab({ kind, audience = "senior" }: { kind: Kind; audience?: "senior" | "junior" }) {
   const meta = KIND_LABEL[kind];
   const cat = useSettingsStore((s) => s.rewardCategories[kind]);
   const cats = useSettingsStore((s) => s.rewardCategories);
@@ -172,13 +176,14 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
   }, [load, programsRev]);
 
   const rows = useMemo(() => {
-    const list = programs ?? [];
+    // Senior view: Senior-only and the existing all-agent programmes. Junior view: Junior programmes only.
+    const list = (programs ?? []).filter((p) => (audience === "junior" ? p.audience === "junior" : p.audience !== "junior"));
     if (filter === "all") return list;
     if (filter === "archived") return list.filter((p) => p.status === "archived");
     if (filter === "active") return list.filter((p) => p.status === "active");
     if (filter === "inactive") return list.filter((p) => p.status !== "active" && p.status !== "archived");
     return list.filter((p) => p.status !== "archived");
-  }, [programs, filter]);
+  }, [programs, filter, audience]);
 
   const patch = async (p: Program, body: Record<string, unknown>, okText: string) => {
     setBusy(p.id);
@@ -252,6 +257,7 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
         {editing && (
           <ProgramEditorForm
             kind={kind}
+            audience={audience}
             program={editing === "new" ? undefined : editing}
             currency={currency}
             onCancel={() => setEditing(null)}
@@ -274,8 +280,10 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
         {programs === null ? (
           <p className="text-sm text-text-muted">Loading from PostgreSQL…</p>
         ) : rows.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-text-muted">
-            No {filter === "all" || filter === "current" ? "" : `${filter} `}{meta.title.toLowerCase()} programs. Use “Add reward” to create one.
+          <p className="rounded-xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-text-muted" data-testid={audience === "junior" ? "junior-empty" : undefined}>
+            {audience === "junior"
+              ? `No Junior ${meta.title.toLowerCase()} bonus programmes are configured. Juniors earn no ${meta.title.toLowerCase()} cash bonus until the Owner creates and activates one.`
+              : <>No {filter === "all" || filter === "current" ? "" : `${filter} `}{meta.title.toLowerCase()} programs. Use “Add reward” to create one.</>}
           </p>
         ) : (
           <ul className="space-y-3" data-testid="program-list">
@@ -287,6 +295,11 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
                       <h3 className="font-heading font-bold text-white">{p.name}</h3>
                       <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider", STATUS_STYLE[p.status])} data-testid="program-status">{p.status}</span>
                       {!p.showOnArena && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">hidden on arena</span>}
+                      {p.audience === "all" ? (
+                        <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-200" data-testid="program-audience" title="Created before Senior / Junior designations: every agent can earn it until the Owner's eligibility review moves it to Senior-only.">all agents</span>
+                      ) : (
+                        <span className={cn("rounded-full border px-2 py-0.5 text-[11px]", p.audience === "senior" ? "border-secondary/30 text-secondary" : "border-[#A855F7]/40 text-[#C9A3FF]")} data-testid="program-audience">{p.audience === "senior" ? "Senior only" : "Junior only"}</span>
+                      )}
                       {p.rewardType === "cash" && p.tierPolicy === "additive" ? <span className="rounded-full border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-200">additive</span> : p.rewardType === "cash" && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted" title="Only the highest tier reached in this group counts">highest tier · {p.rewardGroup}</span>}
                       {p.tierPolicy === "additive" && !p.stackable && <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-text-muted">non-stackable</span>}
                       {dupRole.get(p.id) === "awarding" && <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300" data-testid="dup-awarding">duplicate · this one awards</span>}
@@ -374,14 +387,15 @@ export function ProgramsTab({ kind }: { kind: Kind }) {
   );
 }
 
-function ProgramEditorForm({ kind, program, currency, onCancel, onSaved }: {
+function ProgramEditorForm({ kind, audience, program, currency, onCancel, onSaved }: {
   kind: Kind;
+  audience: "senior" | "junior";
   program?: Program;
   currency: string;
   onCancel: () => void;
   onSaved: (p: Program, created: boolean) => void;
 }) {
-  const [d, setD] = useState<Draft>(() => toDraft(kind, program, currency));
+  const [d, setD] = useState<Draft>(() => toDraft(kind, program, currency, audience));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (patch: Partial<Draft>) => setD((x) => ({ ...x, ...patch }));
@@ -514,7 +528,14 @@ function ProgramEditorForm({ kind, program, currency, onCancel, onSaved }: {
           {d.tierPolicy === "highest_tier" && (
             <label className="space-y-1.5">
               <span className={label}>Reward group</span>
-              <input className={inputClass} value={d.rewardGroup} maxLength={64} onChange={(e) => set({ rewardGroup: e.target.value })} placeholder="default" data-testid="pe-group" />
+              <input className={inputClass} value={d.rewardGroup} maxLength={64} onChange={(e) => set({ rewardGroup: e.target.value })} placeholder={d.audience === "junior" ? "junior" : "default"} data-testid="pe-group" />
+              <span className="block text-xs text-text-muted" data-testid="pe-audience">
+                {d.audience === "junior"
+                  ? "Junior programme: only agents designated Junior on the sale date earn it. Its group starts with “junior”, so it never replaces a Senior tier."
+                  : d.audience === "senior"
+                    ? "Senior programme: only agents designated Senior on the sale date earn it."
+                    : "All agents (created before designations). The Owner’s eligibility review can make it Senior-only."}
+              </span>
               <span className="block text-xs text-text-muted">Tiers compete only within the same group.</span>
             </label>
           )}

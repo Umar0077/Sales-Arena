@@ -4,11 +4,12 @@ import { create } from "zustand";
 import { useSettingsStore } from "@/store/settings-store";
 import type { ArenaMode, DisplaySettings } from "@/types";
 
-export const ARENA_MODE_ORDER: ArenaMode[] = ["daily", "weekly", "monthly", "spin"];
+export const ARENA_MODE_ORDER: ArenaMode[] = ["daily", "weekly", "monthly", "teams", "spin"];
 export const ARENA_MODE_LABEL: Record<ArenaMode, string> = {
   daily: "Daily Arena",
   weekly: "Weekly Arena",
   monthly: "Monthly Arena",
+  teams: "Teams Arena",
   spin: "Spin & Win",
 };
 
@@ -21,7 +22,7 @@ export const useArenaModeStore = create<ModeState>()((set) => ({ picked: null, s
 
 /** Resolves the screen to show: picked → default → first enabled → Spin & Win. */
 export function resolveMode(picked: ArenaMode | null, s: Pick<DisplaySettings, "arenaModes" | "defaultArenaMode">): ArenaMode {
-  if (picked && s.arenaModes[picked]) return picked;
+  if (picked && s.arenaModes?.[picked]) return picked;
   // Opening screen: the admin default, but never Spin & Win (that is reached via SPIN NOW or the tab).
   if (s.defaultArenaMode !== "spin" && s.arenaModes[s.defaultArenaMode]) return s.defaultArenaMode;
   if (s.arenaModes.daily) return "daily";

@@ -13,6 +13,7 @@ import { useSettingsStore } from "@/store/settings-store";
 import { useArenaMode } from "@/store/arena-mode-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { useBonusFlowStore } from "@/store/bonus-flow-store";
+import { displayId } from "@/lib/live/display-id";
 import { useReducedMotion } from "@/lib/performance/reduced-motion";
 
 /**
@@ -34,19 +35,6 @@ const SALES_KEY = "sales-arena:cub-fed";
 const COMMANDS_KEY = "sales-arena:cub-commands";
 
 /** Anonymous id of this display tab (only used to count acknowledgments, never sent anywhere else). */
-function displayId(): string {
-  try {
-    let v = sessionStorage.getItem("sales-arena:display-id");
-    if (!v) {
-      v = `d-${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36)}`;
-      sessionStorage.setItem("sales-arena:display-id", v);
-    }
-    return v;
-  } catch {
-    return "d-unknown-display";
-  }
-}
-
 function readNum(key: string): number | null {
   try {
     const v = Number(localStorage.getItem(key));

@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     const r = await listAwards(auth.pool, {
       kind: sp.get("kind"),
       status: sp.get("status"),
+      audience: sp.get("audience"),
       programId: sp.get("programId"),
       userCode: sp.get("userCode"),
       limit: Number(sp.get("limit")) || 200,

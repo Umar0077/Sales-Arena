@@ -19,6 +19,7 @@ export type ArenaBroadcastEventType =
   | "rewards.award.updated"
   | "security.policy.updated"
   | "target.updated"
+  | "teams.updated"
   | "stats.updated"
   | "connection.status"
   | "heartbeat";

@@ -220,7 +220,7 @@ export type SoundCategory =
   | "special";
 
 /** Live Arena screens. "spin" is the original Spin & Win screen. */
-export type ArenaMode = "daily" | "weekly" | "monthly" | "spin";
+export type ArenaMode = "daily" | "weekly" | "monthly" | "teams" | "spin";
 
 export type SpinnerTheme = "neon" | "royal" | "aurora" | "sunset";
 export type SegmentColorMode = "theme" | "prize";
@@ -239,6 +239,10 @@ export interface DisplaySettings {
   soundCategories: Record<SoundCategory, boolean>;
   /** Base celebration duration in seconds. */
   celebrationDuration: number;
+  /** Teams Arena: show its tab in the public screen selector (the screen itself is enabled in arenaModes). */
+  teamsTabVisible: boolean;
+  /** Seconds between background sync checks on every display / admin tab (10–120; SSE stays instant). */
+  liveSyncSeconds: number;
   quality: QualitySetting;
   spinnerFallback2D?: boolean;
   motion: MotionPreference;
@@ -311,7 +315,8 @@ export interface DisplaySettings {
 
   // ---- Arena screens & reward programs ----
   /** Which Live Arena screens are available. */
-  arenaModes: Record<ArenaMode, boolean>;
+  /** Screens enabled on the Live Arena. "teams" may be missing in settings saved before Teams Arena (= off). */
+  arenaModes: Record<Exclude<ArenaMode, "teams">, boolean> & { teams?: boolean };
   defaultArenaMode: ArenaMode;
   /** Show the screen selector on the Live Arena display. */
   showModeSelector: boolean;
