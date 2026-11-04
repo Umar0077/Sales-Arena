@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import { arenaBroadcaster, type ArenaBroadcastEventType } from "../events/broadcaster";
 import { DEFAULT_SETTINGS } from "@/lib/settings/defaults";
-import { CubConfigError, validateCub } from "@/lib/cub/config";
+import { CubConfigError, readCub, validateCub, validateCubPatch } from "@/lib/cub/config";
 
 /**
  * Global FE Sales Arena configuration: ONE row in admin_settings, shared by every display and admin.
@@ -145,11 +145,12 @@ const SCHEMA: Record<string, { v: Validator; group: ArenaBroadcastEventType }> =
   leaderboardAnimations: { v: bool, group: "settings.leaderboard.updated" },
   leaderboardSize: { v: oneOf("compact", "comfortable"), group: "settings.leaderboard.updated" },
   topPerformerStyle: { v: oneOf("podium", "highlight", "minimal"), group: "settings.leaderboard.updated" },
-  // Arena Cub mascot (one validated object; timing rules are checked together)
+  // Arena Cub mascot: a partial change, merged onto the stored settings in saveArenaConfig (rules that
+  // involve several keys are checked there, on the merged result).
   arenaCub: {
     v: (v) => {
       try {
-        return validateCub(v);
+        return validateCubPatch(v);
       } catch (e) {
         throw new Bad(e instanceof CubConfigError ? e.message : "is invalid");
       }
@@ -207,7 +208,9 @@ export async function readArenaConfig(db: Pool | PoolClient): Promise<ArenaConfi
   );
   const v = rows[0]?.value as { values?: ArenaConfigValues; revision?: number; updatedAt?: string } | undefined;
   return {
-    values: { ...defaultConfig(), ...(v?.values ?? {}) },
+    // arenaCub is always returned complete and normalised (older saves lack newer keys; a missing
+    // allowOnLiveArena is OFF).
+    values: { ...defaultConfig(), ...(v?.values ?? {}), arenaCub: readCub(v?.values?.arenaCub) },
     revision: Number(v?.revision) || 0,
     updatedAt: v?.updatedAt ?? null,
     updatedBy: rows[0]?.email ?? null,
@@ -249,6 +252,14 @@ export async function saveArenaConfig(pool: Pool, patch: unknown, actor: Actor):
     const cur = (await c.query(`SELECT value FROM admin_settings WHERE key = $1 FOR UPDATE`, [KEY])).rows[0].value as { values?: ArenaConfigValues; revision?: number };
     const before = { ...defaultConfig(), ...(cur.values ?? {}) };
     const merged = { ...before, ...clean };
+    if (clean.arenaCub) {
+      // Merge the changed cub keys onto the STORED cub settings (never onto a browser's copy), then validate the whole.
+      try {
+        merged.arenaCub = validateCub({ ...readCub(before.arenaCub), ...(clean.arenaCub as object) });
+      } catch (e) {
+        throw new ConfigError(`arenaCub ${e instanceof CubConfigError ? e.message : "is invalid"}.`);
+      }
+    }
     const modes = merged.arenaModes as Record<string, boolean>;
     if (clean.defaultArenaMode !== undefined && !modes[clean.defaultArenaMode as string])
       throw new ConfigError("The default screen must be one of the enabled screens.");

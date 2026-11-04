@@ -24,6 +24,7 @@ const CONFIG_EVENTS = [
 ] as const;
 import { arenaBus } from "@/lib/events/bus";
 import { noteReceived } from "@/lib/live/latency";
+import { openResilientStream } from "@/lib/live/resilient-stream";
 import { getPeriodDateRange } from "@/lib/time/business";
 import type { Agent, Reward, Sale } from "@/types";
 import type { CloserRow } from "@/features/sales/leads";
@@ -412,201 +413,202 @@ export function LiveApiSync() {
 
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // Setup internal SSE stream
-    let eventSource: EventSource | null = null;
+    // Setup internal SSE stream: one per display, reopened automatically if the browser closes it for good
+    // (e.g. a 502 during a deploy). A reopened stream counts as a reconnect: everything missed is resynced.
+    let closeStream: (() => void) | null = null;
+    let connectedOnce = false;
     try {
-      eventSource = new EventSource("/api/arena/stream");
-      sseRef.current = eventSource;
+      closeStream = openResilientStream(
+        "/api/arena/stream",
+        (eventSource) => {
+          sseRef.current = eventSource;
 
-      let connectedOnce = false;
-      eventSource.addEventListener("ready", (e) => {
-        // (Re)connected: pick up anything missed while offline from the authoritative state.
-        void syncCatalog();
-        void fetchGlobalDisplay();
-        void fetchArenaConfig();
-        arenaBus.emit("cub:resync", {}, { broadcast: false });
-        if (connectedOnce) {
-          scheduleProgramsSync();
-          scheduleLiveSync(300); // awards / sales missed during the gap (announced only if newer than page load)
-        }
-        connectedOnce = true;
-        try {
-          const payload = JSON.parse(e.data);
-          // Show LIVE only once real data has actually loaded.
-          if (payload.health?.status === "connected" && useArenaStore.getState().lastSyncAt) {
-            setApiStatus("connected", null);
-          }
-        } catch {
-          // ignore
-        }
-      });
-
-      eventSource.addEventListener("sale.validated", (e) => {
-        try {
-          const payload = JSON.parse(e.data);
-          const saleKey = String(payload.caseId || "");
-          if (saleKey && seenSales.has(saleKey)) return;
-          // Delivery timeline (diagnostics): server stamps + the moment this browser received it.
-          if (saleKey && payload.source !== "backfill")
-            noteReceived({ kind: "sale", key: saleKey, source: payload.source, validatedAt: payload.validatedAt, firstSeenAt: payload.firstSeenAt, storedAt: payload.storedAt, broadcastAt: payload.broadcastAt });
-          if (saleKey) {
-            seenSales.add(saleKey);
-            if (seenSales.size > 200) {
-              const first = seenSales.values().next().value;
-              if (first) seenSales.delete(first);
+          eventSource.addEventListener("ready", (e) => {
+            // (Re)connected: pick up anything missed while offline from the authoritative state.
+            void syncCatalog();
+            void fetchGlobalDisplay();
+            void fetchArenaConfig();
+            arenaBus.emit("cub:resync", {}, { broadcast: false });
+            if (connectedOnce) {
+              scheduleProgramsSync();
+              scheduleLiveSync(300); // awards / sales missed during the gap (announced only if newer than page load)
             }
-          }
-
-          // Arena Cub: same stream, same dedupe (it keeps its own bounded memory too).
-          arenaBus.emit(
-            "cub:sale",
-            { caseId: saleKey, closerName: String(payload.closerName || payload.userCode || ""), validatedAt: String(payload.validatedAt || ""), source: payload.source ? String(payload.source) : null },
-            { broadcast: false },
-          );
-
-          // Broadcast celebratory announcement
-          arenaBus.emit("celebration:enqueue", {
-            event: {
-              id: `celeb_sale_${payload.caseId || Date.now()}`,
-              tier: "sale",
-              headline: "SALE VALIDATED!",
-              subline: `${payload.closerName || payload.userCode} · +1 Validated Sale — great work!`,
-              agentId: payload.userCode,
-              agentName: payload.closerName || payload.userCode,
-              teamName: "FE Sales Arena",
-              teamColor: "#36E0B5",
-              value: payload.premium || null,
-              createdAt: payload.validatedAt || new Date().toISOString(),
-              preview: false,
-            },
+            connectedOnce = true;
+            try {
+              const payload = JSON.parse(e.data);
+              // Show LIVE only once real data has actually loaded.
+              if (payload.health?.status === "connected" && useArenaStore.getState().lastSyncAt) {
+                setApiStatus("connected", null);
+              }
+            } catch {
+              // ignore
+            }
           });
-          // Debounced batch refresh statistics
-          scheduleLiveSync(800);
-        } catch (err) {
-          console.error("[LiveApiSync] Failed to process sale event", err);
-        }
-      });
 
-      // A committed award row. The reward runtime shows it once (deduped by award id) through the
-      // single bonus popup queue, if the admin's announcement switches allow it.
-      eventSource.addEventListener("rewards.award.created", (e) => {
-        try {
-          const msg = JSON.parse(e.data);
-          const a = msg?.award as BonusAward | undefined;
-          if (!a?.id || !useArenaStore.getState().liveMode) return;
-          noteReceived({ kind: "award", key: a.id, source: msg.source, validatedAt: msg.validatedAt, firstSeenAt: msg.firstSeenAt, storedAt: a.createdAt, broadcastAt: msg.broadcastAt });
-          useRewardsStore.getState().recordAwards([a]);
-          scheduleAwardsSync(); // earned totals from PostgreSQL, not added up in the browser
-        } catch (err) {
-          console.error("[LiveApiSync] Failed to process award event", err);
-        }
-      });
+          eventSource.addEventListener("sale.validated", (e) => {
+            try {
+              const payload = JSON.parse(e.data);
+              const saleKey = String(payload.caseId || "");
+              if (saleKey && seenSales.has(saleKey)) return;
+              // Delivery timeline (diagnostics): server stamps + the moment this browser received it.
+              if (saleKey && payload.source !== "backfill")
+                noteReceived({ kind: "sale", key: saleKey, source: payload.source, validatedAt: payload.validatedAt, firstSeenAt: payload.firstSeenAt, storedAt: payload.storedAt, broadcastAt: payload.broadcastAt });
+              if (saleKey) {
+                seenSales.add(saleKey);
+                if (seenSales.size > 200) {
+                  const first = seenSales.values().next().value;
+                  if (first) seenSales.delete(first);
+                }
+              }
 
-      eventSource.addEventListener("rewards.program.updated", () => {
-        scheduleProgramsSync();
-        scheduleAwardsSync(); // a hidden / archived program changes the public totals
-      });
-      // An award was approved, paid, cancelled or reversed: totals change (earned excludes cancelled / reversed).
-      eventSource.addEventListener("rewards.award.updated", () => scheduleAwardsSync());
+              // Arena Cub: same stream, same dedupe (it keeps its own bounded memory too).
+              arenaBus.emit(
+                "cub:sale",
+                { caseId: saleKey, closerName: String(payload.closerName || payload.userCode || ""), validatedAt: String(payload.validatedAt || ""), source: payload.source ? String(payload.source) : null },
+                { broadcast: false },
+              );
 
-      for (const type of CONFIG_EVENTS)
-        eventSource.addEventListener(type, (e) => {
-          let rev = Infinity;
-          try {
-            rev = Number(JSON.parse((e as MessageEvent).data)?.revision);
-          } catch {
-            /* fetch anyway */
-          }
-          if (!(rev <= appliedConfigRevision())) void fetchArenaConfig();
-          if (type === "rewards.program.visibility.updated") {
+              // Broadcast celebratory announcement
+              arenaBus.emit("celebration:enqueue", {
+                event: {
+                  id: `celeb_sale_${payload.caseId || Date.now()}`,
+                  tier: "sale",
+                  headline: "SALE VALIDATED!",
+                  subline: `${payload.closerName || payload.userCode} · +1 Validated Sale — great work!`,
+                  agentId: payload.userCode,
+                  agentName: payload.closerName || payload.userCode,
+                  teamName: "FE Sales Arena",
+                  teamColor: "#36E0B5",
+                  value: payload.premium || null,
+                  createdAt: payload.validatedAt || new Date().toISOString(),
+                  preview: false,
+                },
+              });
+              // Debounced batch refresh statistics
+              scheduleLiveSync(800);
+            } catch (err) {
+              console.error("[LiveApiSync] Failed to process sale event", err);
+            }
+          });
+
+          // A committed award row. The reward runtime shows it once (deduped by award id) through the
+          // single bonus popup queue, if the admin's announcement switches allow it.
+          eventSource.addEventListener("rewards.award.created", (e) => {
+            try {
+              const msg = JSON.parse(e.data);
+              const a = msg?.award as BonusAward | undefined;
+              if (!a?.id || !useArenaStore.getState().liveMode) return;
+              noteReceived({ kind: "award", key: a.id, source: msg.source, validatedAt: msg.validatedAt, firstSeenAt: msg.firstSeenAt, storedAt: a.createdAt, broadcastAt: msg.broadcastAt });
+              useRewardsStore.getState().recordAwards([a]);
+              scheduleAwardsSync(); // earned totals from PostgreSQL, not added up in the browser
+            } catch (err) {
+              console.error("[LiveApiSync] Failed to process award event", err);
+            }
+          });
+
+          eventSource.addEventListener("rewards.program.updated", () => {
             scheduleProgramsSync();
-            scheduleLiveSync(400); // award list visibility changed
-          }
-        });
-
-      // Arena Cub: an admin action validated, audited and broadcast by the server.
-      eventSource.addEventListener("arena.cub.action", (e) => {
-        try {
-          arenaBus.emit("cub:command", JSON.parse((e as MessageEvent).data), { broadcast: false });
-        } catch {
-          /* malformed: ignored */
-        }
-      });
-
-      eventSource.addEventListener("arena.screen.changed", (e) => {
-        try {
-          const p = JSON.parse(e.data);
-          applyScreenSwitch({ screen: p.screen, revision: Number(p.revision) });
-        } catch {
-          void fetchArenaConfig();
-        }
-      });
-
-      eventSource.addEventListener("spin.unlocked", (e) => {
-        try {
-          const payload = JSON.parse(e.data);
-          // The popup looks agents up by id; map the server's userCode to the live agent.
-          const code = String(payload.userCode ?? "").toUpperCase();
-          if (!code) return;
-          // One popup per ledger transaction, even if the event arrives twice.
-          const eventKey = String(payload.eventId ?? "");
-          if (eventKey) {
-            if (seenSpinEvents.has(eventKey)) return;
-            seenSpinEvents.add(eventKey);
-            if (seenSpinEvents.size > 200) seenSpinEvents.delete(seenSpinEvents.values().next().value as string);
-          }
-          const agent = useArenaStore.getState().agents.find((a) => a.userCode === code);
-          const name = String(payload.closerName || agent?.name || code);
-          const qty = Number(payload.quantity) || 1;
-          const manual = payload.origin === "manual";
-          scheduleLiveSync(600); // balances refresh either way
-          // The spin credit is stored regardless; only the public popup follows the admin switches.
-          const s = useSettingsStore.getState();
-          if (!s.arenaEnabled || !s.celebrationPopups || !s.spinFeatureEnabled || !s.spinFlowEnabled || !(manual ? s.announceManualSpins : s.announceAutoSpins)) return;
-          useSpinFlowStore.getState().push({
-            agentId: agent?.id ?? `agt_${code}`,
-            userCode: code,
-            agentName: name,
-            periodSales: Number(payload.salesCounted) || 0,
-            available: Number(payload.spinsAvailable) || qty,
-            reason: manual ? "bonus" : "target",
-            origin: manual ? "manual" : "automatic",
-            message: manual
-              ? `Admin has awarded you ${qty} Spin${qty === 1 ? "" : "s"}!`
-              : `You have earned ${qty} Spin${qty === 1 ? "" : "s"}. ${Number(payload.salesCounted) || ""} validated sales completed.`.replace("  ", " "),
+            scheduleAwardsSync(); // a hidden / archived program changes the public totals
           });
-        } catch (err) {
-          console.error("[LiveApiSync] Failed to process spin unlock event", err);
-        }
-      });
+          // An award was approved, paid, cancelled or reversed: totals change (earned excludes cancelled / reversed).
+          eventSource.addEventListener("rewards.award.updated", () => scheduleAwardsSync());
 
-      eventSource.addEventListener("settings.performance.updated", (e) => {
-        try {
-          const p = JSON.parse(e.data);
-          applyGlobalDisplay({ performanceMode: p.mode, revision: Number(p.revision) });
-        } catch {
-          void fetchGlobalDisplay();
-        }
-      });
+          for (const type of CONFIG_EVENTS)
+            eventSource.addEventListener(type, (e) => {
+              let rev = Infinity;
+              try {
+                rev = Number(JSON.parse((e as MessageEvent).data)?.revision);
+              } catch {
+                /* fetch anyway */
+              }
+              if (!(rev <= appliedConfigRevision())) void fetchArenaConfig();
+              if (type === "rewards.program.visibility.updated") {
+                scheduleProgramsSync();
+                scheduleLiveSync(400); // award list visibility changed
+              }
+            });
 
-      eventSource.addEventListener("rewards.catalog.updated", (e) => {
-        try {
-          const rev = JSON.parse(e.data)?.revision;
-          if (!rev || rev !== catalogRevRef.current) void syncCatalog();
-        } catch {
-          void syncCatalog();
-        }
-      });
+          // Arena Cub: an admin action validated, audited and broadcast by the server.
+          eventSource.addEventListener("arena.cub.action", (e) => {
+            try {
+              arenaBus.emit("cub:command", JSON.parse((e as MessageEvent).data), { broadcast: false });
+            } catch {
+              /* malformed: ignored */
+            }
+          });
 
-      eventSource.addEventListener("stats.updated", () => {
-        scheduleLiveSync(600);
-      });
+          eventSource.addEventListener("arena.screen.changed", (e) => {
+            try {
+              const p = JSON.parse(e.data);
+              applyScreenSwitch({ screen: p.screen, revision: Number(p.revision) });
+            } catch {
+              void fetchArenaConfig();
+            }
+          });
 
-      eventSource.onerror = () => {
-        if (eventSource && eventSource.readyState === EventSource.CLOSED) {
-          setApiStatus("error", "Live stream disconnected. Reconnecting...");
-        }
-      };
+          eventSource.addEventListener("spin.unlocked", (e) => {
+            try {
+              const payload = JSON.parse(e.data);
+              // The popup looks agents up by id; map the server's userCode to the live agent.
+              const code = String(payload.userCode ?? "").toUpperCase();
+              if (!code) return;
+              // One popup per ledger transaction, even if the event arrives twice.
+              const eventKey = String(payload.eventId ?? "");
+              if (eventKey) {
+                if (seenSpinEvents.has(eventKey)) return;
+                seenSpinEvents.add(eventKey);
+                if (seenSpinEvents.size > 200) seenSpinEvents.delete(seenSpinEvents.values().next().value as string);
+              }
+              const agent = useArenaStore.getState().agents.find((a) => a.userCode === code);
+              const name = String(payload.closerName || agent?.name || code);
+              const qty = Number(payload.quantity) || 1;
+              const manual = payload.origin === "manual";
+              scheduleLiveSync(600); // balances refresh either way
+              // The spin credit is stored regardless; only the public popup follows the admin switches.
+              const s = useSettingsStore.getState();
+              if (!s.arenaEnabled || !s.celebrationPopups || !s.spinFeatureEnabled || !s.spinFlowEnabled || !(manual ? s.announceManualSpins : s.announceAutoSpins)) return;
+              useSpinFlowStore.getState().push({
+                agentId: agent?.id ?? `agt_${code}`,
+                userCode: code,
+                agentName: name,
+                periodSales: Number(payload.salesCounted) || 0,
+                available: Number(payload.spinsAvailable) || qty,
+                reason: manual ? "bonus" : "target",
+                origin: manual ? "manual" : "automatic",
+                message: manual
+                  ? `Admin has awarded you ${qty} Spin${qty === 1 ? "" : "s"}!`
+                  : `You have earned ${qty} Spin${qty === 1 ? "" : "s"}. ${Number(payload.salesCounted) || ""} validated sales completed.`.replace("  ", " "),
+              });
+            } catch (err) {
+              console.error("[LiveApiSync] Failed to process spin unlock event", err);
+            }
+          });
+
+          eventSource.addEventListener("settings.performance.updated", (e) => {
+            try {
+              const p = JSON.parse(e.data);
+              applyGlobalDisplay({ performanceMode: p.mode, revision: Number(p.revision) });
+            } catch {
+              void fetchGlobalDisplay();
+            }
+          });
+
+          eventSource.addEventListener("rewards.catalog.updated", (e) => {
+            try {
+              const rev = JSON.parse(e.data)?.revision;
+              if (!rev || rev !== catalogRevRef.current) void syncCatalog();
+            } catch {
+              void syncCatalog();
+            }
+          });
+
+          eventSource.addEventListener("stats.updated", () => {
+            scheduleLiveSync(600);
+          });
+
+            },
+        () => setApiStatus("error", "Live stream disconnected. Reconnecting..."),
+      );
     } catch (err) {
       console.warn("[LiveApiSync] Could not establish EventSource", err);
     }
@@ -619,9 +621,7 @@ export function LiveApiSync() {
       if (debounceTimer) clearTimeout(debounceTimer);
       if (syncInterval) clearInterval(syncInterval);
       document.removeEventListener("visibilitychange", handleVisibility);
-      if (eventSource) {
-        eventSource.close();
-      }
+      closeStream?.();
     };
   }, [reconcile, syncCatalog, setApiStatus]);
 

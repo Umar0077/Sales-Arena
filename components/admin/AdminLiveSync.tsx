@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { openResilientStream } from "@/lib/live/resilient-stream";
 import { create } from "zustand";
 import { CheckCircle2, CircleAlert, Loader2 } from "lucide-react";
 import { loadAdminConfig, useSaveStatus } from "@/lib/admin/global-settings";
@@ -11,11 +12,18 @@ interface AdminSync {
   programsRev: number;
   awardsRev: number;
   bump: (k: "programsRev" | "awardsRev") => void;
+  /** This admin tab's live stream (diagnostics). */
+  stream: "connecting" | "live" | "reconnecting";
+  setStream: (s: AdminSync["stream"]) => void;
 }
 export const useAdminSync = create<AdminSync>()((set, get) => ({
   programsRev: 0,
   awardsRev: 0,
   bump: (k) => set({ [k]: get()[k] + 1 } as Pick<AdminSync, typeof k>),
+  stream: "connecting",
+  setStream: (stream) => {
+    if (get().stream !== stream) set({ stream });
+  },
 }));
 
 const CONFIG_EVENTS = [
@@ -35,9 +43,12 @@ const CONFIG_EVENTS = [
 export function AdminLiveSync() {
   useEffect(() => {
     void loadAdminConfig();
-    const es = new EventSource("/api/arena/stream");
     let first = true;
+    // Reopened automatically if the browser closes the stream for good (e.g. a 502 during a deploy).
+    return openResilientStream("/api/arena/stream", (es) => {
+    es.addEventListener("error", () => useAdminSync.getState().setStream("reconnecting"));
     es.addEventListener("ready", () => {
+      useAdminSync.getState().setStream("live");
       if (!first) {
         void loadAdminConfig(); // reconnected: catch up on anything missed
         useAdminSync.getState().bump("programsRev");
@@ -58,7 +69,7 @@ export function AdminLiveSync() {
     es.addEventListener("rewards.program.updated", () => useAdminSync.getState().bump("programsRev"));
     es.addEventListener("rewards.award.created", () => useAdminSync.getState().bump("awardsRev"));
     es.addEventListener("rewards.award.updated", () => useAdminSync.getState().bump("awardsRev"));
-    return () => es.close();
+    });
   }, []);
   return null;
 }

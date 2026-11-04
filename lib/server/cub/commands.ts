@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import { writeAudit } from "../auth/guard";
 import { arenaBroadcaster } from "../events/broadcaster";
 import { readArenaConfig } from "../settings/arena-config";
+import { registerCommand } from "./acks";
 import { readCub } from "@/lib/cub/config";
 import { CUB_COMMAND_TTL_MS, isCubCommand, type CubCommand, type CubTarget } from "@/lib/cub/actions";
 
@@ -96,6 +97,7 @@ export async function sendCubCommand(
   list.push(now);
   recent.set(actor.adminId, list);
   if (action === "greet") lastGreetAt = now;
+  registerCommand(cmd.id, action, now); // displays report started / completed against this id
   arenaBroadcaster.broadcast("arena.cub.action", cmd);
   return cmd;
 }

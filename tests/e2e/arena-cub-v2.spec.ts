@@ -7,7 +7,7 @@ import { adminPost, adminPut, cub, minsAgo, offsetX, poses, rig, SHOTS, sse } fr
  * Settings saves are restored afterwards; no sale, award or spin is ever created.
  */
 
-const WIDE = { activeStart: "00:00", activeEnd: "23:59", activeDays: [0, 1, 2, 3, 4, 5, 6], introFrequency: "off", hunger: false };
+const WIDE = { activeStart: "00:00", activeEnd: "23:59", activeDays: [0, 1, 2, 3, 4, 5, 6], introFrequency: "off", hunger: false, position: "bottom-right", sizePreset: "large" };
 
 async function display(browser: Browser, viewport = { width: 1600, height: 900 }) {
   const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport, reducedMotion: "no-preference" });
@@ -183,8 +183,10 @@ test.describe("Arena Cub V2 — live", () => {
     await expect(cub(d.page)).toBeVisible({ timeout: 20_000 }); // separate display, no refresh
 
     await page.getByTestId("cub-live-run_left").click();
-    await expect(page.getByTestId("cub-live-msg")).toContainText("sent to all live screens");
+    await expect(page.getByTestId("cub-live-delivery")).toHaveAttribute("data-phase", "accepted", { timeout: 10_000 });
     await expectRunAndReturn(d.page, "v2-ui-run-left.png");
+    // The display itself reported playing it (evidence, not just "sent").
+    await expect.poll(async () => Number(await page.getByTestId("cub-live-delivery").getAttribute("data-started")), { timeout: 10_000 }).toBeGreaterThanOrEqual(1);
 
     await page.getByTestId("cub-hide-live").click();
     await expect(cub(d.page)).toHaveCount(0, { timeout: 15_000 });

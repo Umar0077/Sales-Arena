@@ -33,6 +33,20 @@ const REMINDERS_KEY = "sales-arena:cub-reminders";
 const SALES_KEY = "sales-arena:cub-fed";
 const COMMANDS_KEY = "sales-arena:cub-commands";
 
+/** Anonymous id of this display tab (only used to count acknowledgments, never sent anywhere else). */
+function displayId(): string {
+  try {
+    let v = sessionStorage.getItem("sales-arena:display-id");
+    if (!v) {
+      v = `d-${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36)}`;
+      sessionStorage.setItem("sales-arena:display-id", v);
+    }
+    return v;
+  } catch {
+    return "d-unknown-display";
+  }
+}
+
 function readNum(key: string): number | null {
   try {
     const v = Number(localStorage.getItem(key));
@@ -83,6 +97,10 @@ export function ArenaCub() {
       now: () => Date.now(),
       render: (v) => setView(v),
       moveSec: (action, id) => playerRef.current?.moveSec(action, id) ?? 6,
+      // Delivery evidence for the admin: this display really started / finished / was interrupted.
+      commandPhase: (id, phase) => {
+        void fetch("/api/arena/cub/ack", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, display: displayId(), phase }), keepalive: true }).catch(() => {});
+      },
       sound: (kind) => {
         const c = cfgRef.current;
         const s = useSettingsStore.getState();

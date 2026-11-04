@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { saveSettings } from "@/lib/admin/global-settings";
-import { appliedConfigRevision } from "@/lib/live/config-sync";
+import { loadAdminConfig, rememberConfirmed, useSaveStatus } from "@/lib/admin/global-settings";
+import { appliedConfigRevision, applyArenaConfig } from "@/lib/live/config-sync";
+import { useLiveStore } from "@/store/live-store";
+import { useAdminSync } from "@/components/admin/AdminLiveSync";
+import type { DisplaySettings } from "@/types";
 import { adminApi } from "@/components/admin/admin-api";
 import { useSettingsStore } from "@/store/settings-store";
 import { Section, Toggle, Range, Choice, Field, inputClass, GhostButton, PrimaryButton } from "@/components/admin/ui";
@@ -10,7 +13,7 @@ import { CubPlayer, type CubPlayerHandle } from "@/components/cub/CubPlayer";
 import type { CubMotion } from "@/components/cub/CubStage";
 import { CubDirector, type CubView } from "@/lib/cub/director";
 import type { ArenaCubConfig, CubDialogue, CubScreen } from "@/lib/cub/config";
-import { CUB_ACTION_LABEL, CUB_COMMAND_TTL_MS, CUB_EMOTIONS, CUB_MOVES, CUB_TRICKS, type CubAction, type CubCommandName, type CubTarget } from "@/lib/cub/actions";
+import { CUB_ACTION_LABEL, CUB_EMOTIONS, CUB_MOVES, CUB_TRICKS, type CubAction, type CubCommandName, type CubTarget } from "@/lib/cub/actions";
 import { charHeight } from "@/lib/cub/motion";
 import { cn } from "@/lib/utils";
 
@@ -34,19 +37,70 @@ const GREET_COOLDOWN_S = 15;
 /** Wall clock, read only from event handlers and timers. */
 const clock = () => Date.now();
 
-/** Saves part of arenaCub, but only once this page holds the server's settings (never a stale browser copy). */
+// ---------------------------------------------------------------- saving (only what changed)
+
+let pendingCub: Partial<ArenaCubConfig> = {};
+let cubTimer: ReturnType<typeof setTimeout> | null = null;
+let cubInflight: Promise<void> | null = null;
+let cubWaiters: Array<(r: { ok: boolean; error?: string }) => void> = [];
+
+/**
+ * Sends ONLY the changed Arena Cub keys; the server merges them onto the stored settings. A save can
+ * therefore never write back an outdated value of something else (before: every save sent the whole
+ * object from this tab's copy, so a stale "allowOnLiveArena: false" could switch the public cub off when
+ * e.g. the home position changed). On success the server's answer is applied; on any failure the
+ * authoritative settings are reloaded (a request whose answer was lost may still have been saved).
+ */
+async function flushCub(): Promise<void> {
+  cubTimer = null;
+  if (cubInflight) await cubInflight;
+  const patch = pendingCub;
+  const waiters = cubWaiters;
+  pendingCub = {};
+  cubWaiters = [];
+  if (!Object.keys(patch).length) return waiters.forEach((w) => w({ ok: true }));
+  useSaveStatus.getState().set({ state: "saving", message: null });
+  cubInflight = (async () => {
+    const r = await adminApi<{ revision: number; values: Partial<DisplaySettings> }>("/api/admin/arena-config", { method: "PUT", body: { values: { arenaCub: patch } } });
+    if (r.ok) {
+      rememberConfirmed(r.data.values);
+      applyArenaConfig({ revision: r.data.revision, values: r.data.values });
+      useSaveStatus.getState().set({ state: "saved", message: "Saved. All connected screens are updating.", at: Date.now(), revision: r.data.revision });
+      waiters.forEach((w) => w({ ok: true }));
+    } else {
+      useSaveStatus.getState().set({ state: "error", message: `Not saved: ${r.error}`, at: Date.now() });
+      await loadAdminConfig(); // show what is really stored
+      waiters.forEach((w) => w({ ok: false, error: r.error }));
+    }
+  })();
+  await cubInflight;
+  cubInflight = null;
+}
+
+export function saveCub(patch: Partial<ArenaCubConfig>, immediate = false): Promise<{ ok: boolean; error?: string }> {
+  // Instant feedback on this page only (the public permission is never shown optimistically).
+  const { allowOnLiveArena: _ignored, ...visible } = patch;
+  if (Object.keys(visible).length) useSettingsStore.getState().update({ arenaCub: { ...useSettingsStore.getState().arenaCub, ...visible } });
+  pendingCub = { ...pendingCub, ...patch };
+  if (cubTimer) clearTimeout(cubTimer);
+  const p = new Promise<{ ok: boolean; error?: string }>((res) => cubWaiters.push(res));
+  cubTimer = setTimeout(() => void flushCub(), immediate ? 0 : 400);
+  return p;
+}
+
 function useCubSave() {
   const [warn, setWarn] = useState<string | null>(null);
   const save = async (patch: Partial<ArenaCubConfig>, immediate = false): Promise<boolean> => {
-    if (appliedConfigRevision() < 0) {
-      setWarn("Settings are still loading from the server. Try again in a moment.");
-      return false;
-    }
     setWarn(null);
-    return saveSettings({ arenaCub: { ...useSettingsStore.getState().arenaCub, ...patch } }, { immediate });
+    const r = await saveCub(patch, immediate);
+    if (!r.ok) setWarn(`Not saved: ${r.error ?? "unknown error"}. Showing the settings stored on the server.`);
+    return r.ok;
   };
   return { save, warn };
 }
+
+/** The public permission as last confirmed by the SERVER (same source the Live Arena uses). */
+const useLivePermission = () => useLiveStore((s) => s.cubPermission);
 
 /**
  * Admin → Celebrations → Arena Cub.
@@ -216,18 +270,20 @@ function usePreviewVisible() {
   return [v, set] as const;
 }
 
-function LivePermission({ cub, save, warn }: { cub: ArenaCubConfig; save: (p: Partial<ArenaCubConfig>, immediate?: boolean) => Promise<boolean>; warn: string | null }) {
+function LivePermission({ save, warn }: { cub: ArenaCubConfig; save: (p: Partial<ArenaCubConfig>, immediate?: boolean) => Promise<boolean>; warn: string | null }) {
   const [confirming, setConfirming] = useState(false);
-  const live = cub.allowOnLiveArena;
+  const permission = useLivePermission();
+  const live = permission === "on";
   return (
     <Section
       title="Arena Cub on the public Live Arena"
       description="OFF by default. The Private Preview Studio below always works and never affects office displays. Only when you allow it here does the cub appear on permitted Live Arena screens."
     >
       <div className="flex flex-wrap gap-3" data-testid="cub-statuses">
-        <Status label="Public Live Arena Mascot" on={live} onText="Enabled" offText="Disabled" testId="cub-live-status" />
+        <Status label="Public Live Arena Mascot" on={live} onText="Enabled" offText={permission === "unknown" ? "Checking…" : "Disabled"} testId="cub-live-status" />
         <PreviewStatusBadge />
       </div>
+      <CubDiagnostics />
       {!live && !confirming && (
         <PrimaryButton data-testid="cub-allow-live" onClick={() => setConfirming(true)}>
           Allow Arena Cub on Live Arena
@@ -455,7 +511,7 @@ interface Device {
 }
 
 /** Sends audited, allowlisted actions to connected Live Arena displays over the existing SSE stream. */
-function LiveControls({ cub, save }: { cub: ArenaCubConfig; save: (p: Partial<ArenaCubConfig>, immediate?: boolean) => Promise<boolean> }) {
+function LiveControls({ save }: { cub: ArenaCubConfig; save: (p: Partial<ArenaCubConfig>, immediate?: boolean) => Promise<boolean> }) {
   const [scope, setScope] = useState<"all" | "daily" | "weekly" | "monthly" | "devices">("all");
   const [devices, setDevices] = useState<Device[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
@@ -464,7 +520,12 @@ function LiveControls({ cub, save }: { cub: ArenaCubConfig; save: (p: Partial<Ar
   const [greetConfirm, setGreetConfirm] = useState(false);
   const [greetUntil, setGreetUntil] = useState(0);
   const [now, setNow] = useState(0);
-  const live = cub.allowOnLiveArena;
+  const [delivery, setDelivery] = useState<Delivery | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const live = useLivePermission() === "on";
+  useEffect(() => () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+  }, []);
 
   useEffect(() => {
     void adminApi<{ devices: Device[] }>("/api/admin/devices").then((r) => {
@@ -487,16 +548,31 @@ function LiveControls({ cub, save }: { cub: ArenaCubConfig; save: (p: Partial<Ar
 
   const send = async (action: CubCommandName) => {
     if (scope === "devices" && !picked.length) return setMsg({ kind: "error", text: "Select at least one paired display." });
+    if (pollRef.current) clearInterval(pollRef.current);
+    setMsg(null);
+    setDelivery({ action, phase: "sending" });
     setBusy(true);
     const r = await adminApi<{ command: { id: string } }>("/api/admin/arena-cub/command", { method: "POST", body: { action, target: target() } });
     setBusy(false);
-    if (!r.ok) return setMsg({ kind: "error", text: r.error });
+    if (!r.ok) {
+      setDelivery({ action, phase: "rejected", error: r.error });
+      return;
+    }
     if (action === "greet") {
       const n = clock();
       setNow(n);
       setGreetUntil(n + GREET_COOLDOWN_S * 1000);
     }
-    setMsg({ kind: "ok", text: `${CUB_ACTION_LABEL[action]} sent to ${where} (ignored by screens that receive it more than ${CUB_COMMAND_TTL_MS / 1000}s late).` });
+    const id = r.data.command.id;
+    const sentAt = clock();
+    setDelivery({ action, phase: "accepted", id, where, sentAt, started: 0, completed: 0, interrupted: 0 });
+    if (action === "home" || action === "stop" || action === "reset") return; // utilities have no animation to acknowledge
+    // Evidence from the displays themselves (they report started / completed). ~25 s, then stop polling.
+    pollRef.current = setInterval(async () => {
+      const s = await adminApi<{ status: { started: number; completed: number; interrupted: number } }>(`/api/admin/arena-cub/command/${encodeURIComponent(id)}`);
+      if (s.ok) setDelivery((d) => (d && d.id === id ? { ...d, ...s.data.status, checkedAt: clock() } : d));
+      if (clock() - sentAt > 25_000 && pollRef.current) clearInterval(pollRef.current);
+    }, 1000);
   };
 
   const greetLeft = greetUntil > now ? Math.ceil((greetUntil - now) / 1000) : 0;
@@ -586,6 +662,7 @@ function LiveControls({ cub, save }: { cub: ArenaCubConfig; save: (p: Partial<Ar
           {msg.text}
         </p>
       )}
+      {delivery && <DeliveryLine d={delivery} />}
     </Section>
   );
 }
@@ -616,5 +693,102 @@ function TimeInput({ label, value, onChange }: { label: string; value: string; o
       onChange={(e) => /^\d{2}:\d{2}$/.test(e.target.value) && onChange(e.target.value)}
       className={cn(inputClass, "w-32")}
     />
+  );
+}
+
+// ---------------------------------------------------------------- live delivery + diagnostics
+
+interface Delivery {
+  action: CubCommandName;
+  phase: "sending" | "accepted" | "rejected";
+  id?: string;
+  where?: string;
+  sentAt?: number;
+  error?: string;
+  started?: number;
+  completed?: number;
+  interrupted?: number;
+  checkedAt?: number;
+}
+
+/**
+ * What is actually known about a live action. "Accepted" = the server validated, audited and broadcast it.
+ * "Started / completed on N displays" = those displays reported it themselves. Nothing more is claimed.
+ */
+function DeliveryLine({ d }: { d: Delivery }) {
+  const label = CUB_ACTION_LABEL[d.action];
+  let text: string;
+  let tone = "text-text-secondary";
+  if (d.phase === "sending") text = `${label}: sending…`;
+  else if (d.phase === "rejected") {
+    text = `${label}: rejected by the server — ${d.error ?? "unknown reason"}`;
+    tone = "text-red-300";
+  } else if (d.action === "home" || d.action === "stop" || d.action === "reset") {
+    text = `${label}: accepted by the server and sent to ${d.where}.`;
+    tone = "text-emerald-300";
+  } else if (d.started) {
+    text = `${label}: accepted by the server · started on ${d.started} display${d.started === 1 ? "" : "s"}` + (d.completed ? ` · completed on ${d.completed}` : "") + (d.interrupted ? ` · interrupted on ${d.interrupted} (a genuine sale/bonus or a newer action took priority)` : "") + ".";
+    tone = "text-emerald-300";
+  } else {
+    const waited = d.checkedAt && d.sentAt ? d.checkedAt - d.sentAt : 0;
+    text =
+      waited > 6000
+        ? `${label}: accepted by the server, but no display has reported playing it yet. Check that a Live Arena screen is open on a permitted screen (${d.where}).`
+        : `${label}: accepted by the server · waiting for displays to report…`;
+    tone = waited > 6000 ? "text-amber-200" : "text-text-secondary";
+  }
+  return (
+    <p className={cn("text-sm", tone)} data-testid="cub-live-delivery" data-phase={d.phase} data-started={d.started ?? 0} data-completed={d.completed ?? 0}>
+      {text}
+    </p>
+  );
+}
+
+function CubDiagnostics() {
+  const permission = useLivePermission();
+  const stream = useAdminSync((s) => s.stream);
+  const save = useSaveStatus();
+  const [connections, setConnections] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      void adminApi<{ connectedDisplays: number }>("/api/admin/live-delivery?limit=1").then((r) => {
+        if (alive && r.ok) setConnections(r.data.connectedDisplays);
+      });
+    load();
+    const t = setInterval(load, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  const revision = save.revision ?? appliedConfigRevision();
+  const row = "flex justify-between gap-4";
+  return (
+    <details className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-text-secondary" data-testid="cub-diagnostics">
+      <summary className="cursor-pointer select-none text-text-muted">Diagnostics</summary>
+      <div className="mt-2 grid gap-1 sm:grid-cols-2 sm:gap-x-8">
+        <div className={row}>
+          <span>Saved public visibility (server)</span>
+          <b className="text-white" data-testid="cub-diag-permission">{permission === "on" ? "ON" : permission === "off" ? "OFF" : "unknown"}</b>
+        </div>
+        <div className={row}>
+          <span>Settings revision</span>
+          <b className="text-white">{revision >= 0 ? revision : "—"}</b>
+        </div>
+        <div className={row}>
+          <span>This tab&apos;s live stream</span>
+          <b className={stream === "live" ? "text-emerald-300" : "text-amber-200"} data-testid="cub-diag-stream">{stream}</b>
+        </div>
+        <div className={row}>
+          <span>Open live-stream connections (displays + admin tabs)</span>
+          <b className="text-white">{connections ?? "—"}</b>
+        </div>
+        <div className={cn(row, "sm:col-span-2")}>
+          <span>Last settings save</span>
+          <b className={save.state === "error" ? "text-red-300" : "text-white"}>{save.state === "idle" ? "—" : `${save.state}${save.message ? ` · ${save.message}` : ""}`}</b>
+        </div>
+      </div>
+    </details>
   );
 }

@@ -26,9 +26,14 @@ describe("config validation", () => {
     expect(readCub({ hungerMin: 99, angryMin: 1 })).toEqual(DEFAULT_CUB); // a broken cache falls back safely
   });
 
-  it("is a validated global setting on the server (arena.config → arenaCub)", () => {
+  it("is a validated global setting on the server: a PARTIAL change (only the keys sent), each key checked", () => {
+    // Only what was sent comes back: other stored settings (e.g. the Live Arena permission) are never touched.
+    expect(validatePatch({ arenaCub: { position: "bottom-left" } }).arenaCub).toEqual({ position: "bottom-left" });
     expect(validatePatch({ arenaCub: { ...DEFAULT_CUB, enabled: false } }).arenaCub).toMatchObject({ enabled: false });
-    expect(() => validatePatch({ arenaCub: { ...DEFAULT_CUB, angryMin: 10 } })).toThrow(/arenaCub the hungry time/);
+    expect(() => validatePatch({ arenaCub: { position: "top" } })).toThrow(/arenaCub position must be one of/);
+    expect(() => validatePatch({ arenaCub: { hackerField: 1 } })).toThrow(/not an Arena Cub setting/);
+    // Rules across keys (hungry < angry < sad) are enforced by saveArenaConfig on the merged result.
+    expect(() => validatePatch({ arenaCub: { angryMin: 10 } })).not.toThrow();
   });
 });
 

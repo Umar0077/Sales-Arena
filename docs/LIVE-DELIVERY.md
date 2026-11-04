@@ -105,3 +105,28 @@ window.__arenaLatency   // per sale / award: validatedAt, firstSeenAt, storedAt,
 
 A popup that took more than 60 s also logs `[live-latency] … source→server …, →browser …, →popup …`, which names
 the slow stage. Server and display clocks may differ by a few seconds; the stage on one machine is exact.
+
+## 6. `net::ERR_HTTP2_PROTOCOL_ERROR` on `/api/arena/stream`
+
+Reproduced locally (production build behind Nginx with TLS + HTTP/2, generic `location /` as in production):
+when the app restarts while browsers hold the live stream open (every deploy / service restart), Nginx must cut
+the in-flight HTTP/2 response and Chrome logs exactly `net::ERR_HTTP2_PROTOCOL_ERROR`; reconnect attempts then
+get `502` until Node is up again. The stream itself was healthy otherwise: 6½ minutes over HTTP/2 and 320 s over
+HTTP/1.1 (direct and through Nginx) without a single error, pings every 15 s.
+
+What made it harmful: on a `502` the browser closes an `EventSource` **for good**. Before the fix, every open
+display and Admin tab then stayed without live events (sales, bonuses, settings, Arena Cub commands) until it was
+refreshed. Now both reopen the stream themselves (1, 2, 3, 5, 10 s, then every 15 s) and resync everything they
+missed. The response no longer sends a `Connection` header (forbidden in HTTP/2; Nginx strips it today).
+
+Checks on the server (read-only):
+
+```bash
+sudo grep -E "api/arena/stream" /var/log/nginx/error.log | tail -20          # "upstream prematurely closed" = app restart / crash
+sudo grep -cE "proxy_temp.*(Permission denied|failed)" /var/log/nginx/error.log  # must be 0
+sudo journalctl -u sales-arena --since "today" | grep -E "Started|Stopped|exited|Killed" | tail   # restarts line up with the errors?
+```
+
+Recommended (Sales Arena server block only, after `sudo cp` backup and `sudo nginx -t`): the dedicated stream
+location from `docs/DEPLOYMENT.md` (`proxy_buffering off; gzip off; proxy_read_timeout 1h; proxy_set_header Connection "";`).
+The app already disables buffering per response with `X-Accel-Buffering: no`, so this is defence in depth.

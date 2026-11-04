@@ -142,7 +142,7 @@ function flagSet<K extends string>(o: Record<string, unknown>, k: string, d: Rec
  * Validates a full or partial Arena Cub config on top of `base` (unknown keys are refused) and
  * checks the timing rules: hungry < angry < sad, valid active hours.
  */
-export function validateCub(input: unknown, base: ArenaCubConfig = DEFAULT_CUB): ArenaCubConfig {
+export function validateCub(input: unknown, base: ArenaCubConfig = DEFAULT_CUB, opts: { crossChecks?: boolean } = {}): ArenaCubConfig {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new CubConfigError("must be a set of Arena Cub settings");
   const o = input as Record<string, unknown>;
   for (const k of Object.keys(o)) if (!(k in DEFAULT_CUB)) throw new CubConfigError(`"${k}" is not an Arena Cub setting`);
@@ -188,15 +188,28 @@ export function validateCub(input: unknown, base: ArenaCubConfig = DEFAULT_CUB):
     if (typeof o[k] !== "string" || !TIME.test(o[k] as string)) throw new CubConfigError(`${k} must be a time such as 09:00`);
     out[k] = o[k] as string;
   }
-  if (out.activeStart === out.activeEnd) throw new CubConfigError("active hours must start and end at different times");
+  if (opts.crossChecks !== false && out.activeStart === out.activeEnd) throw new CubConfigError("active hours must start and end at different times");
   if (o.activeDays !== undefined) {
     const d = o.activeDays;
     if (!Array.isArray(d) || d.length > 7 || d.some((x) => !Number.isInteger(x) || (x as number) < 0 || (x as number) > 6))
       throw new CubConfigError("activeDays must list weekdays 0 (Sunday) to 6 (Saturday)");
     out.activeDays = [...new Set(d as number[])].sort();
   }
-  if (!(out.hungerMin < out.angryMin && out.angryMin < out.sadMin))
+  if (opts.crossChecks !== false && !(out.hungerMin < out.angryMin && out.angryMin < out.sadMin))
     throw new CubConfigError("the hungry time must come before the playfully angry time, and that before the sad time");
+  return out;
+}
+
+/**
+ * Validates a PARTIAL change (only the keys the admin changed): every key is checked on its own; rules
+ * that involve several keys (hungry < angry < sad, start ≠ end) are checked by the server on the merged
+ * result. Sending only what changed means a stale browser copy can never overwrite other settings
+ * (in particular the Live Arena permission).
+ */
+export function validateCubPatch(input: unknown): Partial<ArenaCubConfig> {
+  const full = validateCub(input, DEFAULT_CUB, { crossChecks: false });
+  const out: Partial<ArenaCubConfig> = {};
+  for (const k of Object.keys(input as object) as Array<keyof ArenaCubConfig>) (out as Record<string, unknown>)[k] = full[k];
   return out;
 }
 

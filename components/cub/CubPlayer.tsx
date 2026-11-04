@@ -178,10 +178,37 @@ export function CubPlayer({ view, cfg, frame, boxRef, motion, paused, particles,
         setMove(null);
       }, plan.totalMs),
     );
+    // Watchdog: if anything above never completes (throttled timers, a lost callback), come home and
+    // release the run a bounded time after it should have ended. Never retried, never looped.
+    const runId = cmd.id;
+    timers.current.push(
+      setTimeout(() => {
+        if (running.current === runId) {
+          goHome();
+          abortRef.current?.();
+        }
+      }, plan.totalMs + 2500),
+    );
     a.onfinish = () => {
       if (anim.current === a) anim.current = null;
     };
   }, [cmd, motion, goHome]);
+
+  // Home moved (position / size setting or screen change) during a run: stop it safely; the cub then
+  // glides to the new home (see the transition below) instead of finishing a path planned for the old one.
+  // Only a relocation by the admin counts (position / size SETTINGS), not layout measurements settling
+  // right after the cub appears (header / badge measured), which used to cancel a run that had just
+  // started. Window resizes are handled by the resize listener above.
+  const homeKey = `${cfg.position}|${cfg.sizePreset}|${cfg.size}|${cfg.homeX}|${cfg.homeY}`;
+  const lastHome = useRef(homeKey);
+  useEffect(() => {
+    if (lastHome.current === homeKey) return;
+    lastHome.current = homeKey;
+    if (running.current) {
+      goHome();
+      abortRef.current?.();
+    }
+  }, [homeKey, goHome]);
 
   // Unmount: release everything.
   useEffect(
@@ -221,7 +248,8 @@ export function CubPlayer({ view, cfg, frame, boxRef, motion, paused, particles,
   return (
     <div
       className={frame === "viewport" ? "pointer-events-none fixed z-30" : "pointer-events-none absolute z-10"}
-      style={{ left: home.left, top: home.top, width: home.boxW, height: home.boxH }}
+      // A new home position / size glides there (never unmounts, never hides); no transition mid-run.
+      style={{ left: home.left, top: home.top, width: home.boxW, height: home.boxH, transition: move ? "none" : "left 0.7s ease-in-out, top 0.7s ease-in-out, width 0.5s ease, height 0.5s ease" }}
       data-testid={`${testId}-root`}
       data-char-height={home.charH}
       data-moving={move ? "true" : undefined}

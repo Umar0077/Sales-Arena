@@ -52,7 +52,8 @@ export async function GET(req: NextRequest) {
         timestamp: new Date().toISOString(),
       };
       controller.enqueue(
-        encoder.encode(`event: ready\ndata: ${JSON.stringify(initialPayload)}\n\n`)
+        // retry: reconnect delay hint for the browser (ms).
+        encoder.encode(`retry: 3000\nevent: ready\ndata: ${JSON.stringify(initialPayload)}\n\n`)
       );
 
       // Subscribe to internal real-time broadcaster
@@ -102,7 +103,9 @@ export async function GET(req: NextRequest) {
       // Nginx: never buffer THIS response (per-response, no global proxy change). Without it a proxy that
       // buffers can hold events back until its buffer fills or the stream ends.
       "X-Accel-Buffering": "no",
-      Connection: "keep-alive",
+      // No "Connection" header: connection-specific headers are forbidden in HTTP/2 (RFC 9113 §8.2.2) and
+      // make a strict HTTP/2 hop treat the response as malformed (ERR_HTTP2_PROTOCOL_ERROR). Keep-alive is
+      // the default for HTTP/1.1 anyway.
     },
   });
 }

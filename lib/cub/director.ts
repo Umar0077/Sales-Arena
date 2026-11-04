@@ -26,6 +26,8 @@ export interface DirectorDeps {
   sound?: (kind: CubSound) => void;
   /** Duration (s) of a move on this screen (depends on its width). */
   moveSec?: (action: CubAction, id: string) => number;
+  /** Delivery evidence for admin commands: called when one really starts, finishes, or is cut short. */
+  commandPhase?: (id: string, phase: "started" | "completed" | "interrupted") => void;
 }
 
 export const INTRO_SEC = 4.6;
@@ -261,12 +263,14 @@ export class CubDirector {
     }
     const sound: CubSound | undefined = a.kind === "command" ? COMMAND_SOUND[a.action] : a.kind === "reminder" ? a.mood : a.kind;
     if (sound) this.deps.sound?.(sound);
+    if (a.kind === "command") this.deps.commandPhase?.(a.id, "started");
     this.emit();
     this.later(this.actTimers, dur, () => this.finish());
   }
 
   private finish() {
     const wasCommand = this.playing?.kind === "command";
+    if (this.playing?.kind === "command") this.deps.commandPhase?.(this.playing.id, "completed");
     this.playing = null;
     this.lastActEnd = this.deps.now();
     // Admin actions leave no speech behind once they finish.
@@ -279,6 +283,7 @@ export class CubDirector {
   }
 
   private stopCurrent() {
+    if (this.playing?.kind === "command" && !this.disposed) this.deps.commandPhase?.(this.playing.id, "interrupted");
     this.clear(this.actTimers);
     this.clear(this.bubbleTimers);
     this.bubble = null;
