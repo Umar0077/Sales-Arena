@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { saveSettings } from "@/lib/admin/global-settings";
 import { appliedConfigRevision } from "@/lib/live/config-sync";
 import { adminApi } from "@/components/admin/admin-api";
@@ -294,12 +294,15 @@ function PreviewStudio({ cfg, set }: { cfg: ArenaCubConfig; set: (p: Partial<Are
   const playerRef = useRef<CubPlayerHandle | null>(null);
   const dRef = useRef<CubDirector | null>(null);
   const seq = useRef(0);
-  const previewCfg = { ...cfg, enabled: true, intro: true, feeding: true, bonus: true, hunger: true, angry: true, sad: true };
+  // One object per saved-settings change (not per render): the director re-renders this component,
+  // so a fresh object every render fed back into setConfig was an endless render loop that starved
+  // Next.js navigation (sidebar clicks never completed).
+  const previewCfg = useMemo(() => ({ ...cfg, enabled: true, intro: true, feeding: true, bonus: true, hunger: true, angry: true, sad: true }), [cfg]);
   const cfgRef = useRef(previewCfg);
   useEffect(() => {
     cfgRef.current = previewCfg;
     dRef.current?.setConfig(previewCfg);
-  });
+  }, [previewCfg]);
 
   useEffect(() => setPreviewVisibleShared(visible), [visible]);
 

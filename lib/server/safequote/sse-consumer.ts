@@ -1,5 +1,6 @@
 import { getSafeQuoteClient } from "./client";
 import { parseSseSaleEvent } from "./mapper";
+import { SseParser } from "./sse-parser";
 import { getDbPool } from "../db/client";
 import { ingestValidatedSale, recordSaleStatus } from "../sales/ingest";
 import { arenaBroadcaster } from "../events/broadcaster";
@@ -201,44 +202,18 @@ export class SafeQuoteSseConsumer {
   private async readStream(body: ReadableStream<Uint8Array>): Promise<void> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
+    // Keeps partial lines and partial messages across network chunks (see sse-parser.ts).
+    const parser = new SseParser();
 
     try {
       while (this.isRunning) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split(/\r\n|\r|\n/);
-        buffer = lines.pop() || ""; // keep incomplete tail
-
-        let currentEvent = "message";
-        let currentData = "";
-        let currentId = "";
-
-        for (const line of lines) {
-          if (line.startsWith(":")) {
-            // SSE comment / heartbeat ping
-            this.resetHeartbeatWatchdog();
-            continue;
-          }
-
-          if (line.startsWith("event:")) {
-            currentEvent = line.slice(6).trim();
-          } else if (line.startsWith("data:")) {
-            currentData += (currentData ? "\n" : "") + line.slice(5).trim();
-          } else if (line.startsWith("id:")) {
-            currentId = line.slice(3).trim();
-            this.lastEventId = currentId;
-          } else if (line.trim() === "") {
-            // End of event block dispatch
-            if (currentData) {
-              await this.handleIncomingEvent(currentEvent, currentData, currentId);
-              currentEvent = "message";
-              currentData = "";
-              currentId = "";
-            }
-          }
+        const messages = parser.push(decoder.decode(value, { stream: true }));
+        if (parser.takeComment()) this.resetHeartbeatWatchdog(); // ": ping" heartbeat
+        for (const m of messages) {
+          if (m.id) this.lastEventId = m.id;
+          await this.handleIncomingEvent(m.event, m.data, m.id || undefined);
         }
       }
     } finally {

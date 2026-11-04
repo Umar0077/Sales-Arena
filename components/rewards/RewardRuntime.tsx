@@ -10,6 +10,7 @@ import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useArenaModeStore } from "@/store/arena-mode-store";
 import { arenaBus } from "@/lib/events/bus";
+import { noteShown } from "@/lib/live/latency";
 import { useReducedMotion } from "@/lib/performance/reduced-motion";
 import { BonusCelebration } from "./BonusCelebration";
 import type { DisplaySettings } from "@/types";
@@ -122,6 +123,7 @@ export function RewardRuntime() {
   // Hold normal sale toasts while a bonus popup is up.
   useEffect(() => {
     if (!active) return;
+    active.awards.forEach((a) => noteShown("award", a.id)); // delivery timeline
     useCelebrationStore.getState().pause();
     return () => useCelebrationStore.getState().resume();
   }, [active]);

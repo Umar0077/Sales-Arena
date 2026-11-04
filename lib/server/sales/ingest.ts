@@ -73,6 +73,7 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
   const saleId = `sale_${caseId}`.slice(0, 64);
   const client = await pool.connect();
   let result: IngestResult;
+  let firstSeenAt: string | null = null;
   try {
     await client.query("BEGIN");
 
@@ -114,12 +115,13 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
       `INSERT INTO validated_sales (id, case_id, user_code, agent_id, state, carrier, coverage, premium, validated_at,
                                    raw_payload, reward_processed, source, reward_eligible, closer_name, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, '{}'::jsonb, TRUE, $10, $11, $12, 'validated')
-       ON CONFLICT (case_id) DO NOTHING RETURNING id`,
+       ON CONFLICT (case_id) DO NOTHING RETURNING id, first_seen_at`,
       [saleId, caseId, userCode, agentId, input.state?.slice(0, 8) || null, input.carrier?.slice(0, 64) || null,
         input.coverage !== undefined && input.coverage !== "" ? String(input.coverage).slice(0, 64) : null,
         Number.isFinite(Number(input.premium)) ? Number(input.premium) : 0, validatedAt, source, rewardEligible, closerName],
     );
     const inserted = Boolean(ins.rowCount);
+    firstSeenAt = inserted ? new Date(ins.rows[0].first_seen_at).toISOString() : null;
     let spinGrants: AutoGrant[] = [];
     let bonuses: BonusAwardRecord[] = [];
 
@@ -163,7 +165,9 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
   // Broadcast only after the data is committed.
   if (result.status === "inserted") {
     // `source` lets displays tell a live sale from a historical import (Arena Cub never celebrates imports).
-    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source });
+    // Delivery timeline: validatedAt (Safe Quote) → firstSeenAt (received here) → storedAt (committed) → broadcastAt.
+    const storedAt = new Date().toISOString();
+    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source, firstSeenAt, storedAt, broadcastAt: new Date().toISOString() });
     if (result.spinGrants.length) {
       const last = result.spinGrants[result.spinGrants.length - 1];
       arenaBroadcaster.broadcast("spin.unlocked", {
@@ -177,7 +181,7 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
       });
     }
     // One event per committed award row (the displays dedupe by awardId).
-    for (const b of result.bonuses) arenaBroadcaster.broadcast("rewards.award.created", { award: publicAward(b, userCode, closerName) });
+    for (const b of result.bonuses) arenaBroadcaster.broadcast("rewards.award.created", { award: publicAward(b, userCode, closerName), validatedAt: validatedAt.toISOString(), source, firstSeenAt, broadcastAt: new Date().toISOString() });
   }
   return result;
 }

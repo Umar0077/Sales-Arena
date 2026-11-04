@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { noteShown } from "@/lib/live/latency";
 import { motion, AnimatePresence } from "motion/react";
 import { useCelebrationStore } from "@/store/celebration-store";
 import { useSettingsStore } from "@/store/settings-store";
@@ -39,6 +40,7 @@ export function CelebrationOverlay() {
   // Auto-finish after tier duration
   useEffect(() => {
     if (!current || paused) return;
+    if (current.id.startsWith("celeb_sale_")) noteShown("sale", current.id.slice("celeb_sale_".length)); // delivery timeline
 
     const meta = TIERS[current.tier] || TIERS.sale;
     const duration = settings.celebrationDuration * meta.durationFactor * 1000;

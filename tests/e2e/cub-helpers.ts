@@ -17,13 +17,17 @@ interface RigState {
   saleMinsAgo?: number;
   mode?: string;
   events: string;
-  /** Reconnect delay of the fake stream (ms). Long by default: each reconnect triggers a full data resync. */
-  retry: number;
+  /** Deprecated (kept for old call sites): delivery is now controlled by stream(events, times). */
+  retry?: number;
+  /** How many more connections should receive the events (each reconnect = one redelivery). */
+  deliveries: number;
+  /** Connections served since the last open(). */
+  served: number;
 }
 
 /** A Live Arena display (no admin session) whose stream, activity and cub config are controlled by the test. */
 export async function rig(page: Page) {
-  const st: RigState = { cub: {}, lastSaleAt: undefined, events: "", retry: 30_000 };
+  const st: RigState = { cub: {}, lastSaleAt: undefined, events: "", deliveries: 0, served: 0 };
   const safe = (fn: (r: Route) => Promise<void>) => async (route: Route) => {
     try {
       await fn(route);
@@ -31,9 +35,18 @@ export async function rig(page: Page) {
       await route.continue().catch(() => {});
     }
   };
-  await page.route("**/api/arena/stream", (route) =>
-    route.fulfill({ status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache" }, body: `retry: ${st.retry}\n\nevent: ready\ndata: {}\n\n${st.events}` }).catch(() => {}),
-  );
+  // Fake Live Arena stream. The first connection of a page load only says "ready"; later connections
+  // WAIT until the test has events to deliver (no reconnect storm: every reconnect makes the display
+  // resync all live data, which used to stall slow loads), then deliver them, once per remaining delivery.
+  await page.route("**/api/arena/stream", async (route) => {
+    const body = (events: string) => ({ status: 200, headers: { "content-type": "text/event-stream", "cache-control": "no-cache" }, body: `retry: 1000\n\nevent: ready\ndata: {}\n\n${events}` });
+    if (st.served++ === 0) return route.fulfill(body("")).catch(() => {});
+    const until = Date.now() + 10 * 60_000;
+    while (st.deliveries <= 0 && Date.now() < until) await new Promise((r) => setTimeout(r, 100));
+    if (st.deliveries <= 0) return route.abort().catch(() => {});
+    st.deliveries--;
+    await route.fulfill(body(st.events)).catch(() => {});
+  });
   await page.route(
     "**/api/arena/config",
     safe(async (route) => {
@@ -43,6 +56,21 @@ export async function rig(page: Page) {
       j.values.arenaEnabled = true;
       j.values.arenaModes = { daily: true, weekly: true, monthly: true, spin: true };
       if (st.mode) j.values.defaultArenaMode = st.mode;
+      await route.fulfill({ status: 200, json: j });
+    }),
+  );
+  // The startup payload carries the same config: patch it too, or whichever answer lands last would win.
+  await page.route(
+    "**/api/arena/mode",
+    safe(async (route) => {
+      const res = await route.fetch();
+      const j = await res.json();
+      if (j?.config?.values) {
+        j.config.values.arenaCub = { ...j.config.values.arenaCub, enabled: true, ...ALWAYS_ON, ...st.cub };
+        j.config.values.arenaEnabled = true;
+        j.config.values.arenaModes = { daily: true, weekly: true, monthly: true, spin: true };
+        if (st.mode) j.config.values.defaultArenaMode = st.mode;
+      }
       await route.fulfill({ status: 200, json: j });
     }),
   );
@@ -71,7 +99,8 @@ export async function rig(page: Page) {
       st.saleMinsAgo = o.saleMinsAgo;
       st.mode = o.mode;
       st.events = "";
-      st.retry = o.retry ?? 30_000;
+      st.deliveries = 0;
+      st.served = 0;
       await page.goto("/");
       // Live data comes from the real upstream through the dev server: one reload if a load stalls.
       if (!(await page.locator("[data-arena-mode]").isVisible({ timeout: 45_000 }).catch(() => false))) {
@@ -81,8 +110,10 @@ export async function rig(page: Page) {
       }
       await expect(page.locator("[data-arena-mode]")).toBeVisible({ timeout: 60_000 });
     },
-    stream(events: string) {
+    /** Delivers these events on the next connection, and again on each of the next (times - 1) reconnects. */
+    stream(events: string, times = 1) {
       st.events = events;
+      st.deliveries = times;
     },
     /** The last-sale time the display was actually given. */
     served: () => st.lastSaleAt,

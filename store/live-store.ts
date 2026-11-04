@@ -53,6 +53,13 @@ interface LiveState {
   programsStatus: "loading" | "ok" | "error";
   setProgramsStatus: (s: "ok" | "error") => void;
   setLive: (live: boolean) => void;
+  /**
+   * Arena Cub public permission as last stated by the SERVER (arena.config → arenaCub.allowOnLiveArena):
+   * "unknown" until this page has a server answer, then "on" / "off". Never read from browser storage,
+   * never set by a failed request, so the public cub shows only when the server says so.
+   */
+  cubPermission: "unknown" | "on" | "off";
+  setCubPermission: (p: "on" | "off") => void;
   setTargets: (t: Record<TargetPeriod, number | null>) => void;
   requestRefresh: () => void;
   setRefreshing: (v: boolean, error?: string | null) => void;
@@ -79,6 +86,10 @@ export const useLiveStore = create<LiveState>()((set, get) => ({
   globalDisplay: null,
   setGlobalDisplay: (globalDisplay) => set({ globalDisplay }),
   setLive: (live) => set({ live }),
+  cubPermission: "unknown",
+  setCubPermission: (cubPermission) => {
+    if (get().cubPermission !== cubPermission) set({ cubPermission });
+  },
   setTargets: (targets) => set({ targets, targetsLoaded: true }),
   requestRefresh: () => {
     if (get().refreshing) return; // one refresh at a time

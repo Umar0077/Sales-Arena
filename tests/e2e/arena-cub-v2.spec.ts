@@ -203,7 +203,7 @@ test.describe("Arena Cub V2 — movement safety (stream-controlled display)", ()
     const id = `e2e-${Date.now()}`;
     await r.open({ lastSaleAt: minsAgo(2), retry: 1500 });
     await expect(cub(page)).toBeVisible({ timeout: 15_000 });
-    r.stream(command("dance", id) + command("dance", id) + command("backflip", `${id}-old`, -5000));
+    r.stream(command("dance", id) + command("dance", id) + command("backflip", `${id}-old`, -5000), 4); // redelivered on reconnects
     await expect(cub(page)).toHaveAttribute("data-pose", "dance", { timeout: 8000 });
     await page.waitForTimeout(9000); // several reconnects redeliver the same events
     const seq = await poses(page);

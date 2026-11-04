@@ -38,6 +38,9 @@ export function onConfigApplied(fn: (rev: number) => void) {
 export const appliedConfigRevision = () => appliedRevision;
 
 function applyNow(c: ArenaConfigPayload) {
+  // Server-authoritative Arena Cub permission (three states: unknown until here, then on / off).
+  const cub = (c.values as { arenaCub?: { allowOnLiveArena?: unknown } }).arenaCub;
+  useLiveStore.getState().setCubPermission(cub?.allowOnLiveArena === true ? "on" : "off");
   const cur = useSettingsStore.getState() as unknown as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(c.values)) if (JSON.stringify(cur[k]) !== JSON.stringify(v)) patch[k] = v;

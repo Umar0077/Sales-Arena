@@ -245,7 +245,9 @@ server {
         proxy_set_header Connection "";
         proxy_buffering off;
         proxy_cache off;
+        gzip off;
         proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
     }
 
     # Optional: restrict the admin area to the office network

@@ -24,6 +24,7 @@ test.describe("Arena Cub on the Live Arena", () => {
         sse("sale.validated", sale) + // duplicate delivery
         sse("sale.validated", { ...sale, caseId: `${sale.caseId}-IMPORT`, source: "backfill" }) + // historical import
         sse("sale.validated", { ...sale, caseId: `${sale.caseId}-OLD`, source: "reconciliation", validatedAt: minsAgo(180) }), // late find
+      4, // delivered again on each of the next reconnects
     );
     await expect(cub(page)).toHaveAttribute("data-pose", "feeding", { timeout: 10_000 });
     await expect(page.getByTestId("arena-cub-bubble")).toContainText(/Great work, Test!/, { timeout: 5000 });

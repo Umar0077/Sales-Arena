@@ -7,7 +7,7 @@ import { CubDirector, type CubView } from "@/lib/cub/director";
 import { ambient, activeWindow, cubVisibleOn, isFreshSale, RecentIds, shouldPlayIntro, type CubAward } from "@/lib/cub/machine";
 import { isCubAction, isCubCommand, type CubCommand } from "@/lib/cub/actions";
 import { playCubSound, stopCubSound } from "@/lib/cub/sounds";
-import { appliedConfigRevision, onConfigApplied } from "@/lib/live/config-sync";
+import { useLiveStore } from "@/store/live-store";
 import { arenaBus } from "@/lib/events/bus";
 import { useSettingsStore } from "@/store/settings-store";
 import { useArenaMode } from "@/store/arena-mode-store";
@@ -17,8 +17,9 @@ import { useReducedMotion } from "@/lib/performance/reduced-motion";
 
 /**
  * Arena Cub on the public Live Arena. A read-only consumer of business data:
- *  - shown only when the server's arena.config says allowOnLiveArena === true (a cached browser value
- *    never counts: nothing shows until this page load has applied the server's config);
+ *  - shown only when the SERVER says allowOnLiveArena === true (three states: unknown until this page has a
+ *    server answer, then on / off; a cached browser value or a failed request never shows it);
+ *  - active hours never hide it: outside them it sleeps on screen;
  *  - mood: latest validated sale + server clock from GET /api/arena/cub (same on every display);
  *  - feeding: the existing SSE `sale.validated` event (via LiveApiSync, no extra connection), live sources only;
  *  - bonus: the real award shown by the existing bonus popup queue, celebrated once that popup closes;
@@ -41,22 +42,6 @@ function readNum(key: string): number | null {
   }
 }
 
-/** True once this page load has applied the global config from the server. */
-function useServerConfigApplied(): boolean {
-  const [ok, setOk] = useState(false);
-  useEffect(() => {
-    if (appliedConfigRevision() >= 0) {
-      const t = setTimeout(() => setOk(true), 0);
-      return () => clearTimeout(t);
-    }
-    const off = onConfigApplied(() => setOk(true));
-    return () => {
-      off();
-    };
-  }, []);
-  return ok;
-}
-
 export function ArenaCub() {
   const cfg = useSettingsStore((s) => s.arenaCub);
   const arenaEnabled = useSettingsStore((s) => s.arenaEnabled);
@@ -69,9 +54,10 @@ export function ArenaCub() {
   const spinStage = useSpinFlowStore((s) => s.stage);
   const popupBusy = useBonusFlowStore((s) => Boolean(s.active) || s.queue.length > 0);
   const reducedSystem = useReducedMotion();
-  const verified = useServerConfigApplied();
+  // Server-authoritative permission (unknown → hidden until the server answers; never from browser storage).
+  const permission = useLiveStore((s) => s.cubPermission);
 
-  const visible = verified && cubVisibleOn(cfg, mode, arenaEnabled) && spinStage === "idle";
+  const visible = permission === "on" && cubVisibleOn({ ...cfg, allowOnLiveArena: true }, mode, arenaEnabled) && spinStage === "idle";
   const [view, setView] = useState<CubView | null>(null);
   const [hidden, setHidden] = useState(false);
   const directorRef = useRef<CubDirector | null>(null);

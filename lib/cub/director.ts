@@ -95,6 +95,9 @@ export class CubDirector {
   // ------------------------------------------------------------ inputs
 
   setConfig(cfg: ArenaCubConfig) {
+    // Same settings object again: nothing to do. (Emitting here would re-render the host, which could
+    // call setConfig again — an endless render loop.)
+    if (cfg === this.cfg) return;
     this.cfg = cfg;
     this.queue = this.queue.filter((a) => this.allowed(a));
     if (this.playing && !this.allowed(this.playing)) this.stopCurrent();

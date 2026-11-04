@@ -77,8 +77,10 @@ export const useSettingsStore = create<SettingsStore>()(
           soundCategories: { ...DEFAULT_SOUND_CATEGORIES, ...(p.soundCategories ?? {}) },
           arenaModes: { ...DEFAULT_SETTINGS.arenaModes, ...(p.arenaModes ?? {}) },
           rewardCategories: { ...DEFAULT_SETTINGS.rewardCategories, ...(p.rewardCategories ?? {}) },
-          // The Live Arena permission is never taken from browser storage: only the server can turn it on.
-          arenaCub: { ...readCub(p.arenaCub), allowOnLiveArena: false },
+          // The Live Arena permission is never taken from browser storage: a rehydrate (first load, or another
+          // tab of this browser saving settings) keeps the value this page last received from the SERVER
+          // (false until then). Forcing false here used to hide the cub after another tab's save.
+          arenaCub: { ...readCub(p.arenaCub), allowOnLiveArena: current.arenaCub?.allowOnLiveArena === true },
         };
       },
       onRehydrateStorage: () => () => {

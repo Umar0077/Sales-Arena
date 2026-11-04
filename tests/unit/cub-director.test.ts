@@ -192,6 +192,16 @@ describe("CubDirector", () => {
     expect(JSON.stringify(last().bubble)).not.toMatch(/PKR|earned|award|upgraded/i);
   });
 
+  it("setConfig with the same settings object does not re-render (no render loop with React hosts)", () => {
+    const c = cfg({ bubbleSec: 5 });
+    d.setConfig(c);
+    const n = views.length;
+    for (let i = 0; i < 50; i++) d.setConfig(c);
+    expect(views.length).toBe(n);
+    d.setConfig({ ...c }); // a real change still applies
+    expect(views.length).toBe(n + 1);
+  });
+
   it("dispose clears every timer (no leaks after unmount)", () => {
     d.push({ kind: "intro" });
     d.push(sale("A"));

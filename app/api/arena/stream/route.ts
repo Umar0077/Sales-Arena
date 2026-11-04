@@ -99,6 +99,9 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
+      // Nginx: never buffer THIS response (per-response, no global proxy change). Without it a proxy that
+      // buffers can hold events back until its buffer fills or the stream ends.
+      "X-Accel-Buffering": "no",
       Connection: "keep-alive",
     },
   });

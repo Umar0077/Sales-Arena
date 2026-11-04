@@ -23,6 +23,7 @@ const CONFIG_EVENTS = [
   "settings.mascot.updated",
 ] as const;
 import { arenaBus } from "@/lib/events/bus";
+import { noteReceived } from "@/lib/live/latency";
 import { getPeriodDateRange } from "@/lib/time/business";
 import type { Agent, Reward, Sale } from "@/types";
 import type { CloserRow } from "@/features/sales/leads";
@@ -445,6 +446,9 @@ export function LiveApiSync() {
           const payload = JSON.parse(e.data);
           const saleKey = String(payload.caseId || "");
           if (saleKey && seenSales.has(saleKey)) return;
+          // Delivery timeline (diagnostics): server stamps + the moment this browser received it.
+          if (saleKey && payload.source !== "backfill")
+            noteReceived({ kind: "sale", key: saleKey, source: payload.source, validatedAt: payload.validatedAt, firstSeenAt: payload.firstSeenAt, storedAt: payload.storedAt, broadcastAt: payload.broadcastAt });
           if (saleKey) {
             seenSales.add(saleKey);
             if (seenSales.size > 200) {
@@ -487,8 +491,10 @@ export function LiveApiSync() {
       // single bonus popup queue, if the admin's announcement switches allow it.
       eventSource.addEventListener("rewards.award.created", (e) => {
         try {
-          const a = JSON.parse(e.data)?.award as BonusAward | undefined;
+          const msg = JSON.parse(e.data);
+          const a = msg?.award as BonusAward | undefined;
           if (!a?.id || !useArenaStore.getState().liveMode) return;
+          noteReceived({ kind: "award", key: a.id, source: msg.source, validatedAt: msg.validatedAt, firstSeenAt: msg.firstSeenAt, storedAt: a.createdAt, broadcastAt: msg.broadcastAt });
           useRewardsStore.getState().recordAwards([a]);
           scheduleAwardsSync(); // earned totals from PostgreSQL, not added up in the browser
         } catch (err) {

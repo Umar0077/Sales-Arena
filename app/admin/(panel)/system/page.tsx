@@ -6,6 +6,7 @@ import { adminApi } from "@/components/admin/admin-api";
 import { Section, Field, GhostButton, PrimaryButton, inputClass } from "@/components/admin/ui";
 import { fmtDate, Notice, Table, td } from "@/components/admin/spins/shared";
 import { cn } from "@/lib/utils";
+import { LiveDeliveryPanel } from "@/components/admin/LiveDeliveryPanel";
 
 interface Checkpoint {
   id: string;
@@ -163,6 +164,8 @@ export default function SystemHealthPage() {
           </div>
         </Field>
       </Section>
+
+      <LiveDeliveryPanel />
 
       <Section title="Recent privileged activity" description="Last 50 audit entries.">
         <Table head={["When", "Who", "Action", "Target", "IP"]} empty={!info.audit?.length} testId="audit">
