@@ -61,10 +61,11 @@ overlap and the bonus stays the agent's individual award (the celebration shows 
 hands any waiting celebration back to the standard sale card.
 
 **Artwork**: `public/teams/celebrations/sigma-lion-emblem.webp` and `panthers-panther-emblem.webp`, converted
-(resized to 1600 px, WebP) from the Owner's `Majestic Lion Emblem in Shadow.png` / `Stealth Panther Emblem.png`
-(kept in `assets/teams/originals/`); the artwork is not edited. Motion is layered (3D-style entrance, parallax,
-light pass, glowing edge), not character animation. The panther PNG is transparent, so it is shown on a
-backlight; the very dark lion is shown brighter on a navy plate.
+(2× high-quality resample to 1332 × 750, lossless WebP) from the Owner's transparent line-art PNGs (kept in
+`assets/teams/originals/` as `Sigma Lion Emblem (transparent).png` / `Panthers Panther Emblem (transparent).png`);
+the artwork is not edited. It is shown whole (contain, centred, never stretched) on a backlight (warm ivory-gold
+for Sigma, cool ice for Panthers) so the black linework reads clearly on the dark arena. To change an emblem,
+replace the WebP at the same path. Motion is layered (3D-style entrance, parallax, light pass, glowing edge).
 
 **Admin → Celebrations → Teams Arena sale celebrations**: on / off, sounds on / off (also follows the master
 sound, volume and the Sale category), Full / Lite, and Sigma / Panthers / other-team previews that run only on the
