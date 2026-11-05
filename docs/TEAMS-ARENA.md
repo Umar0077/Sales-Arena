@@ -9,6 +9,33 @@ leaderboard per team (every member, including members with no leads or sales yet
 It is a display / analytics feature. Team ranks, crowns and animations never create or change a reward, a spin
 or a payment.
 
+## Layout follows the number of ACTIVE teams (no code change needed)
+
+| Active teams | Teams Arena shows |
+| --- | --- |
+| 0 | An empty state ("set up teams in Team Management") |
+| 1 | Single-team spotlight (no "winner" of a one-team race) |
+| 2 | Head-to-head: "PANTHERS VS SIGMA", the current leader on the LEFT (gold frame, crown, lifted), 2nd on the right (silver), a VS emblem with the share of validated sales. A tie (equal validated AND submitted) is neutral: both "TIED", same size, no gold. |
+| 3 | Three ranked cards, 1st on the left and in front |
+| 4+ | A responsive grid; every team kept at a readable card width (the page scrolls rather than shrinking cards) |
+
+Every team shows its own Top 3 under its card (fewer if it has fewer members). Archived (inactive) teams and their
+members never appear in the live competition or in the overall Top Performers.
+
+## Owner: switch to Panthers vs Sigma (archive Team Alpha) and reorganise members
+
+Nothing happens automatically. In Admin → Team Management:
+
+1. **Teams** tab → Team Alpha → **Archive (deactivate)** → confirm. Alpha leaves the live arena at once (head-to-head
+   appears); its members stay assigned to Alpha (nobody is moved), and its history, sales and awards are untouched.
+   **Reactivate** brings it back at any time.
+2. **Members & agents** tab → Team filter "Team Alpha (archived)" → for each member, **Move** → choose Panthers or
+   Sigma (or another team) and the effective business date → check the preview → **Confirm transfer**. The old
+   membership is closed (kept in history), the new one starts that day; earlier days keep counting for Alpha.
+   Members you leave on archived Alpha are simply not in the live competition.
+3. Optional: set designations (Senior / Junior from a date) in the same list; add new teams with **Create a team**
+   (name, logo upload with preview, colours, leader, active).
+
 ## Where the numbers come from
 
 | Figure | Source |

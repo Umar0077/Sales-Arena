@@ -13,14 +13,24 @@ const ROSTER: Record<string, string[]> = {
   alpha: ["Rehan Ali", "Urwah Malik", "Rayyan Mughal", "Mansoor Arshad", "Uswa E Husna", "Muhammad Ehsan Zahid", "Hina Javed", "Roger Robinson", "Abdul Hadi", "Adil Faryad"],
   panthers: ["Syed Noroz Ali Kazmi", "Hamna Nasir", "Syed Ali Asghar Zaidi", "Muhammad Balaj", "Jonathan", "Syeda Zubia Farhan", "Sumaiya Majeed", "Mudassir Tanveer", "M Ishaq", "Noor Kiyani"],
 };
-const META: Record<string, [string, string, number]> = { alpha: ["Team Alpha", "#22D3FF", 1], panthers: ["Team Panthers", "#A855F7", 2], sigma: ["Team Sigma", "#8B5CF6", 3] };
+ROSTER.falcons = ["Faris Khan", "Fatima Noor"];
+ROSTER.eagles = ["Ehsan Ali", "Erum Shah", "Ebad Raza"];
+const META: Record<string, [string, string, number]> = {
+  alpha: ["Team Alpha", "#22D3FF", 1],
+  panthers: ["Team Panthers", "#A855F7", 2],
+  sigma: ["Team Sigma", "#8B5CF6", 3],
+  falcons: ["Team Falcons", "#34D399", 4],
+  eagles: ["Team Eagles", "#F97316", 5],
+};
+/** Today's production competition: two active teams (Team Alpha archived). */
+const TWO = ["panthers", "sigma"];
 type Figs = Record<string, Array<[number, number]>>; // per member index: [validated, submitted]
 
 /** The server's response shape, ranked with the production rules (validated ↓, submitted ↓, name; equal → shared rank). */
-function standings(period: string, figs: Figs) {
+function standings(period: string, figs: Figs, slugs: string[] = ["alpha", "panthers", "sigma"]) {
   const share = <T extends { validated: number; submitted: number }>(xs: T[]) =>
     xs.map((x, i) => ({ ...x, rank: xs.findIndex((y) => y.validated === x.validated && y.submitted === x.submitted) + 1 || i + 1, tied: xs.filter((y) => y.validated === x.validated && y.submitted === x.submitted).length > 1 }));
-  const teams = Object.keys(ROSTER).map((slug) => {
+  const teams = slugs.map((slug) => {
     const members = ROSTER[slug]
       .map((name, i) => {
         const [validated, submitted] = figs[slug]?.[i] ?? [0, 0];
@@ -30,7 +40,7 @@ function standings(period: string, figs: Figs) {
     const validated = members.reduce((s, m) => s + m.validated, 0);
     const submitted = members.reduce((s, m) => s + m.submitted, 0);
     const [name, color, order] = META[slug];
-    return { id: `team_${slug}`, name, slug, logoUrl: `/teams/team-${slug}.webp`, color, accentSecondary: null, displayOrder: order, leaderUserCode: null, members: share(members), validated, submitted, closeRate: submitted ? Math.round((validated / submitted) * 1000) / 10 : null, memberCount: 10 };
+    return { id: `team_${slug}`, name, slug, logoUrl: ["alpha", "panthers", "sigma"].includes(slug) ? `/teams/team-${slug}.webp` : null, color, accentSecondary: null, displayOrder: order, leaderUserCode: null, members: share(members), validated, submitted, closeRate: submitted ? Math.round((validated / submitted) * 1000) / 10 : null, memberCount: members.length };
   });
   teams.sort((a, b) => b.validated - a.validated || b.submitted - a.submitted || a.displayOrder - b.displayOrder);
   const ranked = share(teams);
@@ -38,7 +48,7 @@ function standings(period: string, figs: Figs) {
     ranked.flatMap((t) => t.members.filter((m) => m.validated > 0).map((m) => ({ ...m, teamId: t.id, teamName: t.name, teamSlug: t.slug, teamLogoUrl: t.logoUrl, teamColor: t.color }))).sort((a, b) => b.validated - a.validated || b.submitted - a.submitted || a.name.localeCompare(b.name)),
   ).slice(0, 3);
   const label: Record<string, string> = { day: "Today · Nov 5, 2026", week: "This Week · Nov 2 – Nov 5, 2026", month: "This Month · Nov 1 – Nov 5, 2026" };
-  const leaderTeamId = ranked[0].rank === 1 && !ranked[0].tied && ranked[0].validated > 0 ? ranked[0].id : null;
+  const leaderTeamId = ranked[0].rank === 1 && !ranked[0].tied && ranked[0].validated > 0 && ranked.length > 1 ? ranked[0].id : null;
   return { ok: true, period, from: "2026-11-01", to: "2026-11-05", label: label[period], teams: ranked, top, leaderTeamId, attribution: "", generatedAt: new Date().toISOString() };
 }
 
@@ -49,8 +59,8 @@ const MONTH: Figs = {
 };
 
 /** A display with no database behind it: global settings, cub activity, standings and the stream come from the test. */
-async function display(page: Page, opts: { figs?: Figs; cub?: boolean } = {}) {
-  const st = { figs: opts.figs ?? MONTH, requests: [] as string[], events: "", deliveries: 0, served: 0 };
+async function display(page: Page, opts: { figs?: Figs; cub?: boolean; slugs?: string[] } = {}) {
+  const st = { figs: opts.figs ?? MONTH, slugs: opts.slugs ?? ["alpha", "panthers", "sigma"], requests: [] as string[], events: "", deliveries: 0, served: 0 };
   const values = {
     arenaEnabled: true,
     arenaModes: { daily: true, weekly: true, monthly: true, teams: true, spin: true },
@@ -71,7 +81,7 @@ async function display(page: Page, opts: { figs?: Figs; cub?: boolean } = {}) {
   await page.route("**/api/arena/teams?**", (r: Route) => {
     const period = new URL(r.request().url()).searchParams.get("period") ?? "day";
     st.requests.push(period);
-    return r.fulfill({ json: standings(period, st.figs) });
+    return r.fulfill({ json: standings(period, st.figs, st.slugs) });
   });
   // Stream: the first connection only says "ready"; later ones wait for events from the test (no reconnect storm).
   await page.route("**/api/arena/stream", async (route) => {
@@ -375,6 +385,173 @@ for (const vp of [
     if (vp.width >= 1600) expect(m.lowest).toBeLessThanOrEqual(vp.height); // TV sizes: everything on one screen
     expect(errors).toEqual([]);
     await page.screenshot({ path: `playwright-report/teams-ui/teams-${vp.width}x${vp.height}.png`, fullPage: vp.width < 1280 });
+    await ctx.close();
+  });
+}
+
+// ------------------------------------------------------------------ active-team-count layouts
+
+const H2H: Figs = { panthers: [[5, 7], [3, 5], [2, 2], [1, 1]], sigma: [[4, 8], [3, 4], [1, 3]] }; // Panthers 11 vs Sigma 8
+const iso = (ms: number) => new Date(ms).toISOString();
+
+test("two active teams: PANTHERS VS SIGMA head-to-head, leader on the left in gold, Alpha absent everywhere, Top 3 under each", async ({ page }) => {
+  const errors = errorsOf(page);
+  await display(page, { slugs: TWO, figs: H2H });
+  await page.goto("/?screen=teams");
+  await expect(page.getByTestId("team-card")).toHaveCount(2, { timeout: 120_000 });
+  await expect(page.getByTestId("head-to-head")).toBeVisible();
+  await expect(page.getByTestId("arena-screen-title")).toHaveText(/Panthers\s*VS\s*Sigma/i);
+  const cards = page.getByTestId("team-card");
+  expect(await cards.evaluateAll((els) => els.map((e) => [(e as HTMLElement).dataset.team, (e as HTMLElement).dataset.rank, (e as HTMLElement).dataset.variant]))).toEqual([["panthers", "1", "hero"], ["sigma", "2", "hero"]]);
+  await expect(cards.nth(0)).toHaveAttribute("data-leader", "true");
+  await expect(cards.nth(0).getByTestId("team-rank")).toHaveText("1ST");
+  await expect(cards.nth(1).getByTestId("team-rank")).toHaveText("2ND");
+  await expect(cards.nth(0).getByLabel("Leading team")).toBeVisible();
+  const box = await cards.evaluateAll((els) => els.map((e) => ({ x: e.getBoundingClientRect().x, y: e.getBoundingClientRect().y, w: e.getBoundingClientRect().width, frame: getComputedStyle(e).backgroundImage })));
+  expect(box[0].x).toBeLessThan(box[1].x); // leader left
+  expect(box[0].y).toBeLessThan(box[1].y); // lifted / forward
+  expect(box[0].w).toBeGreaterThan(box[1].w);
+  expect(box[0].frame).toContain("rgb(245, 196, 81)");
+  expect(box[1].frame).toContain("rgba(201, 209, 224");
+  // Both official crests; nothing from the archived team anywhere on screen.
+  const crests = await page.locator('[data-testid="team-card"] [data-testid="team-logo"]').evaluateAll((imgs) => imgs.map((i) => [(i as HTMLImageElement).getAttribute("src"), (i as HTMLImageElement).naturalWidth]));
+  expect(crests).toEqual([["/teams/team-panthers.webp", 384], ["/teams/team-sigma.webp", 384]]);
+  await expect(page.locator('[data-team="alpha"]')).toHaveCount(0);
+  await expect(page.getByText("Team Alpha")).toHaveCount(0);
+  // VS emblem with the real share of validated sales (11 of 19).
+  await expect(page.getByTestId("versus")).toBeVisible();
+  await expect(page.getByTestId("versus-split")).toHaveAttribute("data-share", "58");
+  // Top 3 per team, directly under its card; Sigma has exactly 3, Panthers' 4th is not shown.
+  for (const slug of TWO) {
+    const rows = page.locator(`[data-testid="team-column"][data-team="${slug}"] [data-testid="team-board"] [data-testid="member-row"]`);
+    await expect(rows).toHaveCount(3);
+    expect(await rows.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.rank))).toEqual(["1", "2", "3"]);
+  }
+  // Overall top performers: only Panthers / Sigma members.
+  const top = page.getByTestId("top-performer");
+  await expect(top).toHaveCount(3);
+  expect(await top.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.user))).toEqual(["UI-PANTHERS-0", "UI-SIGMA-0", "UI-PANTHERS-1"]);
+  await page.screenshot({ path: "playwright-report/teams-ui/two-teams-1920x1080.png" });
+  expect(errors).toEqual([]);
+});
+
+test("two teams: when Sigma overtakes on a genuine update it moves to the left with the lead animation, once", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __lead: number };
+    w.__lead = 0;
+    let l = false;
+    setInterval(() => {
+      const nl = !!document.querySelector('[data-testid="lead-takeover"]');
+      if (nl && !l) w.__lead++;
+      l = nl;
+    }, 50);
+  });
+  const d = await display(page, { slugs: TWO, figs: H2H });
+  await page.goto("/?screen=teams");
+  await expect(page.getByTestId("team-card").first()).toHaveAttribute("data-team", "panthers", { timeout: 120_000 });
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => (window as unknown as { __lead: number }).__lead)).toBe(0);
+  d.st.figs = { ...H2H, sigma: [[9, 10], [3, 4], [1, 3]] }; // Sigma 13 vs Panthers 11
+  const now = Date.now();
+  d.stream(sse("teams.updated", { reason: "test", at: iso(now) }));
+  await expect(page.getByTestId("team-card").first()).toHaveAttribute("data-team", "sigma", { timeout: 20_000 });
+  await expect(page.getByTestId("arena-screen-title")).toHaveText(/Sigma\s*VS\s*Panthers/i);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __lead: number }).__lead), { timeout: 10_000 }).toBe(1);
+  await expect(page.getByTestId("lead-takeover")).toContainText("Team Sigma takes the lead");
+  const x = await page.getByTestId("team-card").evaluateAll((els) => els.map((e) => [(e as HTMLElement).dataset.team, Math.round(e.getBoundingClientRect().x)]));
+  expect(Number(x[0][1])).toBeLessThan(Number(x[1][1]));
+});
+
+test("two teams tied: neutral, balanced layout, no invented winner", async ({ page }) => {
+  await display(page, { slugs: TWO, figs: { panthers: [[3, 5], [1, 2]], sigma: [[2, 4], [2, 3]] } }); // 4 / 7 each
+  await page.goto("/?screen=teams");
+  await expect(page.getByTestId("team-card")).toHaveCount(2, { timeout: 120_000 });
+  const cards = page.getByTestId("team-card");
+  for (let i = 0; i < 2; i++) {
+    await expect(cards.nth(i)).toHaveAttribute("data-neutral", "true");
+    await expect(cards.nth(i)).not.toHaveAttribute("data-leader", "true");
+    await expect(cards.nth(i).getByTestId("team-rank")).toHaveText("TIED");
+    await expect(cards.nth(i).getByTestId("team-gap")).toHaveText("Level on validated sales");
+  }
+  await expect(page.getByLabel("Leading team")).toHaveCount(0);
+  const box = await cards.evaluateAll((els) => els.map((e) => ({ y: Math.round(e.getBoundingClientRect().y), w: Math.round(e.getBoundingClientRect().width), frame: getComputedStyle(e).backgroundImage })));
+  expect(Math.abs(box[0].w - box[1].w)).toBeLessThanOrEqual(2); // balanced
+  expect(Math.abs(box[0].y - box[1].y)).toBeLessThanOrEqual(1);
+  for (const b of box) expect(b.frame).not.toContain("rgb(245, 196, 81)"); // no gold for anyone
+  // Deterministic order for a tie: the Admin display order (Panthers before Sigma).
+  expect(await cards.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.team))).toEqual(["panthers", "sigma"]);
+  await expect(page.getByTestId("versus-split")).toContainText("All square");
+  await expect(page.getByTestId("teams-race-summary")).toContainText("Lead open");
+  await page.screenshot({ path: "playwright-report/teams-ui/two-teams-tied.png" });
+});
+
+test("a team with fewer than three members shows only its real members (nothing fabricated)", async ({ page }) => {
+  await display(page, { slugs: ["panthers", "falcons"], figs: { panthers: [[3, 4], [1, 1]], falcons: [[2, 2]] } });
+  await page.goto("/?screen=teams");
+  await expect(page.getByTestId("team-card")).toHaveCount(2, { timeout: 120_000 });
+  await expect(page.locator('[data-testid="team-board"][data-team="falcons"] [data-testid="member-row"]')).toHaveCount(2); // Falcons has 2 members
+  // A team without an uploaded logo still renders (initials plate), no broken image.
+  await expect(page.locator('[data-testid="team-card"][data-team="falcons"] [data-testid="team-logo"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid="team-card"][data-team="falcons"] [aria-label="Team Falcons"]').first()).toHaveText("FA"); // initials plate
+});
+
+test("one active team: spotlight view; five active teams: a grid that keeps every team readable", async ({ page }) => {
+  const d = await display(page, { slugs: ["sigma"], figs: { sigma: [[2, 3], [1, 1]] } });
+  await page.goto("/?screen=teams");
+  await expect(page.getByTestId("spotlight")).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId("team-card")).toHaveCount(1);
+  await expect(page.getByTestId("team-rank")).toHaveText("SPOTLIGHT");
+  await expect(page.getByLabel("Leading team")).toHaveCount(0); // no "winner" of a one-team race
+  await page.screenshot({ path: "playwright-report/teams-ui/one-team.png" });
+
+  d.st.slugs = ["alpha", "panthers", "sigma", "falcons", "eagles"];
+  d.st.figs = { ...MONTH, falcons: [[1, 2]], eagles: [[2, 2]] };
+  d.stream(sse("teams.updated", { reason: "test" }));
+  await expect(page.getByTestId("teams-grid")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("team-card")).toHaveCount(5);
+  const widths = await page.getByTestId("team-card").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width));
+  for (const w of widths) expect(w).toBeGreaterThanOrEqual(340); // never unreadably small
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: "playwright-report/teams-ui/five-teams.png", fullPage: true });
+});
+
+for (const vp of [
+  { width: 1920, height: 1080 },
+  { width: 1600, height: 900 },
+  { width: 1366, height: 768 },
+  { width: 1280, height: 720 },
+]) {
+  test(`two-team layout ${vp.width}×${vp.height}: no overflow, overlaps or clipped text; TV sizes fit one screen`, async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: vp, reducedMotion: "no-preference" });
+    const page = await ctx.newPage();
+    const errors = errorsOf(page);
+    await display(page, { slugs: TWO, figs: H2H, cub: false });
+    await page.goto("/?screen=teams");
+    await expect(page.getByTestId("team-card")).toHaveCount(2, { timeout: 120_000 });
+    await page.waitForTimeout(900);
+    const m = await page.evaluate(() => {
+      const all = (sel: string) => [...document.querySelectorAll(sel)];
+      const blocks = [...all('[data-testid="team-card"]'), ...all('[data-testid="team-board"]'), ...all('[data-testid="versus"]'), ...all('[data-testid="teams-top3"]')].map((e) => e.getBoundingClientRect());
+      let overlaps = 0;
+      for (let i = 0; i < blocks.length; i++)
+        for (let j = i + 1; j < blocks.length; j++) {
+          const a = blocks[i], b = blocks[j];
+          if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) overlaps++;
+        }
+      const clipped = all('[data-testid="team-card"] h2, [data-testid="team-validated"], [data-testid="team-submitted"], [data-testid="team-rate"], [data-testid="member-validated"], [data-testid="member-row"] [title], [data-testid="arena-screen-title"]')
+        .filter((e) => (e as HTMLElement).scrollWidth > (e as HTMLElement).clientWidth + 1)
+        .map((e) => e.textContent);
+      const cards = all('[data-testid="team-card"]').map((e) => e.getBoundingClientRect());
+      return { overflowX: document.documentElement.scrollWidth - innerWidth, overlaps, clipped, cardsBottom: Math.max(...cards.map((c) => c.bottom)), boardsBottom: Math.max(...all('[data-testid="team-board"]').map((e) => e.getBoundingClientRect().bottom)), lowest: Math.max(...blocks.map((b) => b.bottom)), cardShare: cards.reduce((s, c) => s + c.width, 0) / innerWidth };
+    });
+    expect(m.overflowX).toBeLessThanOrEqual(1);
+    expect(m.overlaps).toBe(0);
+    expect(m.clipped).toEqual([]);
+    expect(m.cardShare).toBeGreaterThan(0.75); // the two cards dominate the display
+    expect(m.boardsBottom).toBeLessThanOrEqual(vp.height); // both teams' cards and Top 3 always on the first screen
+    if (vp.width >= 1600) expect(m.lowest).toBeLessThanOrEqual(vp.height); // TV sizes: everything incl. top performers
+    expect(errors).toEqual([]);
+    await page.screenshot({ path: `playwright-report/teams-ui/two-teams-${vp.width}x${vp.height}.png` });
     await ctx.close();
   });
 }

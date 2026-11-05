@@ -478,4 +478,69 @@ describe("Teams Arena: PostgreSQL model, roster import, standings, Senior / Juni
     expect(v.body.members).toEqual([expect.objectContaining({ userCode: "CLS-API", teamId: t.id, designation: "junior" })]);
     expect(v.body.unassigned).toEqual([]);
   });
+
+  it("archiving a team (Team Alpha) is reversible: out of the live competition, nobody moved, history / sales / awards untouched; members can be transferred out one by one", async () => {
+    const alpha = await createTeam(pool(), { name: "Team Alpha", slug: "alpha", color: "#22D3FF" }, actor);
+    const panthers = await createTeam(pool(), { name: "Team Panthers", slug: "panthers", color: "#A855F7" }, actor);
+    const sigma = await createTeam(pool(), { name: "Team Sigma", slug: "sigma", color: "#8B5CF6" }, actor);
+    const from = addDays(today(), -10);
+    for (const [code, team] of [["CLS-AL1", alpha], ["CLS-AL2", alpha], ["CLS-PA1", panthers], ["CLS-SI1", sigma]] as const) {
+      await createAgent(code, `Agent ${code}`);
+      await assignMember(pool(), { userCode: code, teamId: team.id, effectiveFrom: from, designation: "senior" }, actor);
+    }
+    await program({ name: "Daily 1", salesRequired: 1, amount: 1000 });
+    await ingestValidatedSale(pool(), sale("CLS-AL1", minsAgo(30)), "sse"); // an Alpha member already earned a sale + award
+    const snap = async () => ({
+      memberships: (await pool().query(`SELECT id, team_id, user_code, effective_from::text f, effective_to::text t FROM team_memberships ORDER BY id`)).rows,
+      sales: (await pool().query(`SELECT case_id, user_code, status FROM validated_sales ORDER BY case_id`)).rows,
+      awards: (await pool().query(`SELECT id, amount, status, superseded_by FROM bonus_awards ORDER BY id`)).rows,
+    });
+    const before = await snap();
+    rangeFigures = { "*": [{ userCode: "CLS-AL1", name: "x", submitted: 9, validated: 9, closeRate: 100 }, { userCode: "CLS-PA1", name: "x", submitted: 3, validated: 2, closeRate: 66.7 }, { userCode: "CLS-SI1", name: "x", submitted: 2, validated: 1, closeRate: 50 }] };
+    expect((await computeStandings(pool(), "day", { closers: fakeClosers })).teams.map((t) => t.name)).toEqual(["Team Alpha", "Team Panthers", "Team Sigma"]);
+
+    // Archive Alpha (the existing deactivation; Owner / Admin action, audited, broadcast).
+    events = [];
+    await updateTeam(pool(), alpha.id, { active: false }, actor);
+    const s2 = await computeStandings(pool(), "day", { closers: fakeClosers });
+    expect(s2.teams.map((t) => t.name)).toEqual(["Team Panthers", "Team Sigma"]); // head-to-head; Alpha gone from the live competition
+    expect(s2.top.map((p) => p.userCode)).toEqual(["CLS-PA1", "CLS-SI1"]); // never an archived member as a current performer
+    expect(s2.leaderTeamId).toBe(panthers.id);
+    expect(await snap()).toEqual(before); // memberships, sales and awards untouched; nobody relocated
+    expect(events.some((e) => e.type === "teams.updated")).toBe(true);
+    expect((await teamHistory(pool(), { teamId: alpha.id })).map((h) => h.userCode).sort()).toEqual(["CLS-AL1", "CLS-AL2"]);
+    await expect(assignMember(pool(), { userCode: "CLS-PA1", teamId: alpha.id }, actor)).rejects.toThrow(/inactive/); // no new members while archived
+
+    // Owner moves ONE Alpha member to Sigma from today: old membership closed, new one opened, never overlapping.
+    expect((await assignMember(pool(), { userCode: "CLS-AL1", teamId: sigma.id, effectiveFrom: today() }, actor)).action).toBe("transferred");
+    const al1 = (await pool().query(`SELECT team_id, effective_from::text f, effective_to::text t FROM team_memberships WHERE user_code = CLS-AL1 ORDER BY id`)).rows;
+    expect(al1).toEqual([{ team_id: alpha.id, f: from, t: today() }, { team_id: sigma.id, f: today(), t: null }]);
+    expect((await pool().query(`SELECT COUNT(*)::int n FROM team_memberships WHERE effective_to IS NULL AND user_code = CLS-AL1`)).rows[0].n).toBe(1);
+    const s3 = await computeStandings(pool(), "day", { closers: fakeClosers });
+    expect(s3.teams.find((t) => t.id === sigma.id)!.members.map((m) => m.userCode).sort()).toEqual(["CLS-AL1", "CLS-SI1"]); // legitimately transferred: now a Sigma performer
+    expect((await pool().query(`SELECT team_id FROM team_memberships WHERE user_code = CLS-AL2 AND effective_to IS NULL`)).rows[0].team_id).toBe(alpha.id); // the other stays put
+    expect((await snap()).awards).toEqual(before.awards); // the transfer changed no award
+    expect((await snap()).sales).toEqual(before.sales);
+
+    // Reactivate: Alpha is back in the competition with its remaining member.
+    await updateTeam(pool(), alpha.id, { active: true }, actor);
+    expect((await computeStandings(pool(), "day", { closers: fakeClosers })).teams.map((t) => t.name).sort()).toEqual(["Team Alpha", "Team Panthers", "Team Sigma"]);
+    const audit = (await pool().query(`SELECT details FROM audit_logs WHERE action = team.updated AND target_id = $1 ORDER BY id`, [alpha.id])).rows.map((r) => r.details.to.active);
+    expect(audit).toEqual([false, true]);
+  });
+
+  it("a new team (name, logo, colours, leader, active) joins the competition automatically; with one active team the arena still works", async () => {
+    await createAgent("CLS-LEAD", "Lead Agent");
+    const png = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+    const r = await json(await createTeamRoute(req("/api/admin/teams", { method: "POST", body: { name: "Team Falcons", color: "#34D399", accentSecondary: "#F5C451", logoUrl: png, leaderUserCode: "CLS-LEAD", active: true }, ...as(staff) })));
+    expect(r.status, r.body.error).toBe(201);
+    expect(r.body.team).toMatchObject({ name: "Team Falcons", slug: "falcons", logoUrl: png, color: "#34D399", accentSecondary: "#F5C451", leaderUserCode: "CLS-LEAD", active: true });
+    await assignMember(pool(), { userCode: "CLS-LEAD", teamId: r.body.team.id, designation: "junior" }, actor);
+    const s = await computeStandings(pool(), "week", { closers: fakeClosers });
+    expect(s.teams.map((t) => [t.name, t.logoUrl, t.members.length])).toEqual([["Team Falcons", png, 1]]);
+    expect((await json(await createTeamRoute(req("/api/admin/teams", { method: "POST", body: { name: "Team X", logoUrl: "data:image/svg+xml;base64,PHN2Zz4=" }, ...as(staff) })))).status).toBe(400); // SVG refused
+    const inactive = await json(await createTeamRoute(req("/api/admin/teams", { method: "POST", body: { name: "Team Hawks", active: false }, ...as(staff) })));
+    expect(inactive.body.team.active).toBe(false);
+    expect((await computeStandings(pool(), "week", { closers: fakeClosers })).teams.map((t) => t.name)).toEqual(["Team Falcons"]);
+  });
 });

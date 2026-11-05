@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Crown, Plus, RefreshCw, Upload, UserMinus, ArrowRightLeft, ShieldCheck } from "lucide-react";
+import { Crown, Plus, RefreshCw, Upload, UserMinus, ArrowRightLeft, ShieldCheck, Archive, RotateCcw, Search, History, Users, X, ArrowRight } from "lucide-react";
 import { adminApi } from "@/components/admin/admin-api";
 import { Section, Field, GhostButton, PrimaryButton, inputClass } from "@/components/admin/ui";
 import { Notice, Table, td, fmtDate } from "@/components/admin/spins/shared";
@@ -37,6 +37,15 @@ interface View {
   unassigned: Array<{ userCode: string; name: string; active: boolean; designation: Designation | null }>;
 }
 type Msg = { kind: "ok" | "error" | "info"; text: string } | null;
+/** One row of the agent directory: a member of a team (active or archived) or an unassigned agent. */
+interface Agent {
+  userCode: string;
+  name: string;
+  active: boolean;
+  designation: Designation | null;
+  teamId: string | null;
+  since: string | null;
+}
 
 const TABS = ["Teams", "Members", "Initial roster import", "History"] as const;
 type Tab = (typeof TABS)[number];
@@ -47,6 +56,8 @@ export function TeamManagement() {
   const [tab, setTab] = useState<Tab>("Teams");
   const [view, setView] = useState<View | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
+  const [agentFilter, setAgentFilter] = useState<{ team: string }>({ team: "all" });
+  const [historyFilter, setHistoryFilter] = useState<{ teamId?: string; userCode?: string; label?: string }>({});
   const teamsRev = useAdminSync((s) => s.teamsRev); // another admin (or tab) changed teams
   const load = useCallback(async () => {
     const r = await adminApi<View>("/api/admin/teams");
@@ -57,29 +68,37 @@ export function TeamManagement() {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
   }, [load, teamsRev]);
+  const showMembers = (teamId: string) => {
+    setAgentFilter({ team: teamId });
+    setTab("Members");
+  };
+  const showHistory = (f: { teamId?: string; userCode?: string; label?: string }) => {
+    setHistoryFilter(f);
+    setTab("History");
+  };
 
   return (
     <div className="space-y-6" data-testid="team-management">
       <div>
         <h2 className="font-heading text-xl font-bold text-white">Team Management</h2>
         <p className="mt-1 max-w-3xl text-sm text-text-muted">
-          Teams, members and Senior / Junior designations for the Teams Arena, stored in PostgreSQL. Changes take effect from the business date you
-          choose: each day&apos;s sales count for the team the agent belonged to on that day, so earlier results never move. Team changes never
-          change earned bonuses.
+          Teams, members and Senior / Junior designations for the Teams Arena, stored in PostgreSQL. Active teams compete on the Live Arena automatically
+          (one, two, three or more). Changes take effect from the business date you choose: each day&apos;s sales count for the team the agent belonged to
+          on that day, so earlier results never move. Team changes never change sales, earned bonuses or spins.
         </p>
       </div>
       <div role="tablist" aria-label="Team management" className="flex flex-wrap gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
         {TABS.map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn("rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors", tab === t ? "bg-primary text-white shadow" : "text-text-secondary hover:text-white")}>
-            {t}
+            {t === "Members" ? "Members & agents" : t}
           </button>
         ))}
       </div>
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
-      {tab === "Teams" && <TeamsTab view={view} reload={load} setMsg={setMsg} />}
-      {tab === "Members" && <MembersTab view={view} reload={load} setMsg={setMsg} />}
+      {tab === "Teams" && <TeamsTab view={view} reload={load} setMsg={setMsg} onMembers={showMembers} onHistory={showHistory} />}
+      {tab === "Members" && <MembersTab view={view} reload={load} setMsg={setMsg} filter={agentFilter} setFilter={setAgentFilter} onHistory={showHistory} />}
       {tab === "Initial roster import" && <ImportTab reload={load} />}
-      {tab === "History" && <HistoryTab />}
+      {tab === "History" && <HistoryTab view={view} filter={historyFilter} setFilter={setHistoryFilter} />}
     </div>
   );
 }
@@ -97,19 +116,29 @@ async function readLogo(file: File): Promise<string> {
   });
 }
 
-function TeamsTab({ view, reload, setMsg }: { view: View | null; reload: () => Promise<void>; setMsg: (m: Msg) => void }) {
-  const [draft, setDraft] = useState({ name: "", color: "#22D3FF" });
+function LogoThumb({ team, size = 64 }: { team: Pick<Team, "logoUrl" | "name" | "color">; size?: number }) {
+  return team.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element -- official / uploaded team artwork (may be a data: upload)
+    <img src={team.logoUrl} alt={`${team.name} logo`} className="shrink-0 rounded-xl object-contain" style={{ width: size, height: size, background: "rgba(11,17,34,0.6)" }} data-testid="admin-team-logo" />
+  ) : (
+    <div className="grid shrink-0 place-items-center rounded-xl text-[10px] text-text-muted" style={{ width: size, height: size, border: `1px dashed ${team.color}` }}>No logo</div>
+  );
+}
+
+function TeamsTab({
+  view,
+  reload,
+  setMsg,
+  onMembers,
+  onHistory,
+}: {
+  view: View | null;
+  reload: () => Promise<void>;
+  setMsg: (m: Msg) => void;
+  onMembers: (teamId: string) => void;
+  onHistory: (f: { teamId?: string; label?: string }) => void;
+}) {
   const [busy, setBusy] = useState<string | null>(null);
-  const create = async () => {
-    setBusy("new");
-    const r = await adminApi("/api/admin/teams", { method: "POST", body: draft });
-    setBusy(null);
-    setMsg(r.ok ? { kind: "ok", text: `Team “${draft.name}” created. Add members on the Members tab.` } : { kind: "error", text: r.error });
-    if (r.ok) {
-      setDraft({ name: "", color: "#22D3FF" });
-      await reload();
-    }
-  };
   const patch = async (t: Team, body: Record<string, unknown>, label: string) => {
     setBusy(t.id);
     const r = await adminApi(`/api/admin/teams/${encodeURIComponent(t.id)}`, { method: "PATCH", body });
@@ -118,57 +147,186 @@ function TeamsTab({ view, reload, setMsg }: { view: View | null; reload: () => P
     if (r.ok) await reload();
   };
   if (!view) return <p className="text-sm text-text-muted">Loading…</p>;
+  const active = view.teams.filter((t) => t.active);
+  const archived = view.teams.filter((t) => !t.active);
+  const agents = [...view.members.map((m) => ({ userCode: m.userCode, name: m.name })), ...view.unassigned].sort((a, b) => a.name.localeCompare(b.name));
+  const layout = active.length === 0 ? "nothing to show" : active.length === 1 ? "a single-team spotlight" : active.length === 2 ? "head-to-head" : active.length === 3 ? "three ranked cards" : `a ${active.length}-team grid`;
   return (
     <div className="space-y-6">
-      {view.teams.length === 0 && <Notice kind="info">No teams yet. Use “Initial roster import” (Owner) to create Team Alpha, Team Panthers and Team Sigma from the supplied roster, or add a team below.</Notice>}
-      <div className="grid gap-4 lg:grid-cols-3" data-testid="admin-team-list">
-        {view.teams.map((t) => (
-          <TeamEditor key={t.id} team={t} members={view.members.filter((m) => m.teamId === t.id)} busy={busy === t.id} onPatch={(b, l) => void patch(t, b, l)} setMsg={setMsg} />
-        ))}
-      </div>
-      <Section title="Add a team" description="Teams are display / analytics groups. Winning a team competition never creates a cash reward.">
-        <div className="grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
-          <Field label="Team name">
-            <input className={inputClass} value={draft.name} maxLength={60} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Team Falcons" data-testid="new-team-name" />
-          </Field>
-          <Field label="Accent colour">
-            <input type="color" className={cn(inputClass, "h-10 p-1")} value={draft.color} onChange={(e) => setDraft({ ...draft, color: e.target.value })} />
-          </Field>
-          <PrimaryButton onClick={() => void create()} disabled={busy === "new" || draft.name.trim().length < 2} data-testid="create-team">
-            <Plus className="h-4 w-4" /> Add team
-          </PrimaryButton>
+      {view.teams.length === 0 && <Notice kind="info">No teams yet. Create one below, or use “Initial roster import” (Owner).</Notice>}
+      <Section
+        title={`In the competition · ${active.length} active`}
+        description={`The Live Arena shows ${layout}. Archiving a team removes it from the live competition only: its members stay assigned to it (reassign them individually), and its history, sales and awards are kept. It can be reactivated at any time.`}
+      >
+        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3" data-testid="admin-team-list">
+          {active.map((t) => (
+            <TeamEditor key={t.id} team={t} members={view.members.filter((m) => m.teamId === t.id)} busy={busy === t.id} onPatch={(b, l) => void patch(t, b, l)} setMsg={setMsg} onMembers={() => onMembers(t.id)} onHistory={() => onHistory({ teamId: t.id, label: t.name })} />
+          ))}
+          {!active.length && <p className="text-sm text-text-muted">No active teams: the Teams Arena shows an empty state.</p>}
         </div>
       </Section>
+      {archived.length > 0 && (
+        <Section title={`Archived · ${archived.length}`} description="Not in the live competition. Members and history are preserved; reactivate to bring a team back.">
+          <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3" data-testid="admin-archived-teams">
+            {archived.map((t) => (
+              <TeamEditor key={t.id} team={t} members={view.members.filter((m) => m.teamId === t.id)} busy={busy === t.id} onPatch={(b, l) => void patch(t, b, l)} setMsg={setMsg} onMembers={() => onMembers(t.id)} onHistory={() => onHistory({ teamId: t.id, label: t.name })} />
+            ))}
+          </div>
+        </Section>
+      )}
+      <CreateTeamForm agents={agents} reload={reload} setMsg={setMsg} />
     </div>
   );
 }
 
-function TeamEditor({ team, members, busy, onPatch, setMsg }: { team: Team; members: Member[]; busy: boolean; onPatch: (b: Record<string, unknown>, label: string) => void; setMsg: (m: Msg) => void }) {
-  const [name, setName] = useState(team.name);
+/** New team: name, official logo (with preview), colours, leader and status. Validated again on the server. */
+function CreateTeamForm({ agents, reload, setMsg }: { agents: Array<{ userCode: string; name: string }>; reload: () => Promise<void>; setMsg: (m: Msg) => void }) {
+  const blank = { name: "", color: "#22D3FF", useSecondary: false, accentSecondary: "#F5C451", logoUrl: null as string | null, leaderUserCode: "", active: true };
+  const [d, setD] = useState(blank);
+  const [busy, setBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const create = async () => {
+    setBusy(true);
+    const r = await adminApi("/api/admin/teams", {
+      method: "POST",
+      body: { name: d.name, color: d.color, accentSecondary: d.useSecondary ? d.accentSecondary : undefined, logoUrl: d.logoUrl ?? undefined, leaderUserCode: d.leaderUserCode || undefined, active: d.active },
+    });
+    setBusy(false);
+    setMsg(r.ok ? { kind: "ok", text: `Team “${d.name}” created${d.active ? " and added to the live competition" : " (inactive)"}. Assign members on the Members tab.` } : { kind: "error", text: r.error });
+    if (r.ok) {
+      setD(blank);
+      await reload();
+    }
+  };
   return (
-    <section className="space-y-3 rounded-2xl border bg-white/[0.02] p-4" style={{ borderColor: `${team.color}55` }} data-testid="admin-team" data-team={team.slug ?? team.id}>
+    <Section title="Create a team" description="Teams are display / analytics groups: winning a team competition never creates a cash reward. An active team appears on the Teams Arena automatically.">
+      <div className="grid gap-5 lg:grid-cols-[auto_1fr]" data-testid="create-team-form">
+        <div className="flex flex-col items-center gap-2">
+          <div className="grid h-36 w-36 place-items-center rounded-2xl border border-white/10 p-2" style={{ background: `radial-gradient(circle, ${d.color}33, rgba(11,17,34,0.9) 70%)` }} data-testid="new-team-logo-preview">
+            {d.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- local preview of the chosen upload
+              <img src={d.logoUrl} alt="Logo preview" className="h-full w-full object-contain" />
+            ) : (
+              <span className="text-xs text-text-muted">Logo preview</span>
+            )}
+          </div>
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-white">
+            <Upload className="h-3.5 w-3.5" /> {d.logoUrl ? "Replace logo" : "Upload logo"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              data-testid="new-team-logo"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                  setLogoError(null);
+                  setD((x) => ({ ...x, logoUrl: null }));
+                  const url = await readLogo(f);
+                  setD((x) => ({ ...x, logoUrl: url }));
+                } catch (err) {
+                  setLogoError(err instanceof Error ? err.message : "Logo not accepted.");
+                }
+              }}
+            />
+          </label>
+          <p className="max-w-[10rem] text-center text-[10px] text-text-muted">PNG, JPEG or WebP, under 300 KB. Transparent PNG / WebP looks best.</p>
+          {logoError && <p className="max-w-[12rem] text-center text-xs text-rose-300" data-testid="new-team-logo-error">{logoError}</p>}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Team name">
+            <input className={inputClass} value={d.name} maxLength={60} onChange={(e) => setD({ ...d, name: e.target.value })} placeholder="e.g. Team Falcons" data-testid="new-team-name" />
+          </Field>
+          <Field label="Team leader (optional)">
+            <select className={inputClass} value={d.leaderUserCode} onChange={(e) => setD({ ...d, leaderUserCode: e.target.value })} data-testid="new-team-leader">
+              <option value="" className="bg-[#0D1426]">No leader</option>
+              {agents.map((a) => (
+                <option key={a.userCode} value={a.userCode} className="bg-[#0D1426]">{a.name} · {a.userCode}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Primary accent colour">
+            <div className="flex items-center gap-2">
+              <input type="color" className="h-10 w-14 cursor-pointer rounded-lg border border-white/10 bg-transparent" value={d.color} onChange={(e) => setD({ ...d, color: e.target.value })} data-testid="new-team-color" />
+              <span className="font-mono text-xs text-text-muted">{d.color}</span>
+            </div>
+          </Field>
+          <Field label="Secondary accent (optional)">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={d.useSecondary} onChange={(e) => setD({ ...d, useSecondary: e.target.checked })} aria-label="Use a secondary accent" />
+              <input type="color" disabled={!d.useSecondary} className="h-10 w-14 cursor-pointer rounded-lg border border-white/10 bg-transparent disabled:opacity-40" value={d.accentSecondary} onChange={(e) => setD({ ...d, accentSecondary: e.target.value })} data-testid="new-team-color2" />
+            </div>
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-text-secondary sm:col-span-2">
+            <input type="checkbox" checked={d.active} onChange={(e) => setD({ ...d, active: e.target.checked })} data-testid="new-team-active" />
+            Active: show it on the Teams Arena right away (otherwise it is created archived).
+          </label>
+          <div className="sm:col-span-2">
+            <PrimaryButton onClick={() => void create()} disabled={busy || d.name.trim().length < 2} data-testid="create-team">
+              <Plus className="h-4 w-4" /> Create team
+            </PrimaryButton>
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function TeamEditor({
+  team,
+  members,
+  busy,
+  onPatch,
+  setMsg,
+  onMembers,
+  onHistory,
+}: {
+  team: Team;
+  members: Member[];
+  busy: boolean;
+  onPatch: (b: Record<string, unknown>, label: string) => void;
+  setMsg: (m: Msg) => void;
+  onMembers: () => void;
+  onHistory: () => void;
+}) {
+  const [name, setName] = useState(team.name);
+  const archive = () => {
+    if (
+      window.confirm(
+        `Archive ${team.name}?\n\n• It leaves the live Teams Arena now.\n• Its ${members.length} member(s) stay assigned to it (nobody is moved): reassign them individually on the Members tab.\n• Its history, sales and awards are kept.\n• You can reactivate it at any time.`,
+      )
+    )
+      onPatch({ active: false }, "deactivated (archived, hidden from the Teams Arena; members and history kept)");
+  };
+  return (
+    <section className={cn("space-y-3 rounded-2xl border bg-white/[0.02] p-4", !team.active && "opacity-90")} style={{ borderColor: `${team.color}55` }} data-testid="admin-team" data-team={team.slug ?? team.id} data-active={team.active ? "true" : "false"}>
       <div className="flex items-center gap-3">
-        {team.logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- official / uploaded team artwork
-          <img src={team.logoUrl} alt={`${team.name} logo`} className="h-16 w-16 rounded-xl object-cover" data-testid="admin-team-logo" />
-        ) : (
-          <div className="grid h-16 w-16 place-items-center rounded-xl text-xs text-text-muted" style={{ border: `1px dashed ${team.color}` }}>No logo</div>
-        )}
+        <LogoThumb team={team} />
         <div className="min-w-0">
           <p className="truncate font-heading text-lg font-bold text-white">{team.name}</p>
           <p className="text-xs text-text-muted">
-            {team.memberCount} members · order {team.displayOrder} · {team.active ? <span className="text-emerald-300">active</span> : <span className="text-amber-200">inactive</span>}
+            {team.memberCount} members · order {team.displayOrder} · {team.active ? <span className="text-emerald-300">active</span> : <span className="text-amber-200">archived</span>}
           </p>
           {team.leaderName && <p className="flex items-center gap-1 text-xs text-gold"><Crown className="h-3 w-3" /> {team.leaderName}</p>}
         </div>
       </div>
+      {!team.active && members.length > 0 && (
+        <p className="rounded-lg border border-amber-300/25 bg-amber-300/[0.06] px-3 py-2 text-xs text-amber-100" data-testid="archived-members-note">
+          {members.length} member(s) are still assigned to this archived team and are not in the live competition. Move them on the Members tab.
+        </p>
+      )}
       <div className="flex gap-2">
         <input className={inputClass} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} aria-label="Team name" />
         <GhostButton disabled={busy || name.trim() === team.name} onClick={() => onPatch({ name }, "renamed")}>Save</GhostButton>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2 text-xs text-text-secondary">
+        <label className="flex items-center gap-1.5 text-xs text-text-secondary">
           Accent <input type="color" value={team.color} onChange={(e) => onPatch({ color: e.target.value }, "accent colour saved")} className="h-8 w-10 cursor-pointer rounded border border-white/10 bg-transparent" />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+          2nd <input type="color" value={team.accentSecondary ?? team.color} onChange={(e) => onPatch({ accentSecondary: e.target.value }, "secondary accent saved")} className="h-8 w-10 cursor-pointer rounded border border-white/10 bg-transparent" data-testid="team-color2" />
         </label>
         <label className={cn("inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-text-secondary hover:text-white", busy && "opacity-50")}>
           <Upload className="h-3.5 w-3.5" /> Logo
@@ -201,96 +359,167 @@ function TeamEditor({ team, members, busy, onPatch, setMsg }: { team: Team; memb
           ))}
         </select>
         <input type="number" min={0} max={999} defaultValue={team.displayOrder} aria-label="Display order" className={cn(inputClass, "h-8 w-16 py-0 text-xs")} onBlur={(e) => Number(e.target.value) !== team.displayOrder && onPatch({ displayOrder: Number(e.target.value) }, "order saved")} />
-        <GhostButton className="px-3 py-1.5 text-xs" disabled={busy} onClick={() => onPatch({ active: !team.active }, team.active ? "deactivated (hidden from the Teams Arena)" : "activated")} data-testid="team-active">
-          {team.active ? "Deactivate" : "Activate"}
-        </GhostButton>
+      </div>
+      <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-3">
+        <GhostButton className="px-3 py-1.5 text-xs" onClick={onMembers} data-testid="team-view-members"><Users className="h-3.5 w-3.5" /> Members ({members.length})</GhostButton>
+        <GhostButton className="px-3 py-1.5 text-xs" onClick={onHistory} data-testid="team-view-history"><History className="h-3.5 w-3.5" /> History</GhostButton>
+        {team.active ? (
+          <GhostButton className="ml-auto border-amber-300/30 px-3 py-1.5 text-xs text-amber-200" disabled={busy} onClick={archive} data-testid="team-active">
+            <Archive className="h-3.5 w-3.5" /> Archive (deactivate)
+          </GhostButton>
+        ) : (
+          <GhostButton className="ml-auto border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-300" disabled={busy} onClick={() => onPatch({ active: true }, "reactivated (back in the Teams Arena)")} data-testid="team-active">
+            <RotateCcw className="h-3.5 w-3.5" /> Reactivate
+          </GhostButton>
+        )}
       </div>
     </section>
   );
 }
 
-// ------------------------------------------------------------------ members
+// ------------------------------------------------------------------ members & agents
 
-function MembersTab({ view, reload, setMsg }: { view: View | null; reload: () => Promise<void>; setMsg: (m: Msg) => void }) {
+function MembersTab({
+  view,
+  reload,
+  setMsg,
+  filter,
+  setFilter,
+  onHistory,
+}: {
+  view: View | null;
+  reload: () => Promise<void>;
+  setMsg: (m: Msg) => void;
+  filter: { team: string };
+  setFilter: (f: { team: string }) => void;
+  onHistory: (f: { userCode?: string; label?: string }) => void;
+}) {
   const [date, setDate] = useState(today());
   const [busy, setBusy] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [des, setDes] = useState<"all" | Designation | "none">("all");
+  const [moving, setMoving] = useState<Agent | null>(null);
   const [assign, setAssign] = useState<{ userCode: string; teamId: string; designation: Designation | "" }>({ userCode: "", teamId: "", designation: "" });
   const act = async (key: string, url: string, method: "POST" | "DELETE", body: Record<string, unknown>, ok: string) => {
     setBusy(key);
-    const r = await adminApi(url, { method, body: { ...body, effectiveFrom: date } });
+    const r = await adminApi(url, { method, body: { effectiveFrom: date, ...body } });
     setBusy(null);
     setMsg(r.ok ? { kind: "ok", text: ok } : { kind: "error", text: r.error });
     if (r.ok) await reload();
+    return r.ok;
   };
+  const agents = useMemo<Agent[]>(() => {
+    if (!view) return [];
+    return [
+      ...view.members.map((m) => ({ userCode: m.userCode, name: m.name, active: m.agentActive, designation: m.designation, teamId: m.teamId, since: m.effectiveFrom })),
+      ...view.unassigned.map((u) => ({ userCode: u.userCode, name: u.name, active: u.active, designation: u.designation, teamId: null, since: null })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+  }, [view]);
   if (!view) return <p className="text-sm text-text-muted">Loading…</p>;
+  const teamOf = (id: string | null) => view.teams.find((t) => t.id === id) ?? null;
+  const needle = q.trim().toLowerCase();
+  const rows = agents.filter(
+    (a) =>
+      (!needle || a.name.toLowerCase().includes(needle) || a.userCode.toLowerCase().includes(needle)) &&
+      (filter.team === "all" || (filter.team === "unassigned" ? a.teamId === null : a.teamId === filter.team)) &&
+      (des === "all" || (des === "none" ? a.designation === null : a.designation === des)),
+  );
   const activeTeams = view.teams.filter((t) => t.active);
   return (
     <div className="space-y-6">
-      <Field label="Effective from (business date)" hint="Assignments, transfers, removals and designation changes apply from this day. Today is the usual choice.">
-        <input type="date" className={cn(inputClass, "max-w-[12rem]")} value={date} onChange={(e) => setDate(e.target.value)} data-testid="member-date" />
-      </Field>
-      {view.teams.map((t) => {
-        const rows = view.members.filter((m) => m.teamId === t.id);
-        return (
-          <Section key={t.id} title={`${t.name} · ${rows.length} members`} description={t.active ? undefined : "Inactive team: hidden from the Teams Arena."}>
-            <Table head={["Agent", "User code", "Designation", "Member since", "Actions"]} empty={!rows.length} testId={`members-${t.slug ?? t.id}`}>
-              {rows.map((m) => (
-                <tr key={m.userCode} data-testid="admin-member" data-user={m.userCode}>
-                  <td className={td}>
-                    <span className="font-medium text-white">{m.name}</span>
-                    {!m.agentActive && <span className="ml-2 rounded bg-amber-400/10 px-1.5 text-[10px] text-amber-200">inactive agent</span>}
-                  </td>
-                  <td className={cn(td, "font-mono text-xs text-text-muted")}>{m.userCode}</td>
-                  <td className={td}>
-                    <select
-                      className={cn(inputClass, "h-8 w-auto py-0 text-xs")}
-                      value={m.designation ?? ""}
-                      disabled={busy === m.userCode}
-                      onChange={(e) => e.target.value && void act(m.userCode, "/api/admin/teams/designations", "POST", { userCode: m.userCode, designation: e.target.value }, `${m.name} is now ${DES[e.target.value as Designation]} from ${date}.`)}
-                      aria-label={`Designation of ${m.name}`}
-                      data-testid="member-designation"
-                    >
-                      <option value="" disabled className="bg-[#0D1426]">Not set</option>
-                      <option value="senior" className="bg-[#0D1426]">{DES.senior}</option>
-                      <option value="junior" className="bg-[#0D1426]">{DES.junior}</option>
-                    </select>
-                  </td>
-                  <td className={cn(td, "text-text-muted")}>{m.effectiveFrom}</td>
-                  <td className={td}>
-                    <div className="flex flex-wrap gap-1.5">
-                      <select
-                        className={cn(inputClass, "h-8 w-auto py-0 text-xs")}
-                        value=""
-                        disabled={busy === m.userCode}
-                        onChange={(e) => {
-                          const to = activeTeams.find((x) => x.id === e.target.value);
-                          if (to) void act(m.userCode, "/api/admin/teams/members", "POST", { userCode: m.userCode, teamId: to.id }, `${m.name} moves to ${to.name} from ${date}.`);
-                        }}
-                        aria-label={`Transfer ${m.name}`}
-                        data-testid="member-transfer"
-                      >
-                        <option value="" className="bg-[#0D1426]">Transfer to…</option>
-                        {activeTeams.filter((x) => x.id !== t.id).map((x) => (
-                          <option key={x.id} value={x.id} className="bg-[#0D1426]">{x.name}</option>
-                        ))}
-                      </select>
+      <Section title={`Agents · ${agents.length}`} description="Every verified agent (stored Safe Quote user code): team members, members of archived teams and unassigned agents. Nobody is moved automatically.">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto] md:items-end" data-testid="agent-filters">
+          <Field label="Search name or user code">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+              <input className={cn(inputClass, "pl-9")} value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. Hamna or CLS-536D6AA1" data-testid="agent-search" />
+            </div>
+          </Field>
+          <Field label="Team">
+            <select className={inputClass} value={filter.team} onChange={(e) => setFilter({ team: e.target.value })} data-testid="agent-team-filter">
+              <option value="all" className="bg-[#0D1426]">All agents</option>
+              <option value="unassigned" className="bg-[#0D1426]">Unassigned</option>
+              {view.teams.map((t) => (
+                <option key={t.id} value={t.id} className="bg-[#0D1426]">{t.name}{t.active ? "" : " (archived)"}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Designation">
+            <select className={inputClass} value={des} onChange={(e) => setDes(e.target.value as typeof des)} data-testid="agent-designation-filter">
+              <option value="all" className="bg-[#0D1426]">All</option>
+              <option value="senior" className="bg-[#0D1426]">Senior</option>
+              <option value="junior" className="bg-[#0D1426]">Junior</option>
+              <option value="none" className="bg-[#0D1426]">Not set</option>
+            </select>
+          </Field>
+          <Field label="Effective from">
+            <input type="date" className={cn(inputClass, "w-[10.5rem]")} value={date} onChange={(e) => setDate(e.target.value)} data-testid="member-date" />
+          </Field>
+        </div>
+        <p className="text-xs text-text-muted" data-testid="agent-count">{rows.length} shown. Changes apply from the effective business date; earlier days stay with the previous team.</p>
+        <Table head={["Agent", "Team", "Designation", "Member since", "Actions"]} empty={!rows.length} testId="agent-directory">
+          {rows.map((a) => {
+            const t = teamOf(a.teamId);
+            return (
+              <tr key={a.userCode} data-testid="admin-member" data-user={a.userCode} data-team={t?.slug ?? t?.id ?? "unassigned"}>
+                <td className={td}>
+                  <span className="font-medium text-white">{a.name}</span>
+                  {!a.active && <span className="ml-2 rounded bg-amber-400/10 px-1.5 text-[10px] text-amber-200">inactive agent</span>}
+                  <div className="font-mono text-[10px] text-text-muted">{a.userCode}</div>
+                </td>
+                <td className={td}>
+                  {t ? (
+                    <span className="inline-flex items-center gap-2">
+                      <LogoThumb team={t} size={24} />
+                      <span style={{ color: t.color }}>{t.name}</span>
+                      {!t.active && <span className="rounded bg-amber-400/10 px-1.5 text-[10px] text-amber-200">archived</span>}
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">Unassigned</span>
+                  )}
+                </td>
+                <td className={td}>
+                  <select
+                    className={cn(inputClass, "h-8 w-auto py-0 text-xs")}
+                    value={a.designation ?? ""}
+                    disabled={busy === a.userCode}
+                    onChange={(e) => e.target.value && void act(a.userCode, "/api/admin/teams/designations", "POST", { userCode: a.userCode, designation: e.target.value }, `${a.name} is now ${DES[e.target.value as Designation]} from ${date}.`)}
+                    aria-label={`Designation of ${a.name}`}
+                    data-testid="member-designation"
+                  >
+                    <option value="" disabled className="bg-[#0D1426]">Not set</option>
+                    <option value="senior" className="bg-[#0D1426]">{DES.senior}</option>
+                    <option value="junior" className="bg-[#0D1426]">{DES.junior}</option>
+                  </select>
+                </td>
+                <td className={cn(td, "text-text-muted")}>{a.since ?? "—"}</td>
+                <td className={td}>
+                  <div className="flex flex-wrap gap-1.5">
+                    <GhostButton className="px-2.5 py-1 text-xs" disabled={busy === a.userCode || !activeTeams.some((x) => x.id !== a.teamId)} onClick={() => setMoving(a)} data-testid="member-transfer">
+                      <ArrowRightLeft className="h-3.5 w-3.5" /> {a.teamId ? "Move" : "Assign"}
+                    </GhostButton>
+                    {t && (
                       <GhostButton
                         className="px-2.5 py-1 text-xs"
-                        disabled={busy === m.userCode}
-                        onClick={() => window.confirm(`Remove ${m.name} from ${t.name} from ${date}? Their earlier days stay with ${t.name}.`) && void act(m.userCode, "/api/admin/teams/members", "DELETE", { userCode: m.userCode }, `${m.name} removed from ${t.name} from ${date}.`)}
+                        disabled={busy === a.userCode}
+                        onClick={() => window.confirm(`Remove ${a.name} from ${t.name} from ${date}? Their earlier days stay with ${t.name}.`) && void act(a.userCode, "/api/admin/teams/members", "DELETE", { userCode: a.userCode }, `${a.name} removed from ${t.name} from ${date}.`)}
                         data-testid="member-remove"
                       >
                         <UserMinus className="h-3.5 w-3.5" /> Remove
                       </GhostButton>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          </Section>
-        );
-      })}
-      <Section title={`Unassigned agents · ${view.unassigned.length}`} description="Verified agents (stored user codes) without a team. Assign one with a designation; nobody is assigned automatically.">
+                    )}
+                    <GhostButton className="px-2.5 py-1 text-xs" onClick={() => onHistory({ userCode: a.userCode, label: a.name })} data-testid="member-history">
+                      <History className="h-3.5 w-3.5" />
+                    </GhostButton>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </Table>
+      </Section>
+
+      <Section title={`Quick assign · ${view.unassigned.length} unassigned`} description="Assign an unassigned verified agent with a designation.">
         <div className="grid gap-3 md:grid-cols-[1fr_12rem_11rem_auto] md:items-end">
           <Field label="Agent">
             <select className={inputClass} value={assign.userCode} onChange={(e) => setAssign({ ...assign, userCode: e.target.value })} data-testid="assign-agent">
@@ -326,6 +555,114 @@ function MembersTab({ view, reload, setMsg }: { view: View | null; reload: () =>
           </PrimaryButton>
         </div>
       </Section>
+
+      {moving && (
+        <TransferDialog
+          agent={moving}
+          from={teamOf(moving.teamId)}
+          teams={activeTeams.filter((t) => t.id !== moving.teamId)}
+          initialDate={date}
+          onClose={() => setMoving(null)}
+          onConfirm={async (teamId, effectiveFrom, designation) => {
+            const to = view.teams.find((t) => t.id === teamId)!;
+            setBusy(moving.userCode);
+            const r = await adminApi("/api/admin/teams/members", { method: "POST", body: { userCode: moving.userCode, teamId, effectiveFrom, designation: designation || undefined, note: "Admin transfer" } });
+            setBusy(null);
+            if (!r.ok) return r.error;
+            setMsg({ kind: "ok", text: `${moving.name} ${moving.teamId ? "moves" : "is assigned"} to ${to.name} from ${effectiveFrom}.` });
+            setMoving(null);
+            await reload();
+            return null;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Assign / transfer with a confirmation preview of exactly what will be written. */
+function TransferDialog({
+  agent,
+  from,
+  teams,
+  initialDate,
+  onClose,
+  onConfirm,
+}: {
+  agent: Agent;
+  from: Team | null;
+  teams: Team[];
+  initialDate: string;
+  onClose: () => void;
+  onConfirm: (teamId: string, effectiveFrom: string, designation: Designation | "") => Promise<string | null>;
+}) {
+  const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
+  const [date, setDate] = useState(initialDate);
+  const [designation, setDesignation] = useState<Designation | "">("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const to = teams.find((t) => t.id === teamId) ?? null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Move ${agent.name}`} data-testid="transfer-dialog">
+      <div className="w-full max-w-lg space-y-4 rounded-2xl border border-white/10 bg-[#0D1426] p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">{from ? "Transfer agent" : "Assign agent"}</p>
+            <h3 className="font-heading text-xl font-bold text-white">{agent.name}</h3>
+            <p className="font-mono text-xs text-text-muted">{agent.userCode}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-text-muted hover:text-white" aria-label="Close"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Destination team">
+            <select className={inputClass} value={teamId} onChange={(e) => setTeamId(e.target.value)} data-testid="transfer-team">
+              {teams.map((t) => (
+                <option key={t.id} value={t.id} className="bg-[#0D1426]">{t.name}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Effective business date">
+            <input type="date" className={inputClass} value={date} onChange={(e) => setDate(e.target.value)} data-testid="transfer-date" />
+          </Field>
+          <Field label="Designation">
+            <select className={inputClass} value={designation} onChange={(e) => setDesignation(e.target.value as Designation | "")} data-testid="transfer-designation">
+              <option value="" className="bg-[#0D1426]">Keep {agent.designation ? DES[agent.designation] : "not set"}</option>
+              <option value="senior" className="bg-[#0D1426]">{DES.senior}</option>
+              <option value="junior" className="bg-[#0D1426]">{DES.junior}</option>
+            </select>
+          </Field>
+        </div>
+        {/* Preview of what will be written. */}
+        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm" data-testid="transfer-preview">
+          <div className="flex items-center gap-2 font-semibold">
+            <span style={{ color: from?.color }}>{from ? from.name : "Unassigned"}</span>
+            <ArrowRight className="h-4 w-4 text-text-muted" />
+            <span style={{ color: to?.color }}>{to?.name ?? "—"}</span>
+            <span className="ml-auto text-xs text-text-muted">from {date}</span>
+          </div>
+          <ul className="list-disc space-y-0.5 pl-5 text-xs text-text-secondary">
+            {from && <li>{from.name} membership ends on {date} and stays in history (its earlier days keep counting for {from.name}).</li>}
+            <li>New {to?.name ?? ""} membership starts {date}. Never two teams at once.</li>
+            {designation && <li>Designation becomes {DES[designation]} from {date} (earlier designation kept in history).</li>}
+            <li>Sales, cash awards and spins are not changed. The Teams Arena updates live.</li>
+          </ul>
+        </div>
+        {error && <Notice kind="error">{error}</Notice>}
+        <div className="flex justify-end gap-2">
+          <GhostButton onClick={onClose}>Cancel</GhostButton>
+          <PrimaryButton
+            disabled={!to || busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(await onConfirm(teamId, date, designation));
+              setBusy(false);
+            }}
+            data-testid="transfer-confirm"
+          >
+            <ShieldCheck className="h-4 w-4" /> Confirm {from ? "transfer" : "assignment"}
+          </PrimaryButton>
+        </div>
+      </div>
     </div>
   );
 }
@@ -506,32 +843,63 @@ function ImportTab({ reload }: { reload: () => Promise<void> }) {
 
 // ------------------------------------------------------------------ history
 
-function HistoryTab() {
-  const [rows, setRows] = useState<Array<{ id: number; name: string; userCode: string; team: string; effectiveFrom: string; effectiveTo: string | null; note: string | null; assignedBy: string | null; endedBy: string | null; createdAt: string }> | null>(null);
+function HistoryTab({
+  view,
+  filter,
+  setFilter,
+}: {
+  view: View | null;
+  filter: { teamId?: string; userCode?: string; label?: string };
+  setFilter: (f: { teamId?: string; userCode?: string; label?: string }) => void;
+}) {
+  const [rows, setRows] = useState<Array<{ id: number; name: string; userCode: string; team: string; teamId: string; effectiveFrom: string; effectiveTo: string | null; note: string | null; assignedBy: string | null; endedBy: string | null; createdAt: string }> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     const t = setTimeout(async () => {
-      const r = await adminApi<{ history: NonNullable<typeof rows> }>("/api/admin/teams/history?limit=300");
+      const q = new URLSearchParams({ limit: "300" });
+      if (filter.teamId) q.set("teamId", filter.teamId);
+      if (filter.userCode) q.set("userCode", filter.userCode);
+      const r = await adminApi<{ history: NonNullable<typeof rows> }>(`/api/admin/teams/history?${q}`);
       if (r.ok) setRows(r.data.history);
       else setErr(r.error);
     }, 0);
     return () => clearTimeout(t);
-  }, []);
+  }, [filter.teamId, filter.userCode]);
   if (err) return <Notice kind="error">{err}</Notice>;
-  if (!rows) return <p className="text-sm text-text-muted">Loading…</p>;
   return (
-    <Table head={["Agent", "Team", "From", "Until", "Note", "By", "Recorded"]} empty={!rows.length} testId="team-history">
-      {rows.map((r) => (
-        <tr key={r.id}>
-          <td className={td}><span className="font-medium text-white">{r.name}</span><div className="font-mono text-[10px] text-text-muted">{r.userCode}</div></td>
-          <td className={td}>{r.team}</td>
-          <td className={td}>{r.effectiveFrom}</td>
-          <td className={td}>{r.effectiveTo ?? <span className="text-emerald-300">current</span>}</td>
-          <td className={cn(td, "max-w-[16rem] text-xs text-text-muted")}>{r.note ?? ""}</td>
-          <td className={cn(td, "text-xs text-text-muted")}>{r.assignedBy ?? "—"}{r.endedBy ? ` / ended by ${r.endedBy}` : ""}</td>
-          <td className={cn(td, "text-xs text-text-muted")}>{fmtDate(r.createdAt)}</td>
-        </tr>
-      ))}
-    </Table>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Team">
+          <select className={cn(inputClass, "w-56")} value={filter.teamId ?? ""} onChange={(e) => setFilter({ teamId: e.target.value || undefined, label: view?.teams.find((t) => t.id === e.target.value)?.name })} data-testid="history-team-filter">
+            <option value="" className="bg-[#0D1426]">All teams</option>
+            {view?.teams.map((t) => (
+              <option key={t.id} value={t.id} className="bg-[#0D1426]">{t.name}{t.active ? "" : " (archived)"}</option>
+            ))}
+          </select>
+        </Field>
+        {filter.userCode && (
+          <GhostButton className="px-3 py-2 text-xs" onClick={() => setFilter({})} data-testid="history-clear">
+            Agent: {filter.label ?? filter.userCode} <X className="h-3.5 w-3.5" />
+          </GhostButton>
+        )}
+      </div>
+      {!rows ? (
+        <p className="text-sm text-text-muted">Loading…</p>
+      ) : (
+        <Table head={["Agent", "Team", "From", "Until", "Note", "By", "Recorded"]} empty={!rows.length} testId="team-history">
+          {rows.map((r) => (
+            <tr key={r.id} data-testid="history-row" data-user={r.userCode} data-team-id={r.teamId}>
+              <td className={td}><span className="font-medium text-white">{r.name}</span><div className="font-mono text-[10px] text-text-muted">{r.userCode}</div></td>
+              <td className={td}>{r.team}</td>
+              <td className={td}>{r.effectiveFrom}</td>
+              <td className={td}>{r.effectiveTo ?? <span className="text-emerald-300">current</span>}</td>
+              <td className={cn(td, "max-w-[16rem] text-xs text-text-muted")}>{r.note ?? ""}</td>
+              <td className={cn(td, "text-xs text-text-muted")}>{r.assignedBy ?? "—"}{r.endedBy ? ` / ended by ${r.endedBy}` : ""}</td>
+              <td className={cn(td, "text-xs text-text-muted")}>{fmtDate(r.createdAt)}</td>
+            </tr>
+          ))}
+        </Table>
+      )}
+    </div>
   );
 }

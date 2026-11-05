@@ -157,7 +157,6 @@ export function TeamsScreen() {
   const fresh = useFreshSales(data);
   const takeoverTeam = takeover ? data?.teams.find((t) => t.id === takeover.teamId) : null;
   const leader = data?.teams.find((t) => t.id === data.leaderTeamId) ?? null;
-  const topValidated = data?.teams[0]?.validated ?? 0;
   const totalValidated = data?.teams.reduce((s, t) => s + t.validated, 0) ?? 0;
 
   return (
@@ -172,11 +171,20 @@ export function TeamsScreen() {
             </span>
             TEAMS ARENA · LIVE
           </p>
-          <h1 className="font-heading text-2xl font-extrabold leading-tight lg:text-[2.1rem] min-[1800px]:text-[2.6rem]" data-testid="arena-screen-title">
-            <span className="bg-gradient-to-r from-white via-[#E7E3FF] to-[#9EA8FF] bg-clip-text text-transparent">Team Competition</span>{" "}
-            <span className="text-text-secondary">— Validated Sales</span>
-          </h1>
+          {data && data.teams.length === 2 ? (
+            <h1 className="font-heading text-[1.9rem] font-extrabold uppercase leading-tight tracking-wide lg:text-[2.5rem] min-[1800px]:text-[3.2rem]" data-testid="arena-screen-title">
+              <span style={{ color: data.teams[0].color, textShadow: `0 0 26px ${data.teams[0].color}88` }}>{shortName(data.teams[0].name)}</span>
+              <span className="mx-3 bg-gradient-to-b from-[#FFE7A3] to-[#F5C451] bg-clip-text text-transparent">VS</span>
+              <span style={{ color: data.teams[1].color, textShadow: `0 0 26px ${data.teams[1].color}88` }}>{shortName(data.teams[1].name)}</span>
+            </h1>
+          ) : (
+            <h1 className="font-heading text-2xl font-extrabold leading-tight lg:text-[2.1rem] min-[1800px]:text-[2.6rem]" data-testid="arena-screen-title">
+              <span className="bg-gradient-to-r from-white via-[#E7E3FF] to-[#9EA8FF] bg-clip-text text-transparent">Team Competition</span>{" "}
+              <span className="text-text-secondary">— Validated Sales</span>
+            </h1>
+          )}
           <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-text-muted" data-testid="teams-period-label">
+            {data && data.teams.length === 2 && <span className="font-semibold uppercase tracking-[0.2em] text-secondary">Head-to-head · Validated sales</span>}
             <span>{data?.label ?? " "}</span>
           </p>
         </div>
@@ -234,21 +242,11 @@ export function TeamsScreen() {
 
       {data && data.teams.length > 0 && (
         <LayoutGroup>
-          <div
-            className={cn(
-              "grid items-start gap-4 lg:gap-5",
-              data.teams.length >= 3 ? "md:grid-cols-3 2xl:grid-cols-[1.12fr_1fr_1fr_minmax(19rem,24rem)]" : "md:grid-cols-2 2xl:grid-cols-[1.12fr_1fr_minmax(19rem,24rem)]",
-            )}
-          >
-            {/* Columns in placement order: 1st on the left, in front; 2nd and 3rd step back. */}
-            {data.teams.map((t) => (
-              <motion.div key={t.id} layout={animate ? "position" : false} transition={{ type: "spring", stiffness: 240, damping: 30 }} className="flex min-w-0 flex-col gap-3" style={{ zIndex: DEPTH[t.rank]?.z ?? 1 }} data-testid="team-column" data-team={t.slug ?? t.id}>
-                <TeamCard team={t} leader={data.leaderTeamId === t.id} topValidated={topValidated} animate={animate} />
-                <TeamTop3 team={t} fresh={fresh} animate={animate} />
-              </motion.div>
-            ))}
-            <TopPerformers top={data.top} animate={animate} className="md:col-span-full 2xl:col-span-1" />
-          </div>
+          <div data-testid="teams-layout" data-layout={layoutOf(data.teams.length)} className="contents" />
+          {data.teams.length === 1 && <SpotlightLayout data={data} fresh={fresh} animate={animate} />}
+          {data.teams.length === 2 && <HeadToHeadLayout data={data} fresh={fresh} animate={animate} />}
+          {data.teams.length === 3 && <RankedLayout data={data} fresh={fresh} animate={animate} />}
+          {data.teams.length >= 4 && <GridLayout data={data} fresh={fresh} animate={animate} />}
         </LayoutGroup>
       )}
 
@@ -278,64 +276,242 @@ export function TeamsScreen() {
   );
 }
 
-function TeamCard({ team, leader, topValidated, animate }: { team: RankedTeam; leader: boolean; topValidated: number; animate: boolean }) {
-  const m = medal(team.rank);
-  const depth = DEPTH[team.rank] ?? DEPTH[3];
+type CardVariant = "ranked" | "hero" | "grid";
+interface LayoutProps {
+  data: TeamStandings;
+  fresh: Set<string>;
+  animate: boolean;
+}
+export const layoutOf = (n: number) => (n === 1 ? "spotlight" : n === 2 ? "head-to-head" : n === 3 ? "ranked" : "grid");
+const shortName = (name: string) => name.replace(/^team\s+/i, "");
+/** Every team shares first place (e.g. 0 – 0, or 5 – 5 on validated AND submitted): nobody gets the winner treatment. */
+const allTied = (teams: RankedTeam[]) => teams.length > 1 && teams.every((t) => t.rank === 1);
+
+function Column({ team, children, animate, z, className }: { team: RankedTeam; children: React.ReactNode; animate: boolean; z: number; className?: string }) {
+  return (
+    <motion.div
+      layout={animate ? "position" : false}
+      initial={animate ? { opacity: 0, y: 18 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 240, damping: 30 }}
+      className={cn("flex min-w-0 flex-col gap-3", className)}
+      style={{ zIndex: z }}
+      data-testid="team-column"
+      data-team={team.slug ?? team.id}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Three teams: ranked columns, 1st on the left and in front; the all-teams panel on the right. */
+function RankedLayout({ data, fresh, animate }: LayoutProps) {
+  const neutral = allTied(data.teams);
+  const topValidated = data.teams[0]?.validated ?? 0;
+  return (
+    <div className="grid items-start gap-4 md:grid-cols-3 lg:gap-5 2xl:grid-cols-[1.12fr_1fr_1fr_minmax(19rem,24rem)]">
+      {data.teams.map((t) => (
+        <Column key={t.id} team={t} animate={animate} z={DEPTH[t.rank]?.z ?? 1}>
+          <TeamCard team={t} leader={data.leaderTeamId === t.id} topValidated={topValidated} animate={animate} neutral={neutral} />
+          <TeamTop3 team={t} fresh={fresh} animate={animate} />
+        </Column>
+      ))}
+      <TopPerformers top={data.top} animate={animate} className="md:col-span-full 2xl:col-span-1" />
+    </div>
+  );
+}
+
+/** Two teams: head-to-head. The current leader on the left (from the standings), a VS emblem and the share of validated sales between them. */
+function HeadToHeadLayout({ data, fresh, animate }: LayoutProps) {
+  const [a, b] = data.teams;
+  const neutral = allTied(data.teams);
+  const topValidated = a.validated;
+  return (
+    <>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-5" data-testid="head-to-head">
+        <Column team={a} animate={animate} z={neutral ? 20 : 30}>
+          <TeamCard team={a} leader={data.leaderTeamId === a.id} topValidated={topValidated} animate={animate} neutral={neutral} variant="hero" />
+          <TeamTop3 team={a} fresh={fresh} animate={animate} />
+        </Column>
+        <VersusEmblem a={a} b={b} neutral={neutral} animate={animate} />
+        <Column team={b} animate={animate} z={20}>
+          <TeamCard team={b} leader={data.leaderTeamId === b.id} topValidated={topValidated} animate={animate} neutral={neutral} variant="hero" />
+          <TeamTop3 team={b} fresh={fresh} animate={animate} />
+        </Column>
+      </div>
+      <TopPerformers top={data.top} animate={animate} horizontal />
+    </>
+  );
+}
+
+function VersusEmblem({ a, b, neutral, animate }: { a: RankedTeam; b: RankedTeam; neutral: boolean; animate: boolean }) {
+  const total = a.validated + b.validated;
+  const share = total ? Math.round((a.validated / total) * 100) : 50;
+  return (
+    <div className="flex flex-row items-center justify-center gap-4 self-stretch lg:flex-col lg:justify-start lg:pt-16 min-[1800px]:pt-24" data-testid="versus">
+      <div
+        className={cn("teams-vs relative grid h-20 w-20 shrink-0 place-items-center rounded-full min-[1800px]:h-28 min-[1800px]:w-28", animate && "teams-vs-glow")}
+        style={{ background: "radial-gradient(circle at 50% 35%, rgba(255,255,255,0.12), rgba(11,17,34,0.95) 65%)", boxShadow: `0 0 0 1px rgba(245,196,81,0.45), 0 0 34px -6px ${neutral ? "rgba(117,104,255,0.8)" : "rgba(245,196,81,0.7)"}` }}
+      >
+        <span className="bg-gradient-to-b from-[#FFF3CC] to-[#F5C451] bg-clip-text font-heading text-3xl font-extrabold italic text-transparent min-[1800px]:text-5xl">VS</span>
+      </div>
+      {/* Share of validated sales: a tug-of-war between the two teams. */}
+      <div className="w-40 lg:w-24 min-[1800px]:w-32" data-testid="versus-split" data-share={share}>
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+          <span className="h-full transition-[width] duration-700" style={{ width: `${total ? share : 50}%`, background: total ? a.color : "rgba(255,255,255,0.12)" }} />
+          <span className="h-full flex-1 transition-[width] duration-700" style={{ background: total ? b.color : "rgba(255,255,255,0.08)" }} />
+        </div>
+        <p className="mt-1.5 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted min-[1800px]:text-xs">
+          {total ? (neutral ? "All square" : `${share}% of sales`) : "No sales yet"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** One team: a centred spotlight. */
+function SpotlightLayout({ data, fresh, animate }: LayoutProps) {
+  const [t] = data.teams;
+  return (
+    <div className="mx-auto grid w-full max-w-[1280px] items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(17rem,1fr)] lg:gap-5" data-testid="spotlight">
+      <Column team={t} animate={animate} z={30}>
+        <TeamCard team={t} leader={false} topValidated={t.validated} animate={animate} neutral variant="hero" spotlight />
+        <TeamTop3 team={t} fresh={fresh} animate={animate} />
+      </Column>
+      <TopPerformers top={data.top} animate={animate} />
+    </div>
+  );
+}
+
+/** Four or more teams: a responsive grid that keeps every team, at a readable minimum card width. */
+function GridLayout({ data, fresh, animate }: LayoutProps) {
+  const neutral = allTied(data.teams);
+  const topValidated = data.teams[0]?.validated ?? 0;
+  return (
+    <>
+      <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr))] lg:gap-5" data-testid="teams-grid">
+        {data.teams.map((t) => (
+          <Column key={t.id} team={t} animate={animate} z={1}>
+            <TeamCard team={t} leader={data.leaderTeamId === t.id} topValidated={topValidated} animate={animate} neutral={neutral} variant="grid" />
+            <TeamTop3 team={t} fresh={fresh} animate={animate} />
+          </Column>
+        ))}
+      </div>
+      <TopPerformers top={data.top} animate={animate} horizontal />
+    </>
+  );
+}
+
+const HERO_DEPTH: Record<number, { lift: number; scale: number }> = { 1: { lift: -10, scale: 1 }, 2: { lift: 8, scale: 0.965 } };
+
+function TeamCard({
+  team,
+  leader,
+  topValidated,
+  animate,
+  neutral = false,
+  variant = "ranked",
+  spotlight = false,
+}: {
+  team: RankedTeam;
+  leader: boolean;
+  topValidated: number;
+  animate: boolean;
+  /** Tied for first with every other team: no winner treatment for anyone. */
+  neutral?: boolean;
+  variant?: CardVariant;
+  /** The only active team (no competition shown). */
+  spotlight?: boolean;
+}) {
+  const m = neutral ? null : medal(team.rank);
+  const hero = variant === "hero";
+  const depth = neutral || variant === "grid" ? { lift: 0, scale: 1, shadow: DEPTH[2].shadow } : hero ? { ...DEPTH[team.rank === 1 ? 1 : 2], ...(HERO_DEPTH[team.rank] ?? HERO_DEPTH[2]) } : (DEPTH[team.rank] ?? DEPTH[3]);
   const accent = team.color;
+  const frame = m?.color ?? accent;
+  const first = !neutral && team.rank === 1;
   const gap = topValidated - team.validated;
-  const crest = team.rank === 1 ? "clamp(108px, 9.6vw, 200px)" : team.rank === 2 ? "clamp(96px, 8.2vw, 168px)" : "clamp(90px, 7.6vw, 152px)";
+  const crest = hero
+    ? first || neutral
+      ? "clamp(128px, 11.5vw, 230px)"
+      : "clamp(116px, 10.2vw, 200px)"
+    : variant === "grid"
+      ? "clamp(92px, 7vw, 136px)"
+      : team.rank === 1
+        ? "clamp(108px, 9.6vw, 200px)"
+        : team.rank === 2
+          ? "clamp(96px, 8.2vw, 168px)"
+          : "clamp(90px, 7.6vw, 152px)";
+  const badge = spotlight ? "SPOTLIGHT" : neutral ? "TIED" : `${team.tied ? "=" : ""}${m?.label ?? `#${team.rank}`}`;
+  const word = spotlight ? "ONLY ACTIVE TEAM" : neutral ? "LEVEL ON SALES" : (m?.word ?? `PLACE ${team.rank}`);
+  const metrics = (
+    <div className={cn("relative grid grid-cols-3", hero ? "mt-3 gap-2.5 min-[1800px]:mt-4 min-[1800px]:gap-3" : "mt-3 gap-2")}>
+      <Metric icon={BadgeCheck} label="Validated" accent={accent} primary testId="team-validated" value={team.validated} hero={hero} />
+      <Metric icon={Send} label="Submitted" accent={accent} testId="team-submitted" value={team.submitted} hero={hero} />
+      <Metric icon={Percent} label="Close rate" accent={accent} testId="team-rate" text={rate(team.closeRate)} hero={hero} />
+    </div>
+  );
   return (
     <section
       data-testid="team-card"
       data-team={team.slug ?? team.id}
       data-rank={team.rank}
       data-leader={leader ? "true" : undefined}
-      aria-label={`${team.name}, rank ${team.rank}`}
+      data-neutral={neutral ? "true" : undefined}
+      data-variant={variant}
+      aria-label={`${team.name}, ${neutral ? "tied" : `rank ${team.rank}`}`}
       className="relative origin-top rounded-[1.4rem] p-px transition-transform duration-500"
       style={{
         transform: `translateY(${depth.lift}px) scale(${depth.scale})`,
         // Rank frame: a gradient edge in the placement colour fading into the team colour.
-        background: `linear-gradient(150deg, ${m?.color ?? accent}${team.rank === 1 ? "" : "aa"}, ${accent}55 45%, rgba(255,255,255,0.06) 70%, ${m?.color ?? accent}66)`,
-        boxShadow: `${depth.shadow}, 0 0 ${team.rank === 1 ? 46 : 26}px -14px ${m?.glow ?? accent}`,
+        background: `linear-gradient(150deg, ${frame}${first ? "" : "aa"}, ${accent}55 45%, rgba(255,255,255,0.06) 70%, ${frame}66)`,
+        boxShadow: `${depth.shadow}, 0 0 ${first ? (hero ? 64 : 46) : 26}px -14px ${m?.glow ?? accent}`,
       }}
     >
-      <div className="relative overflow-hidden rounded-[calc(1.4rem-1px)] bg-[#0A0F20] px-4 pb-4 pt-3.5 min-[1800px]:px-6 min-[1800px]:pb-6 min-[1800px]:pt-5">
+      <div className={cn("relative overflow-hidden rounded-[calc(1.4rem-1px)] bg-[#0A0F20]", hero ? "px-5 pb-5 pt-4 min-[1800px]:px-8 min-[1800px]:pb-8 min-[1800px]:pt-6" : "px-4 pb-4 pt-3.5 min-[1800px]:px-6 min-[1800px]:pb-6 min-[1800px]:pt-5")}>
         {/* Surface: team light, diagonal energy lines, top sheen */}
-        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(110% 70% at 18% 0%, ${accent}2e, transparent 62%), radial-gradient(80% 60% at 100% 100%, ${(team.accentSecondary ?? accent)}1f, transparent 65%)` }} />
+        <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(110% 70% at 18% 0%, ${accent}${hero ? "3a" : "2e"}, transparent 62%), radial-gradient(80% 60% at 100% 100%, ${team.accentSecondary ?? accent}1f, transparent 65%)` }} />
+        {first && hero && <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(60% 45% at 50% 0%, rgba(245,196,81,0.16), transparent 70%)" }} />}
         <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "repeating-linear-gradient(115deg, #fff 0 1px, transparent 1px 14px)" }} />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${m?.color ?? accent}, transparent)` }} />
-        {animate && <div className={cn("teams-sweep pointer-events-none absolute inset-y-0 -left-1/3 w-1/3", team.rank === 1 ? "opacity-100" : "opacity-60")} style={{ animationDelay: `${(team.rank - 1) * 1.6}s` }} />}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${frame}, transparent)` }} />
+        {animate && <div className={cn("teams-sweep pointer-events-none absolute inset-y-0 -left-1/3 w-1/3", first ? "opacity-100" : "opacity-60")} style={{ animationDelay: `${(team.rank - 1) * 1.6}s` }} />}
+        {animate && hero && <Particles color={accent} />}
 
         {/* Placement + members */}
         <div className="relative flex items-center justify-between gap-2">
           <span
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-heading text-sm font-extrabold tracking-wider min-[1800px]:text-base"
-            style={{ color: m?.color ?? accent, background: m?.soft ?? `${accent}1f`, border: `1px solid ${(m?.color ?? accent)}66`, boxShadow: team.rank === 1 ? `0 0 18px -4px ${MEDAL[1].glow}` : undefined }}
+            className={cn("flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-heading font-extrabold tracking-wider", hero ? "text-base min-[1800px]:text-xl" : "text-sm min-[1800px]:text-base")}
+            style={{ color: frame, background: m?.soft ?? `${accent}1f`, border: `1px solid ${frame}66`, boxShadow: first ? `0 0 18px -4px ${MEDAL[1].glow}` : undefined }}
             data-testid="team-rank"
           >
-            {leader && <Crown className="h-4 w-4" aria-label="Leading team" />}
-            {team.tied ? "=" : ""}
-            {m?.label ?? `#${team.rank}`}
+            {leader && <Crown className={hero ? "h-5 w-5" : "h-4 w-4"} aria-label="Leading team" />}
+            {badge}
           </span>
-          <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-text-secondary">
+          <span className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-text-secondary min-[1800px]:text-sm">
             <Users className="h-3.5 w-3.5" /> {team.memberCount} members
           </span>
         </div>
 
         {/* Crest + name */}
-        <div className="relative mt-2 flex items-center gap-3 min-[1800px]:gap-4">
-          <CrestPlate team={team} size={crest} rank={team.rank} />
+        <div className={cn("relative mt-2 flex", hero ? "items-center gap-4 min-[1800px]:gap-6" : "items-center gap-3 min-[1800px]:gap-4")}>
+          <CrestPlate team={team} size={crest} rank={neutral ? 0 : team.rank} />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold tracking-[0.28em] min-[1800px]:text-xs" style={{ color: m?.color ?? accent }}>{m?.word ?? `PLACE ${team.rank}`}</p>
+            <p className={cn("font-bold tracking-[0.28em]", hero ? "text-[11px] min-[1800px]:text-sm" : "text-[10px] min-[1800px]:text-xs")} style={{ color: frame }}>{word}</p>
             <h2
-              className={cn("font-heading font-extrabold leading-tight text-white", team.rank === 1 ? "text-2xl min-[1800px]:text-[2.5rem]" : "text-xl min-[1800px]:text-[2rem]")}
+              className={cn(
+                "font-heading font-extrabold leading-tight text-white",
+                hero ? (first || neutral ? "text-3xl lg:text-[2.2rem] min-[1800px]:text-[3.3rem]" : "text-[1.7rem] lg:text-[2rem] min-[1800px]:text-[2.9rem]") : team.rank === 1 ? "text-2xl min-[1800px]:text-[2.5rem]" : "text-xl min-[1800px]:text-[2rem]",
+              )}
               title={team.name}
               style={{ textShadow: `0 0 22px ${accent}66` }}
             >
               {team.name}
             </h2>
-            <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-text-secondary min-[1800px]:text-sm" data-testid="team-gap">
-              {team.rank === 1 && team.validated > 0 ? (
+            <p className={cn("mt-1 flex items-center gap-1 font-semibold text-text-secondary", hero ? "text-sm min-[1800px]:text-base" : "text-xs min-[1800px]:text-sm")} data-testid="team-gap">
+              {spotlight ? (
+                <span>Competing on validated sales</span>
+              ) : neutral ? (
+                <span>Level on validated sales</span>
+              ) : team.rank === 1 && team.validated > 0 ? (
                 <>
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
                   <span className="text-emerald-300">{team.tied ? "Sharing the lead" : "Leading the floor"}</span>
@@ -351,21 +527,29 @@ function TeamCard({ team, leader, topValidated, animate }: { team: RankedTeam; l
                 <span>Level on validated sales</span>
               )}
             </p>
+            {hero && metrics}
           </div>
         </div>
 
-        {/* Metrics: identical structure on every card */}
-        <div className="relative mt-3 grid grid-cols-3 gap-2">
-          <Metric icon={BadgeCheck} label="Validated" accent={accent} primary testId="team-validated" value={team.validated} />
-          <Metric icon={Send} label="Submitted" accent={accent} testId="team-submitted" value={team.submitted} />
-          <Metric icon={Percent} label="Close rate" accent={accent} testId="team-rate" text={rate(team.closeRate)} />
-        </div>
+        {/* Metrics: identical structure on every card (beside the crest on hero cards) */}
+        {!hero && metrics}
       </div>
     </section>
   );
 }
 
-function Metric({ icon: Icon, label, value, text, accent, primary, testId }: { icon: typeof Users; label: string; value?: number; text?: string; accent: string; primary?: boolean; testId: string }) {
+/** A few soft light motes drifting up behind the card content (transform / opacity only). */
+function Particles({ color }: { color: string }) {
+  return (
+    <div className="teams-particles pointer-events-none absolute inset-0" aria-hidden>
+      {[8, 22, 37, 51, 64, 78, 90].map((left, i) => (
+        <span key={left} style={{ left: `${left}%`, background: color, animationDelay: `${(i * 1.3) % 7}s`, animationDuration: `${7 + (i % 3) * 1.5}s` }} />
+      ))}
+    </div>
+  );
+}
+
+function Metric({ icon: Icon, label, value, text, accent, primary, testId, hero }: { icon: typeof Users; label: string; value?: number; text?: string; accent: string; primary?: boolean; testId: string; hero?: boolean }) {
   return (
     <div
       className="relative overflow-hidden rounded-xl border px-2.5 py-2 min-[1800px]:px-3.5 min-[1800px]:py-3.5"
@@ -373,7 +557,10 @@ function Metric({ icon: Icon, label, value, text, accent, primary, testId }: { i
     >
       <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted min-[1800px]:text-[11px]"><Icon className="h-3 w-3" />{label}</p>
       <p
-        className={cn("font-heading font-extrabold tabular-nums leading-none", primary ? "mt-1 text-[2rem] min-[1800px]:text-6xl" : "mt-1.5 text-xl text-white min-[1800px]:text-4xl")}
+        className={cn(
+          "font-heading font-extrabold tabular-nums leading-none",
+          primary ? (hero ? "mt-1 text-[2.6rem] min-[1800px]:text-7xl" : "mt-1 text-[2rem] min-[1800px]:text-6xl") : hero ? "mt-1.5 text-[1.7rem] text-white min-[1800px]:text-5xl" : "mt-1.5 text-xl text-white min-[1800px]:text-4xl",
+        )}
         style={primary ? { color: accent, textShadow: `0 0 18px ${accent}77` } : undefined}
         data-testid={testId}
         data-value={value}
@@ -469,7 +656,7 @@ function DesignationChip({ d }: { d: "senior" | "junior" }) {
 }
 
 /** Top performers across all teams: a podium-style live summary. */
-function TopPerformers({ top, animate, className }: { top: TopPerformer[]; animate: boolean; className?: string }) {
+function TopPerformers({ top, animate, className, horizontal }: { top: TopPerformer[]; animate: boolean; className?: string; horizontal?: boolean }) {
   const [first, ...rest] = top;
   return (
     <section
@@ -498,7 +685,7 @@ function TopPerformers({ top, animate, className }: { top: TopPerformer[]; anima
           ))}
         </div>
       ) : (
-        <ol className="relative mt-3 grid gap-2 sm:grid-cols-3 2xl:grid-cols-1 min-[1800px]:gap-3">
+        <ol className={cn("relative mt-3 grid gap-2", horizontal ? "sm:grid-cols-3 min-[1800px]:gap-3" : "sm:grid-cols-3 2xl:grid-cols-1 min-[1800px]:gap-3")}>
           {first && <Performer key={`${first.teamId}|${first.userCode}`} p={first} big animate={animate} />}
           {rest.map((p) => (
             <Performer key={`${p.teamId}|${p.userCode}`} p={p} animate={animate} />

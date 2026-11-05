@@ -234,13 +234,76 @@ test("Admin Team Management: teams with logos, roster preview is read-only, assi
   page.once("dialog", (d) => void d.accept());
   await row.getByTestId("member-remove").click();
   await expect(page.getByText(/removed from/)).toBeVisible();
-  await expect(row).toHaveCount(0);
+  await expect(row).toHaveAttribute("data-team", "unassigned"); // still listed in the agent directory, now unassigned
   // History shows the trail; then retire the E2E team.
   await page.getByRole("tab", { name: "History" }).click();
   await expect(page.getByTestId("team-history")).toBeVisible();
   await page.getByRole("tab", { name: "Teams" }).click();
+  page.once("dialog", (d) => void d.accept()); // archive asks for confirmation
   await card.getByTestId("team-active").click();
   await expect(page.getByText(/deactivated/)).toBeVisible();
+  await expect(page.locator('[data-testid="admin-archived-teams"] [data-testid="admin-team"]', { hasText: name })).toHaveAttribute("data-active", "false");
+  await ctx.close();
+});
+
+test("Admin: create a team with logo preview / colours / leader, then move an agent between teams through the confirmation preview", async ({ browser, baseURL }) => {
+  const ctx = await browser.newContext({ storageState: "tests/e2e/.auth/admin.json", viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  await page.goto(`${baseURL}/admin/teams`);
+  await expect(page.getByTestId("create-team-form")).toBeVisible({ timeout: 60_000 });
+  const stamp = Date.now() % 100000;
+  const [a, b] = [`E2E Move A ${stamp}`, `E2E Move B ${stamp}`];
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  for (const name of [a, b]) {
+    await page.getByTestId("new-team-name").fill(name);
+    if (name === a) {
+      await page.getByTestId("new-team-logo").setInputFiles({ name: "crest.png", mimeType: "image/png", buffer: png });
+      await expect(page.getByTestId("new-team-logo-preview").locator("img")).toBeVisible(); // preview before saving
+      await page.getByTestId("new-team-logo").setInputFiles({ name: "bad.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
+      await expect(page.getByTestId("new-team-logo-error")).toContainText("PNG, JPEG or WebP");
+      await page.getByTestId("new-team-logo").setInputFiles({ name: "crest.png", mimeType: "image/png", buffer: png });
+    }
+    await page.getByTestId("create-team").click();
+    await expect(page.getByText(`Team “${name}” created`)).toBeVisible();
+  }
+  await expect(page.locator('[data-testid="admin-team"]', { hasText: a }).getByTestId("admin-team-logo")).toBeVisible();
+  // Members & agents: search, assign to A, then move to B through the preview.
+  await page.getByRole("tab", { name: /Members/ }).click();
+  const agentSel = page.getByTestId("assign-agent");
+  const code = await agentSel.locator("option").nth(1).getAttribute("value");
+  test.skip(!code, "No unassigned agent in the dev database");
+  await agentSel.selectOption(code!);
+  await page.getByTestId("assign-team").selectOption({ label: a });
+  await page.getByTestId("assign-submit").click();
+  await expect(page.getByText("Agent assigned.")).toBeVisible();
+  await page.getByTestId("agent-search").fill(code!);
+  await expect(page.getByTestId("admin-member")).toHaveCount(1);
+  const row = page.locator(`[data-testid="admin-member"][data-user="${code}"]`);
+  await row.getByTestId("member-transfer").click();
+  const dlg = page.getByTestId("transfer-dialog");
+  await dlg.getByTestId("transfer-team").selectOption({ label: b });
+  await expect(dlg.getByTestId("transfer-preview")).toContainText(a);
+  await expect(dlg.getByTestId("transfer-preview")).toContainText(b);
+  await expect(dlg.getByTestId("transfer-preview")).toContainText("Sales, cash awards and spins are not changed");
+  await dlg.getByTestId("transfer-confirm").click();
+  await expect(page.getByText(new RegExp(`moves to ${b}`))).toBeVisible();
+  await expect(dlg).toHaveCount(0);
+  // Same-day assignment then move = a correction (one membership), visible in the agent history.
+  await row.getByTestId("member-history").click();
+  await expect(page.getByTestId("team-history")).toBeVisible();
+  await expect(page.getByTestId("history-row").first()).toContainText(b);
+  // Clean up: remove, retire both E2E teams.
+  await page.getByRole("tab", { name: /Members/ }).click();
+  await page.getByTestId("agent-search").fill(code!);
+  page.once("dialog", (d) => void d.accept());
+  await page.locator(`[data-testid="admin-member"][data-user="${code}"]`).getByTestId("member-remove").click();
+  await expect(page.getByText(/removed from/)).toBeVisible();
+  await page.getByRole("tab", { name: "Teams" }).click();
+  for (const name of [a, b]) {
+    page.once("dialog", (d) => void d.accept());
+    await page.locator('[data-testid="admin-team-list"] [data-testid="admin-team"]', { hasText: name }).getByTestId("team-active").click();
+    await expect(page.locator('[data-testid="admin-archived-teams"] [data-testid="admin-team"]', { hasText: name })).toBeVisible();
+  }
   await ctx.close();
 });
 
