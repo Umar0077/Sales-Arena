@@ -61,10 +61,10 @@ function Crest({ src, name, color, className }: { src: string | null; name: stri
 }
 
 /**
- * The Owner's emblem on a lit glass plate. The artwork itself is never edited: visibility on the navy arena comes
- * from presentation only (a soft feathered edge, a lift in display brightness for the very dark lion, a light
- * pass and a glowing outline; the panther's transparent PNG is backlit). Motion is layered (plate, artwork and light move at different depths), not
- * character animation.
+ * The Owner's emblem on a lit glass plate. The emblems are transparent line art (black on transparent): a backlight
+ * behind them (warm for Sigma, cool for Panthers) shows them clearly on the dark arena. The artwork itself is shown
+ * as is, fitted whole (object-fit: contain). Motion is layered (plate, artwork and light move at different depths),
+ * not character animation.
  */
 function Emblem({ theme, name }: { theme: Exclude<CelebrationTheme, "crest">; name: string }) {
   const art = EMBLEM_ART[theme];

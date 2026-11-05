@@ -95,7 +95,17 @@ test("Sigma sale on Teams Arena → golden lion, official Sigma crest, real clos
   await expect(page.getByTestId("team-celebration-agent")).toHaveText("Arsam Idrees");
   await expect(page.getByTestId("team-emblem")).toHaveAttribute("data-emblem", "lion");
   await expect(page.getByTestId("team-emblem-img")).toHaveAttribute("src", "/teams/celebrations/sigma-lion-emblem.webp");
-  expect(await page.getByTestId("team-emblem-img").evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBe(1600); // the Owner's artwork loaded
+  expect(await page.getByTestId("team-emblem-img").evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBe(1332); // the Owner's artwork loaded
+  // Fitted whole, centred, never stretched: drawn size keeps the 16:9 artwork ratio inside the plate, and never upscaled.
+  const fit = await page.getByTestId("team-emblem-img").evaluate((i) => {
+    const img = i as HTMLImageElement;
+    const s = getComputedStyle(img);
+    const box = img.getBoundingClientRect();
+    const plate = img.closest(".tc-emblem-plate")!.getBoundingClientRect();
+    return { fit: s.objectFit, filter: s.filter, blend: s.mixBlendMode, inside: box.left >= plate.left - 1 && box.right <= plate.right + 1 && box.top >= plate.top - 1 && box.bottom <= plate.bottom + 1, scale: box.width / img.naturalWidth };
+  });
+  expect(fit).toMatchObject({ fit: "contain", filter: "none", blend: "normal", inside: true });
+  expect(fit.scale).toBeLessThanOrEqual(1);
   await expect(cel.getByTestId("team-celebration-crest")).toHaveAttribute("src", "/teams/team-sigma.webp");
   // Verified total: appears only once the standings refreshed past the figure at arrival.
   await expect(page.getByTestId("team-celebration-total")).toContainText("Team Sigma");
@@ -127,7 +137,7 @@ test("Panthers sale on Teams Arena → black panther, official Panthers crest; c
   await expect(page.getByTestId("team-celebration-headline")).toHaveAttribute("data-headline", "TEAM PANTHERS GOT A SALE!");
   await expect(page.getByTestId("team-emblem")).toHaveAttribute("data-emblem", "panther");
   await expect(page.getByTestId("team-emblem-img")).toHaveAttribute("src", "/teams/celebrations/panthers-panther-emblem.webp");
-  expect(await page.getByTestId("team-emblem-img").evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBe(1600);
+  expect(await page.getByTestId("team-emblem-img").evaluate((i) => (i as HTMLImageElement).naturalWidth)).toBe(1332);
   await expect(cel.getByTestId("team-celebration-crest")).toHaveAttribute("src", "/teams/team-panthers.webp");
   await expect(page.getByTestId("team-celebration-total")).toHaveCount(0); // no verified figure yet: none shown
   await page.waitForTimeout(1900);

@@ -425,8 +425,8 @@ button, input, select, textarea { font-family: inherit; }
    layered parallax, one light pass, glowing edge), tc-lite (short fade-rise, no parallax or light pass),
    tc-static (reduced motion: the final composition, opacity only). Transform / opacity only, every animation
    plays once, and everything unmounts when the celebration ends. The artwork is never edited: visibility on the
-   navy arena comes from display brightness, an inner vignette, light and the glowing edge. */
-.tc-root { --tc-w: min(66vw, 76vh, 1040px); }
+   navy arena comes from a backlight behind the transparent emblems, light and the glowing edge. */
+.tc-root { --tc-w: min(60vw, 72vh, 960px); }
 .tc-backdrop {
   background:
     radial-gradient(ellipse 50% 42% at 50% 38%, color-mix(in srgb, var(--tc-a) 20%, transparent), transparent 72%),
@@ -440,20 +440,18 @@ button, input, select, textarea { font-family: inherit; }
   background: #070A16; isolation: isolate;
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
-.tc-emblem-art { position: absolute; inset: -3%; }
-.tc-emblem-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* The lion artwork is charcoal on black: shown brighter and screened onto a deep navy plate, so its black falls
-   away into the arena and the lion reads clearly. The panther is already high-contrast: shown as is. */
+.tc-emblem-art { position: absolute; inset: 5% 4%; }
+.tc-emblem-img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }
+/* The emblems are transparent PNGs (black linework). A soft backlight behind them, brightest behind the head and
+   fading toward the plate edge, shows them crisp and clear on the dark arena: warm ivory-gold for Sigma, cool ice
+   for Panthers. The artwork itself is shown as is (no filter), fitted whole (contain), never stretched or cropped. */
 .tc-emblem-backlight { position: absolute; inset: 0; }
-.tc-theme-lion .tc-emblem-backlight { background: radial-gradient(ellipse 70% 80% at 65% 45%, #1A1630, #070A16 75%); }
-.tc-theme-lion .tc-emblem-img { filter: brightness(2.15) contrast(1.12); mix-blend-mode: screen; }
-/* The panther is a transparent PNG (black linework over a translucent haze): a cool white backlight shows it as
-   designed, a black panther lit from behind, fading to navy at the edges. */
-.tc-theme-panther .tc-emblem-backlight { background: radial-gradient(ellipse 66% 74% at 58% 47%, #F6FBFF 0%, #DDF3FF 34%, #8FB6EA 58%, #2A3A78 78%, #0A0F24 100%); }
-/* inner vignette: the rectangular photo edges melt into the plate */
+.tc-theme-lion .tc-emblem-backlight { background: radial-gradient(ellipse 88% 96% at 56% 48%, #FFFBF1 0%, #FBEED0 40%, #ECCF92 66%, #9A7640 88%, #2C2242 100%); }
+.tc-theme-panther .tc-emblem-backlight { background: radial-gradient(ellipse 88% 96% at 56% 48%, #FAFDFF 0%, #E4F4FF 40%, #AECDF3 66%, #4D68AA 88%, #18214A 100%); }
+/* soft inner vignette: the backlight melts into the plate edge */
 .tc-emblem-plate::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
-  box-shadow: inset 0 0 clamp(30px, 5vw, 90px) clamp(10px, 1.6vw, 30px) rgba(5, 8, 20, 0.92);
+  box-shadow: inset 0 0 clamp(18px, 2.6vw, 48px) clamp(2px, 0.4vw, 8px) rgba(5, 8, 20, 0.6);
 }
 /* warm / electric light from the subject side, plus one light pass */
 .tc-emblem-light {
@@ -507,8 +505,8 @@ button, input, select, textarea { font-family: inherit; }
   to { opacity: 1; transform: none; }
 }
 @keyframes tcDrift { from { transform: none; } to { transform: rotateY(3.5deg) rotateX(-1.2deg) scale(1.015); } }
-@keyframes tcArtIn { from { transform: scale(1.18) translate3d(-2%, 0, 0); } to { transform: scale(1.06); } }
-@keyframes tcParallax { from { transform: scale(1.06); } to { transform: scale(1.09) translate3d(-1.6%, -0.6%, 0); } }
+@keyframes tcArtIn { from { transform: scale(1.06) translate3d(-1.5%, 0, 0); } to { transform: none; } }
+@keyframes tcParallax { from { transform: none; } to { transform: scale(1.025) translate3d(-1%, -0.4%, 0); } }
 @keyframes tcBacklight { from { opacity: 0.15; transform: scale(0.85); } to { opacity: 1; transform: none; } }
 @keyframes tcLightIn { from { opacity: 0; } to { opacity: 0.85; } }
 @keyframes tcLightPass { from { background-position: 0 0, 120% 0; } to { background-position: 0 0, -40% 0; } }
