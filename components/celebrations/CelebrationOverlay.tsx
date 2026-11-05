@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useCelebrationStore } from "@/store/celebration-store";
 import { useBonusFlowStore } from "@/store/bonus-flow-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
+import { useTeamCelebrationStore } from "@/store/team-celebration-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { audioEngine } from "@/lib/audio/engine";
 import { ConfettiCanvas } from "./ConfettiCanvas";
@@ -26,10 +27,13 @@ import {
 export function CelebrationOverlay() {
   const { current, queue, paused, advance, finishCurrent, skip, pause, resume } = useCelebrationStore();
   const settings = useSettingsStore();
+  // Teams Arena only: a team sale celebration on screen goes first (never two sale overlays at once). On every
+  // other screen the team layer is not mounted, so this is always false there.
+  const teamBusy = useTeamCelebrationStore((s) => s.current !== null);
 
   // Advance queue when current is null and queue has items
   useEffect(() => {
-    if (!current && queue.length > 0 && !paused) {
+    if (!current && queue.length > 0 && !paused && !teamBusy) {
       const next = advance();
       if (next) {
         const meta = TIERS[next.tier] || TIERS.sale;
@@ -37,7 +41,7 @@ export function CelebrationOverlay() {
         audioEngine.play(meta.sound);
       }
     }
-  }, [current, queue, paused, advance]);
+  }, [current, queue, paused, advance, teamBusy]);
 
   // A pause belongs to an open bonus popup or spin journey. If neither is open any more (an owner unmounted
   // before resuming), the pause is stale: release it so sale popups never wait for minutes.

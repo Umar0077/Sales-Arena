@@ -63,6 +63,9 @@ export const DEFAULT_SETTINGS: DisplaySettings = {
   topPerformerStyle: "podium",
 
   saleCelebrationStyle: "toast",
+  teamSaleCelebrations: true,
+  teamSaleSound: true,
+  teamSaleMotion: "full",
   announceMilestones: true,
   announceTeamTargets: true,
   spinFeatureEnabled: true,

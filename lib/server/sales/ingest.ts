@@ -7,6 +7,8 @@ const SLOW_DISCOVERY_SEC = 60;
 import { grantAutomaticSpins, readSpinSettings, type AutoGrant } from "../spins/ledger";
 import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { evaluateBonusAwards, type BonusAwardRecord } from "../rewards/engine";
+import { teamForSale } from "../teams/attribution";
+import type { BusinessClock } from "@/lib/time/business";
 
 /**
  * Stores Safe Quote validated sales in PostgreSQL (the single write path for sales).
@@ -78,6 +80,7 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
   const client = await pool.connect();
   let result: IngestResult;
   let firstSeenAt: string | null = null;
+  let clock: BusinessClock | undefined;
   try {
     await client.query("BEGIN");
 
@@ -142,6 +145,7 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
       if (source !== "backfill") {
         const cfg = (await readArenaConfig(client)).values;
         const calendar = calendarFrom(cfg);
+        clock = calendar;
         const config = {
           categories: cfg.rewardCategories as Record<string, { active: boolean; showOnArena: boolean }>,
           arenaEnabled: cfg.arenaEnabled !== false,
@@ -171,9 +175,21 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
     // `source` lets displays tell a live sale from a historical import (Arena Cub never celebrates imports).
     // Delivery timeline: validatedAt (Safe Quote) → firstSeenAt (received here) → storedAt (committed) → broadcastAt.
     const storedAt = new Date().toISOString();
+    // Teams Arena presentation only: the team on the sale's business day, by user_code (one indexed read-only
+    // query AFTER the commit, so it can never block or undo the sale). A failed lookup leaves `team` out and
+    // displays fall back to the existing sale popup; null means the agent had no team that day.
+    let team: Awaited<ReturnType<typeof teamForSale>> | undefined;
+    try {
+      team = await teamForSale(pool, userCode, validatedAt, clock);
+    } catch {
+      team = undefined;
+    }
     const saleBroadcastAt = new Date().toISOString();
     traceBroadcast("sale", caseId, { source, validatedAt: validatedAt.toISOString(), firstSeenAt, storedAt, broadcastAt: saleBroadcastAt });
-    arenaBroadcaster.broadcast("sale.validated", { caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source, firstSeenAt, storedAt, broadcastAt: saleBroadcastAt });
+    arenaBroadcaster.broadcast("sale.validated", {
+      caseId, userCode, closerName, validatedAt: validatedAt.toISOString(), source, firstSeenAt, storedAt, broadcastAt: saleBroadcastAt,
+      ...(team !== undefined ? { team } : {}),
+    });
     // Slow discovery (Safe Quote validated it long before this server learned of it): logged once, no customer data.
     const discoverySec = firstSeenAt ? (new Date(firstSeenAt).getTime() - validatedAt.getTime()) / 1000 : 0;
     if (source !== "backfill" && discoverySec > SLOW_DISCOVERY_SEC)

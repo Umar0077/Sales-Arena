@@ -259,3 +259,39 @@ export const CUB_SOUNDS: Record<CubSound, () => Float32Array> = {
     return m.space(0.22).finish(0.6);
   },
 };
+
+/**
+ * Teams Arena sale stingers (original, synthesized here; nothing licensed or sampled).
+ *  royal:    Sigma, golden lion: timpani hit + a broad brass major chord + bright bells.
+ *  electric: Panthers: a rising zap and noise sweep, a punchy hit, quick ascending brass stabs.
+ *  neutral:  any other team: one hit and a short bright arpeggio.
+ */
+export type TeamStinger = "royal" | "electric" | "neutral";
+export const TEAM_STINGERS: Record<TeamStinger, () => Float32Array> = {
+  royal: () => {
+    const m = new Mixer(2.4);
+    m.boom(0, 0.7, 120, 38, 0.5).boom(0.42, 0.6, 105, 36, 0.38);
+    [-21, -14, -9, -5, -2].forEach((n, i) => m.tone(NOTE(n), 0.04 + i * 0.01, 0.55, { wave: "brass", gain: 0.075, attack: 0.03, release: 0.3 }));
+    [-17, -10, -5, -1, 2, 7].forEach((n) => m.tone(NOTE(n), 0.46, 1.7, { wave: "brass", gain: 0.07, attack: 0.05, release: 1.2, vibrato: 0.003 }));
+    [14, 19, 23, 26].forEach((n, i) => m.pluck(NOTE(n), 0.5 + i * 0.06, 1.4, 0.1, "bell", 2.6));
+    m.noise(0.42, 1.4, { gain: 0.04, from: 7000, to: 2500, highpass: true });
+    return m.space(0.3).finish(0.85);
+  },
+  electric: () => {
+    const m = new Mixer(1.9);
+    m.noise(0, 0.4, { gain: 0.16, from: 600, to: 9000, attack: 0.25, highpass: true, seed: 21 });
+    m.tone(NOTE(-12), 0, 0.38, { wave: "triangle", gain: 0.12, attack: 0.2, glideTo: NOTE(24) });
+    m.boom(0.38, 0.45, 150, 45, 0.52);
+    [-5, 0, 4, 7].forEach((n, i) => m.tone(NOTE(n), 0.4 + i * 0.075, 0.2, { wave: "brass", gain: 0.1, attack: 0.008, release: 0.12 }));
+    [-5, 0, 4, 7, 12].forEach((n) => m.tone(NOTE(n), 0.72, 0.9, { wave: "brass", gain: 0.06, attack: 0.02, release: 0.7 }));
+    m.tone(NOTE(31), 0.72, 0.18, { wave: "sine", gain: 0.06, glideTo: NOTE(19) }).tone(NOTE(33), 0.95, 0.14, { wave: "sine", gain: 0.05, glideTo: NOTE(21) });
+    return m.space(0.24).finish(0.85);
+  },
+  neutral: () => {
+    const m = new Mixer(1.5);
+    m.boom(0, 0.45, 140, 50, 0.42);
+    [0, 4, 7, 12, 16].forEach((n, i) => m.pluck(NOTE(n + 3), 0.05 + i * 0.06, 1.0, 0.16, "bell", 3.5));
+    [3, 7, 10].forEach((n) => m.tone(NOTE(n - 12), 0.08, 0.9, { wave: "brass", gain: 0.06, attack: 0.04, release: 0.7 }));
+    return m.space(0.25).finish(0.8);
+  },
+};

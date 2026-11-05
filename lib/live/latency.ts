@@ -23,6 +23,9 @@ export interface Timeline {
   storedAt?: string | null;
   broadcastAt?: string | null;
   receivedAt: string;
+  /** When this display queued its popup / celebration, and which presentation it chose (Teams Arena or standard). */
+  enqueuedAt?: string | null;
+  presentation?: "team" | "standard";
   shownAt?: string | null;
   /** How this display got it: the live stream, or the background sync after the stream missed it. */
   via?: "sse" | "sync";
@@ -42,6 +45,8 @@ export function stages(t: Timeline) {
     storedToBroadcast: ms(t.storedAt, t.broadcastAt),
     broadcastToBrowser: ms(t.broadcastAt, t.receivedAt),
     browserToPopup: ms(t.receivedAt, t.shownAt),
+    browserToEnqueue: ms(t.receivedAt, t.enqueuedAt),
+    queueWait: ms(t.enqueuedAt, t.shownAt),
     total: ms(t.validatedAt, t.shownAt ?? t.receivedAt),
   };
 }
@@ -57,6 +62,15 @@ export function noteReceived(t: Omit<Timeline, "receivedAt">): void {
   if (items.length > MAX) items.splice(0, items.length - MAX);
   expose();
   report({ kind: t.kind, key: t.key, receivedAt: toServerTime(now), via: t.via ?? "sse" });
+}
+
+/** The display queued the popup for this sale (local diagnostics only; nothing extra is sent to the server). */
+export function noteEnqueued(kind: Timeline["kind"], key: string, presentation: "team" | "standard"): void {
+  const t = items.find((x) => x.kind === kind && x.key === key);
+  if (!t || t.enqueuedAt) return;
+  t.enqueuedAt = new Date().toISOString();
+  t.presentation = presentation;
+  expose();
 }
 
 export function noteShown(kind: Timeline["kind"], key: string): void {

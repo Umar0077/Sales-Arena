@@ -9,6 +9,7 @@ import { useCelebrationStore } from "@/store/celebration-store";
 import { useArenaStore } from "@/store/arena-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useArenaModeStore } from "@/store/arena-mode-store";
+import { useTeamCelebrationStore } from "@/store/team-celebration-store";
 import { arenaBus } from "@/lib/events/bus";
 import { noteReceived, noteShown } from "@/lib/live/latency";
 import { serverOffsetMs } from "@/lib/live/sync-check";
@@ -59,6 +60,9 @@ export function RewardRuntime() {
   const active = useBonusFlowStore((s) => s.active);
   const queueLength = useBonusFlowStore((s) => s.queue.length);
   const spinStage = useSpinFlowStore((s) => s.stage);
+  // Teams Arena: a team sale celebration already on screen finishes first (a few seconds); waiting ones never
+  // start while a bonus is queued or open, so the bonus keeps its priority and the two never overlap.
+  const teamBusy = useTeamCelebrationStore((s) => s.current !== null);
   const programs = useRewardsStore((s) => s.programs);
   const currency = useSettingsStore((s) => s.currencyLabel);
   const reducedMotion = useReducedMotion();
@@ -119,12 +123,12 @@ export function RewardRuntime() {
 
   // Show the next popup when nothing else is on screen.
   useEffect(() => {
-    if (active || queueLength === 0 || spinStage !== "idle") return;
+    if (active || queueLength === 0 || spinStage !== "idle" || teamBusy) return;
     const t = setTimeout(() => {
-      if (useSpinFlowStore.getState().stage === "idle") useBonusFlowStore.getState().next();
+      if (useSpinFlowStore.getState().stage === "idle" && !useTeamCelebrationStore.getState().current) useBonusFlowStore.getState().next();
     }, 400);
     return () => clearTimeout(t);
-  }, [active, queueLength, spinStage]);
+  }, [active, queueLength, spinStage, teamBusy]);
 
   // Safety net: a bonus popup never stays up (and holds the queues) past its time, even if its own timer
   // was lost (throttled tab, interrupted animation). Normally BonusCelebration ends it first.

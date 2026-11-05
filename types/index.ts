@@ -160,6 +160,12 @@ export interface CelebrationEvent {
   createdAt: ISODate;
   /** True for previews that did not change data. */
   preview: boolean;
+  /**
+   * Live sales only: the server's team attribution (team on the sale's business day, by user_code).
+   * Absent = unknown (old server or failed lookup), null = no team that day. Used only to choose the
+   * Teams Arena presentation on a display; it never changes the sale, a bonus or a spin.
+   */
+  saleTeam?: import("@/lib/teams/celebration").SaleTeamInfo | null;
 }
 
 export type ActivityType =
@@ -297,6 +303,12 @@ export interface DisplaySettings {
 
   // ---- Celebrations & spin flow ----
   saleCelebrationStyle: SaleCelebrationStyle;
+  /** Teams Arena only: a validated sale of a competing team plays that team's celebration (instead of the sale card). */
+  teamSaleCelebrations: boolean;
+  /** Teams Arena only: the team celebration's own stinger (still follows the global sound switch and volume). */
+  teamSaleSound: boolean;
+  /** Teams Arena only: "full" mascot animation or "lite" (no particles / rays, shorter motion). */
+  teamSaleMotion: "full" | "lite";
   announceMilestones: boolean;
   announceTeamTargets: boolean;
   /** Master switch for spin rewards on the Live Arena. */

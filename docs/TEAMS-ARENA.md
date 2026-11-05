@@ -22,6 +22,54 @@ or a payment.
 Every team shows its own Top 3 under its card (fewer if it has fewer members). Archived (inactive) teams and their
 members never appear in the live competition or in the overall Top Performers.
 
+## Team sale celebrations (Teams Arena only)
+
+On a display showing **Teams Arena**, a validated sale of a competing team plays that team's celebration
+**instead of** the standard sale card: "TEAM SIGMA GOT A SALE!" with the Owner's lion emblem, "TEAM PANTHERS GOT A
+SALE!" with the Owner's panther emblem, and, for any other team (including teams created later), "{TEAM NAME} GOT A
+SALE!" with its own crest (initials when it has no logo). Always with the real closer's name; the team's validated
+total is added only once the standings have refreshed past the figure at arrival (never guessed).
+
+| Screen on this display | What a validated sale shows |
+| --- | --- |
+| Teams Arena | the team celebration (one per sale), or the standard sale card when attribution is not safe (below) |
+| Daily / Weekly / Monthly / Spin & Win | the existing sale card, unchanged |
+
+Each display decides from its own screen, so two displays can present the same sale differently.
+
+**Attribution** (server, read-only, after the sale is committed): the agent's `user_code` (never a display name) and
+the sale's business day in the configured timezone (America/New_York): the team the agent belonged to that day.
+It is sent on the existing `sale.validated` event and in the background-sync recovery list (no extra request,
+stream or timer). Uploaded logos are not sent on the event; displays use their own standings copy.
+
+| Case | Presentation |
+| --- | --- |
+| Transfer (e.g. Sigma → Panthers from Nov 5) | sale's business day before Nov 5 → Sigma, on / after → Panthers |
+| Unassigned agent | standard sale card |
+| Archived (inactive) team, or a team not on this display's standings | standard sale card (never another team's emblem) |
+| No attribution sent (lookup failed / older server) | standard sale card |
+| Duplicate display names | no effect (by user_code) |
+| Team renamed while the sale waits | the current name from the standings |
+| Team archived while the sale waits | re-checked at show time → standard sale card |
+| Late sale from Safe Quote | attributed by its own business day; shown if within the existing recovery window |
+
+**Queue**: the existing dedupe (case id) plus the celebration layer's own memory, so stream, background sync,
+reconnects, other tabs and period switches never replay a sale. One celebration at a time, in arrival order
+(~5.6 s each; Lite 4.2 s; reduced motion 3.8 s). Bonus popups keep priority: a waiting celebration never starts
+while a bonus is queued or open (it follows after), a celebration already on screen finishes first. The two never
+overlap and the bonus stays the agent's individual award (the celebration shows no money). Leaving Teams Arena
+hands any waiting celebration back to the standard sale card.
+
+**Artwork**: `public/teams/celebrations/sigma-lion-emblem.webp` and `panthers-panther-emblem.webp`, converted
+(resized to 1600 px, WebP) from the Owner's `Majestic Lion Emblem in Shadow.png` / `Stealth Panther Emblem.png`
+(kept in `assets/teams/originals/`); the artwork is not edited. Motion is layered (3D-style entrance, parallax,
+light pass, glowing edge), not character animation. The panther PNG is transparent, so it is shown on a
+backlight; the very dark lion is shown brighter on a navy plate.
+
+**Admin → Celebrations → Teams Arena sale celebrations**: on / off, sounds on / off (also follows the master
+sound, volume and the Sale category), Full / Lite, and Sigma / Panthers / other-team previews that run only on the
+Admin's own screen (no request, no sale, no award, nothing sent to displays).
+
 ## Owner: switch to Panthers vs Sigma (archive Team Alpha) and reorganise members
 
 Nothing happens automatically. In Admin → Team Management:

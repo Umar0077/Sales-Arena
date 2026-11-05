@@ -7,6 +7,10 @@ import { useCelebrationStore } from "@/store/celebration-store";
 import { useSettingsStore } from "@/store/settings-store";
 import { useSpinFlowStore } from "@/store/spin-flow-store";
 import { computeAllCredits } from "@/features/targets/eligibility";
+import { useTeamCelebrationStore } from "@/store/team-celebration-store";
+import { routeSale } from "@/lib/teams/celebration";
+import { noteEnqueued } from "@/lib/live/latency";
+import type { CelebrationEvent } from "@/types";
 import { dayKey } from "@/lib/utils";
 import type { ArenaData } from "@/lib/mock-api/schema";
 
@@ -68,6 +72,25 @@ export function detectNewUnlocks(
   return { next, unlocks };
 }
 
+const saleKey = (e: CelebrationEvent) => (e.id.startsWith("celeb_sale_") ? e.id.slice("celeb_sale_".length) : e.id);
+
+/** Queues a live sale on the Teams Arena celebration layer when routing says so. True = handled here. */
+export function routeTeamSale(event: CelebrationEvent, enabled: boolean): boolean {
+  if (event.preview) return false;
+  const team = useTeamCelebrationStore.getState();
+  const decision = routeSale(event, {
+    teamsScreen: team.mounted,
+    enabled,
+    competingTeamIds: team.latest ? new Set(team.latest.teams.map((t) => t.id)) : null,
+  });
+  if (decision.presentation !== "team" || !event.saleTeam) return false;
+  const snap = team.latest?.teams.find((t) => t.id === event.saleTeam!.id);
+  // A repeat of a sale already queued / shown here (stream + sync + another tab) is consumed silently.
+  if (team.enqueue({ event, team: event.saleTeam, baseline: snap && team.latest ? { period: team.latest.period, validated: snap.validated } : null, enqueuedAt: Date.now() }))
+    noteEnqueued("sale", saleKey(event), "team");
+  return true;
+}
+
 /** Wires store changes and bus events to the Live Arena's celebrations and spin flow. */
 export function ArenaEventBridge() {
   useEffect(() => {
@@ -88,6 +111,11 @@ export function ArenaEventBridge() {
 
     const offCelebrate = arenaBus.on("celebration:enqueue", ({ event }) => {
       const st = useSettingsStore.getState();
+      // Screen-aware presentation: on Teams Arena a sale of a competing team plays that team's celebration
+      // INSTEAD of the sale card (one presentation per sale per display). Every other screen, and any sale
+      // that cannot be attributed safely, keeps the existing sale card below, unchanged.
+      if (routeTeamSale(event, st.teamSaleCelebrations !== false)) return;
+      if (event.tier === "sale") noteEnqueued("sale", saleKey(event), "standard");
       const flowHandlesSpin = st.spinFeatureEnabled && st.spinFlowEnabled;
       if (event.tier === "spin-unlocked" && flowHandlesSpin) return;
       if (event.tier === "sale" && st.saleCelebrationStyle === "off") return;

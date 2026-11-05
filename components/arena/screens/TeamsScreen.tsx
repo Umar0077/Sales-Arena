@@ -7,6 +7,7 @@ import { useReducedMotion } from "@/lib/performance/reduced-motion";
 import { useSettingsStore } from "@/store/settings-store";
 import { AnimatedCounter } from "@/components/arena/AnimatedCounter";
 import { useTeamStandings, type TeamPeriod, type TeamStandings } from "@/lib/teams/use-team-standings";
+import { TeamSaleCelebrationLayer } from "@/components/arena/teams/TeamSaleCelebration";
 import type { RankedMember, RankedTeam, TopPerformer } from "@/lib/teams/ranking";
 import { cn } from "@/lib/utils";
 
@@ -249,6 +250,9 @@ export function TeamsScreen() {
           {data.teams.length >= 4 && <GridLayout data={data} fresh={fresh} animate={animate} />}
         </LayoutGroup>
       )}
+
+      {/* Teams-only sale celebrations (a competing team's validated sale, instead of the sale card) */}
+      <TeamSaleCelebrationLayer data={data} />
 
       <AnimatePresence>
         {takeoverTeam && (

@@ -543,4 +543,55 @@ describe("Teams Arena: PostgreSQL model, roster import, standings, Senior / Juni
     expect(inactive.body.team.active).toBe(false);
     expect((await computeStandings(pool(), "week", { closers: fakeClosers })).teams.map((t) => t.name)).toEqual(["Team Falcons"]);
   });
+  // ------------------------------------------------------------------ Teams Arena sale celebrations: attribution
+
+  it("celebration attribution: by user_code and the sale's America/New_York business day (transfer, duplicate names, unassigned, archived)", async () => {
+    const sg = await createTeam(pool(), { name: "Team Sigma", slug: "sigma", logoUrl: "/teams/team-sigma.webp" }, actor);
+    const pn = await createTeam(pool(), { name: "Team Panthers", slug: "panthers" }, actor);
+    const al = await createTeam(pool(), { name: "Team Alpha", slug: "alpha" }, actor);
+    for (const [c, n] of [["CLS-MV", "Mover"], ["CLS-D1", "Ali Khan"], ["CLS-D2", "Ali Khan"], ["CLS-UN", "Nobody"], ["CLS-AL", "Archived Member"]]) await createAgent(c, n);
+    // Mover: Sigma until (not incl.) 2026-11-05, Panthers from 2026-11-05.
+    await pool().query(`INSERT INTO team_memberships (team_id, user_code, effective_from, effective_to) VALUES ($1, 'CLS-MV', '2026-10-01', '2026-11-05'), ($2, 'CLS-MV', '2026-11-05', NULL)`, [sg.id, pn.id]);
+    await pool().query(`INSERT INTO team_memberships (team_id, user_code, effective_from) VALUES ($1, 'CLS-D1', '2026-10-01'), ($2, 'CLS-D2', '2026-10-01'), ($3, 'CLS-AL', '2026-10-01')`, [sg.id, pn.id, al.id]);
+    await updateTeam(pool(), al.id, { active: false }, actor); // archived (members stay assigned)
+    const { teamForSale, teamsForSales } = await import("@/lib/server/teams/attribution");
+    // 03:30 UTC on Nov 5 is still Nov 4 in New York: the sale belongs to the team of Nov 4 (Sigma), never "current".
+    expect((await teamForSale(pool(), "CLS-MV", "2026-11-05T03:30:00Z"))).toMatchObject({ id: sg.id, slug: "sigma", businessDate: "2026-11-04", active: true, logoUrl: "/teams/team-sigma.webp", hasLogo: true });
+    expect((await teamForSale(pool(), "cls-mv", "2026-11-05T15:00:00Z"))).toMatchObject({ id: pn.id, slug: "panthers", businessDate: "2026-11-05" });
+    expect((await teamForSale(pool(), "CLS-MV", "2026-09-15T15:00:00Z"))).toBeNull(); // before any membership
+    // Same display name, different user codes: each sale goes to its own code's team.
+    const [d1, d2, un, ar] = await teamsForSales(pool(), [
+      { userCode: "CLS-D1", validatedAt: "2026-11-05T15:00:00Z" },
+      { userCode: "CLS-D2", validatedAt: "2026-11-05T15:00:00Z" },
+      { userCode: "CLS-UN", validatedAt: "2026-11-05T15:00:00Z" },
+      { userCode: "CLS-AL", validatedAt: "2026-11-05T15:00:00Z" },
+    ]);
+    expect([d1?.slug, d2?.slug]).toEqual(["sigma", "panthers"]);
+    expect(un).toBeNull(); // unassigned
+    expect(ar).toMatchObject({ id: al.id, active: false }); // archived: reported as inactive, never moved to another team
+  });
+
+  it("celebration attribution travels on the live sale event and the background-sync recovery list; it changes no money and no data", async () => {
+    const sg = await createTeam(pool(), { name: "Team Sigma", slug: "sigma", logoUrl: `data:image/png;base64,${"A".repeat(400)}` }, actor);
+    await createAgent("CLS-EV", "Event Agent");
+    await createAgent("CLS-EV0", "No Team");
+    await assignMember(pool(), { userCode: "CLS-EV", teamId: sg.id, effectiveFrom: addDays(today(), -5) }, actor);
+    const before = { awards: await count("bonus_awards"), spins: await count("spin_credit_transactions"), memberships: await count("team_memberships") };
+    const s1 = sale("CLS-EV", minsAgo(1));
+    const s2 = sale("CLS-EV0", minsAgo(1));
+    await ingestValidatedSale(pool(), s1, "sse");
+    await ingestValidatedSale(pool(), s2, "sse");
+    await ingestValidatedSale(pool(), s1, "sse"); // duplicate delivery: no second event
+    const sales = events.filter((e) => e.type === "sale.validated").map((e) => e.payload as { caseId: string; team?: unknown; storedAt: string; broadcastAt: string });
+    expect(sales.map((p) => p.caseId)).toEqual([s1.caseId, s2.caseId]);
+    // The uploaded (data URL) logo is never pushed on every sale event: displays use their standings copy.
+    expect(sales[0].team).toMatchObject({ id: sg.id, slug: "sigma", name: "Team Sigma", active: true, logoUrl: null, hasLogo: true });
+    expect(sales[1].team).toBeNull();
+    expect(Date.parse(sales[0].broadcastAt)).toBeGreaterThanOrEqual(Date.parse(sales[0].storedAt)); // commit → broadcast measured
+    __resetSyncState();
+    const recent = (await readSyncState(pool())).recentSales;
+    expect(recent.find((r) => r.caseId === s1.caseId)?.team).toMatchObject({ id: sg.id, slug: "sigma" });
+    expect(recent.find((r) => r.caseId === s2.caseId)?.team).toBeNull();
+    expect({ awards: await count("bonus_awards"), spins: await count("spin_credit_transactions"), memberships: await count("team_memberships") }).toEqual(before);
+  });
 });

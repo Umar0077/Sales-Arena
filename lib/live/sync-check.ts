@@ -20,6 +20,8 @@ export interface RecentSale {
   validatedAt: string;
   firstSeenAt: string;
   source: string;
+  /** Teams Arena presentation (see lib/server/teams/attribution.ts). */
+  team?: import("@/lib/teams/celebration").SaleTeamInfo | null;
 }
 export interface SyncSnapshot {
   serverTime: string;

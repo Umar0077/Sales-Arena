@@ -10,6 +10,7 @@ export const GLOBAL_SETTING_KEYS = [
   "liveSyncSeconds", "teamsTabVisible",
   "rewardCategories", "announceCash", "announcePrizes", "announceAutoSpins", "announceManualSpins",
   "celebrationPopups", "intensity", "particles", "celebrationDuration", "saleCelebrationStyle", "announceMilestones",
+  "teamSaleCelebrations", "teamSaleSound", "teamSaleMotion",
   "announceTeamTargets", "spinFeatureEnabled", "spinFlowEnabled", "spinPopupTimeoutSec", "achievementHeadline",
   "achievementMessage", "achievementReward", "revealHeadline", "revealMessage", "revealStyle",
   "soundEnabled", "volume", "soundCategories",

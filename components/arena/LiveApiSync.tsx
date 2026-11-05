@@ -34,6 +34,7 @@ import { arenaBus } from "@/lib/events/bus";
 import { noteReceived } from "@/lib/live/latency";
 import { openResilientStream } from "@/lib/live/resilient-stream";
 import { getPeriodDateRange } from "@/lib/time/business";
+import { parseSaleTeam } from "@/lib/teams/celebration";
 import type { Agent, Reward, Sale } from "@/types";
 import type { CloserRow } from "@/features/sales/leads";
 
@@ -448,6 +449,9 @@ export function LiveApiSync() {
           value: (payload.premium as number) || null,
           createdAt: String(payload.validatedAt || new Date().toISOString()),
           preview: false,
+          // Team attribution from the server (stream or background sync), passed through unchanged: only the
+          // Teams Arena presentation reads it. Left out when the server did not send one (= unknown).
+          ...("team" in payload ? { saleTeam: parseSaleTeam(payload.team) } : {}),
         },
       });
       return true;

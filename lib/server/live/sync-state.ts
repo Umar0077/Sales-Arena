@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { loadWheelCatalog } from "../rewards/catalog";
+import { teamsForSales, type SaleTeam } from "../teams/attribution";
 
 /**
  * What every Live Arena display and Admin tab checks in the background (default every 15 s): small
@@ -22,6 +23,8 @@ export interface RecentSale {
   validatedAt: string;
   firstSeenAt: string;
   source: string;
+  /** Teams Arena presentation: the team on the sale's business day (null = no team; absent = lookup failed). */
+  team?: SaleTeam | null;
 }
 export interface SyncState {
   serverTime: string;
@@ -71,6 +74,11 @@ async function read(pool: Pool): Promise<SyncState> {
       .catch(() => ""),
   ]);
   const rev = (k: string) => Number(settings.rows.find((r) => r.key === k)?.rev) || 0;
+  // Same team attribution as the live sale event (one query, only when there are recent sales; a failure only
+  // means a recovered sale falls back to the standard popup).
+  const teamOf: Array<SaleTeam | null> | null = recent.rows.length
+    ? await teamsForSales(pool, recent.rows.map((r) => ({ userCode: r.user_code, validatedAt: r.validated_at }))).catch(() => null)
+    : [];
   const s = sales.rows[0] ?? {};
   const a = awards.rows[0] ?? {};
   const p = programs.rows[0] ?? {};
@@ -86,13 +94,14 @@ async function read(pool: Pool): Promise<SyncState> {
       catalog,
       teams,
     },
-    recentSales: recent.rows.map((r) => ({
+    recentSales: recent.rows.map((r, i) => ({
       caseId: r.case_id,
       userCode: r.user_code,
       closerName: r.closer_name || r.user_code,
       validatedAt: iso(r.validated_at),
       firstSeenAt: iso(r.first_seen_at),
       source: r.source,
+      ...(teamOf ? { team: teamOf[i] ?? null } : {}),
     })),
     recoveryWindowSec: RECOVERY_WINDOW_SEC,
   };
