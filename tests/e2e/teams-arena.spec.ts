@@ -51,7 +51,7 @@ async function mockStandings(page: Page) {
   return st;
 }
 
-test("Teams Arena: three ranked teams with official logos, all 30 members (zero-sale included), top 3, period switch, no reload", async ({ page }) => {
+test("Teams Arena: three ranked teams with the official crests, leader in front, top 3 per team, all-teams top 3, period switch, no reload", async ({ page }) => {
   const st = await mockStandings(page);
   await (await rig(page)).open({ lastSaleAt: minsAgo(2), values: TEAMS_ON });
   await page.getByRole("tab", { name: "Teams Arena" }).click();
@@ -68,11 +68,29 @@ test("Teams Arena: three ranked teams with official logos, all 30 members (zero-
   expect(logos.map((l) => l[0]).sort()).toEqual(["/teams/team-alpha.webp", "/teams/team-panthers.webp", "/teams/team-sigma.webp"]);
   for (const [, w] of logos) expect(Number(w)).toBeGreaterThan(0);
   await expect(cards.nth(0).getByTestId("team-validated")).toHaveAttribute("data-value", "6");
-  // Every member is listed, including the 24 with no sales.
-  await expect(page.getByTestId("member-row")).toHaveCount(30);
-  await expect(page.locator('[data-testid="member-row"][data-validated="0"]')).toHaveCount(24);
+  // Placement depth: 1st sits on the left and furthest forward (lifted, larger); 2nd and 3rd step back.
+  const boxes = await cards.evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, right: r.right }; }));
+  expect(boxes[0].x).toBeLessThan(boxes[1].x);
+  expect(boxes[1].x).toBeLessThan(boxes[2].x);
+  expect(boxes[0].y).toBeLessThan(boxes[1].y);
+  expect(boxes[1].y).toBeLessThan(boxes[2].y);
+  expect(boxes[0].w).toBeGreaterThan(boxes[1].w);
+  expect(boxes[0].right).toBeLessThanOrEqual(boxes[1].x + 1); // never overlapping
+  expect(boxes[1].right).toBeLessThanOrEqual(boxes[2].x + 1);
+  // Only the top 3 of each team, in ranking order (validated, then submitted, then name), directly under its card.
+  await expect(page.getByTestId("member-row")).toHaveCount(9);
+  const boards = page.getByTestId("team-board");
+  expect(await boards.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.team))).toEqual(["sigma", "alpha", "panthers"]);
+  for (const [i, slug] of ["sigma", "alpha", "panthers"].entries()) {
+    const rows = boards.nth(i).getByTestId("member-row");
+    await expect(rows).toHaveCount(3);
+    expect(await rows.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.rank))).toEqual(["1", "2", "3"]);
+    const expected = standings("day", st.figures).teams.find((t) => t.slug === slug)!.members.slice(0, 3).map((m) => m.userCode);
+    expect(await rows.evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.user))).toEqual(expected);
+  }
+  await expect(boards.nth(2).locator('[data-testid="member-row"][data-validated="0"]')).toHaveCount(2); // Panthers: 1 with a sale, 2 without
   await expect(page.getByTestId("team-board").first().getByTestId("designation").first()).toHaveText("SR");
-  await expect(page.locator('[data-testid="designation"]', { hasText: "JR" })).not.toHaveCount(0);
+  await expect(page.getByTestId("team-gap").nth(1)).toContainText("3 behind 1st");
   const top = page.getByTestId("top-performer");
   await expect(top).toHaveCount(3);
   await expect(top.first()).toContainText("Arsam Idrees");
@@ -241,14 +259,14 @@ for (const vp of [
     await (await rig(page)).open({ lastSaleAt: minsAgo(2), values: TEAMS_ON });
     await page.goto("/?screen=teams");
     await expect(page.getByTestId("team-card")).toHaveCount(3, { timeout: 60_000 });
-    await expect(page.getByTestId("member-row")).toHaveCount(30); // never dropped for space (internal scrolling instead)
+    await expect(page.getByTestId("member-row")).toHaveCount(9); // top 3 per team
     await expect(page.getByTestId("teams-top3")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
     if (vp.width >= 1600) {
-      // TV sizes: cards, top 3 and all three boards are on screen together.
-      for (const id of ["team-card", "team-board"]) {
-        const boxes = await page.getByTestId(id).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().top));
-        for (const top of boxes) expect(top).toBeLessThan(vp.height);
+      // TV sizes: cards, every team top 3 and the all-teams panel are fully on screen together.
+      for (const id of ["team-card", "team-board", "teams-top3"]) {
+        const bottoms = await page.getByTestId(id).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom));
+        for (const b of bottoms) expect(b).toBeLessThanOrEqual(vp.height);
       }
     }
     await page.screenshot({ path: `playwright-report/arena-cub/teams-${vp.width}x${vp.height}.png`, fullPage: vp.width < 1280 });

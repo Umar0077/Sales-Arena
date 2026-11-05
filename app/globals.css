@@ -364,20 +364,34 @@ button, input, select, textarea { font-family: inherit; }
   opacity: 0;
 }
 
-/* Teams Arena: the leading team's card breathes softly (opacity only, composited; off for reduced motion). */
-.teams-leader-glow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(245, 196, 81, 0.55), 0 0 42px -6px rgba(245, 196, 81, 0.55);
-  animation: teamsLeaderPulse 3.2s ease-in-out infinite;
+/* Teams Arena motion: composited properties only (transform / opacity); runs only inside .teams-motion,
+   which the screen omits for reduced motion and Lite mode. */
+.teams-live-ping { opacity: 0; }
+.teams-motion .teams-live-ping { animation: teamsPing 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes teamsPing {
+  0% { transform: scale(1); opacity: 0.7; }
+  80%, 100% { transform: scale(2.4); opacity: 0; }
 }
-@keyframes teamsLeaderPulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
+.teams-sweep {
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.13) 50%, rgba(255, 255, 255, 0.06) 58%, transparent);
+  transform: translateX(0) skewX(-14deg);
+  will-change: transform;
+}
+.teams-motion .teams-sweep { animation: teamsSweep 7.5s ease-in-out infinite; }
+@keyframes teamsSweep {
+  0% { transform: translateX(0) skewX(-14deg); }
+  45%, 100% { transform: translateX(430%) skewX(-14deg); }
+}
+.teams-motion .teams-crest-halo { animation: teamsHalo 16s linear infinite; }
+@keyframes teamsHalo {
+  to { transform: rotate(360deg); }
+}
+.teams-crest-pulse { opacity: 0.75; }
+.teams-motion .teams-crest-pulse { animation: teamsPulse 4.2s ease-in-out infinite; }
+@keyframes teamsPulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1.05); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .teams-leader-glow::after { animation: none; opacity: 0.6; }
+  .teams-motion .teams-live-ping, .teams-motion .teams-sweep, .teams-motion .teams-crest-halo, .teams-motion .teams-crest-pulse { animation: none; }
 }
