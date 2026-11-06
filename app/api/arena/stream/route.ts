@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
       unsubscribe = arenaBroadcaster.subscribe((event) => {
         if (event.type === "security.policy.updated") void recheck();
         let data = event.payload;
-        if (event.type === "arena.cub.action") {
+        if (event.type === "arena.cub.action" || event.type === "arena.sound.test") {
           const t = (data as { target?: { scope?: string; devices?: string[] } }).target;
           if (t?.scope === "devices") {
             if (!deviceId || !t.devices?.includes(deviceId)) return; // not for this display

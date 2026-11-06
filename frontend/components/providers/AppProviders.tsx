@@ -82,14 +82,19 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     // Always measure this device: Auto may be chosen globally at any time.
     s.setAutoQuality(detectDeviceQuality());
 
-    // Browsers only allow audio after a user gesture.
+    // Prepare audio on load: displays whose browser allows autoplay (kiosk) play sounds without any click. Others
+    // need one gesture (browser rule); every click / key re-wakes audio if the device suspended it.
+    const idle = (window as unknown as { requestIdleCallback?: (f: () => void) => void }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 800));
+    idle(() => audioEngine.autoStart());
     const unlockAudio = () => {
-      audioEngine.unlock();
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
+      if (!audioEngine.isUnlocked()) audioEngine.unlock();
     };
     window.addEventListener("pointerdown", unlockAudio);
     window.addEventListener("keydown", unlockAudio);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && audioEngine.readiness() === "resumable") void audioEngine.whenRunning();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     // Same-browser sync: an Admin tab and a Live Arena tab share localStorage,
     // so reload the store when the other tab writes. (Not cross-device.)
@@ -105,6 +110,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       cancelled = true;
       window.removeEventListener("pointerdown", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
+      document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("storage", onStorage);
       offSale();
     };

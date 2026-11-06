@@ -217,8 +217,30 @@ export function playCelebrationSound(id: CelebrationSoundId, opts: { allowed: bo
     return r;
   };
   if (!opts.allowed) return fail("muted");
-  const c = audioCtx();
-  if (!c || c.state !== "running") return fail(c && everRunning ? "suspended" : "locked");
+  const readiness = audioEngine.readiness();
+  if (readiness === "locked" || readiness === "unavailable") return fail("locked");
+  const c0 = audioCtx();
+  if (!c0 || c0.state !== "running") {
+    // Suspended (device / browser): resume first, then play only if that was quick (a late sound would mislead).
+    const requested = performance.now();
+    void audioEngine.whenRunning(600).then((ok) => {
+      const c1 = audioCtx();
+      if (!ok || !c1 || c1.state !== "running") return void fail("suspended");
+      everRunning = true;
+      watch(c1);
+      void prepareCelebrationSound(id).then((ready) => {
+        const b = decoded.get(id);
+        if (!ready || !b) return void fail("unavailable");
+        if (performance.now() - requested > LATE_LIMIT_MS + 600) {
+          stats.late++;
+          return void note(id, opts.key, "late");
+        }
+        start(c1, id, opts.key, b, requested);
+      });
+    });
+    return "played";
+  }
+  const c = c0;
   everRunning = true;
   watch(c);
   const requestedAt = performance.now();
@@ -261,6 +283,11 @@ export function stopCelebrationSound(only?: CelebrationSoundId[], fadeSec = 0.12
     stats.stopped++;
     note(v.id, v.key, "stopped");
   }
+}
+
+/** Diagnostics snapshot (Admin → Settings → Run Sound Diagnostics). */
+export function celebrationSoundDiagnostics() {
+  return { ...stats, decoded: [...decoded.keys()], active: voices.length };
 }
 
 /** Test hook. */

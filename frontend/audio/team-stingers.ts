@@ -3,6 +3,7 @@
 import { Howl, Howler } from "howler";
 import { TEAM_STINGERS, encodeWav, type TeamStinger } from "./synth";
 import type { CelebrationTheme } from "@/shared/teams/celebration";
+import { audioEngine } from "./engine";
 
 /**
  * Teams Arena celebration stingers. Built lazily (first use), one at a time, and only:
@@ -38,11 +39,18 @@ export interface StingerPrefs {
 /** Returns what happened (for diagnostics and tests): "played" or why it stayed silent. */
 export function playTeamStinger(theme: CelebrationTheme, prefs: StingerPrefs): "played" | "muted" | "locked" | "unavailable" {
   if (!prefs.soundEnabled || !prefs.saleCategory || !prefs.teamSaleSound) return "muted";
-  if (!Howler.ctx || Howler.ctx.state !== "running") return "locked";
+  const state = audioEngine.readiness();
+  if (state === "locked") return "locked";
+  if (state === "unavailable") return "unavailable";
   const howl = get(stingerFor(theme));
   if (!howl) return "unavailable";
-  if (current) current.howl.stop(current.id);
-  current = { howl, id: howl.play() };
+  const go = () => {
+    if (current) current.howl.stop(current.id);
+    current = { howl, id: howl.play() };
+  };
+  if (state === "running" && Howler.ctx?.state === "running") go();
+  // The context was suspended (device / browser): resume it first; play only if that is quick (never late).
+  else void audioEngine.whenRunning(600).then((ok) => ok && go());
   return "played";
 }
 

@@ -141,16 +141,6 @@ test("mute: with Sound effects off nothing plays (the popups still appear)", asy
   expect((await bonusLog(page)).map((r) => r.result)).toEqual(["muted"]);
 });
 
-test("autoplay: before anyone clicked the page, sounds stay silent and are never replayed later", async ({ page }) => {
-  const d = await display(page, { slugs: TWO });
-  await openScreen(page, "daily");
-  d.stream(sale("UI-SIGMA-0", "Arsam Idrees").text);
-  await expect(page.getByText("SALE VALIDATED!")).toBeVisible({ timeout: 15_000 });
-  await page.waitForTimeout(500);
-  await allowAudio(page); // a later click does not play the old sale
-  await page.waitForTimeout(800);
-  expect(await played(page)).toEqual([]);
-});
 
 test("page refresh never replays historical sounds; screen switching leaves no team sound running", async ({ page }) => {
   const d = await display(page, { slugs: TWO });
@@ -175,4 +165,64 @@ test("Spin & Win: no celebration sound plays on its own; its own sounds are unto
   await allowAudio(page);
   await page.waitForTimeout(1500);
   expect(await played(page)).toEqual([]);
+});
+
+test("root cause: after 35 s of silence (Howler used to suspend audio after 30 s) a Sigma sale and a cash bonus still play", async ({ page }) => {
+  test.setTimeout(240_000);
+  const d = await display(page, { slugs: TWO });
+  await openTeams(page, 2);
+  await allowAudio(page);
+  await page.waitForTimeout(35_000); // an office TV idle between sales
+  expect(await page.evaluate(() => (window as unknown as { Howler: { ctx: AudioContext } }).Howler.ctx.state)).toBe("running");
+  d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text);
+  await expect(page.getByTestId("team-celebration")).toHaveAttribute("data-theme", "lion", { timeout: 15_000 });
+  await page.waitForTimeout(1500);
+  expect(await played(page)).toEqual(["sigma"]);
+  const a = award("UI-PANTHERS-0", "Syed Noroz Ali Kazmi");
+  d.stream(a.text);
+  await expect(page.getByTestId("bonus-popup")).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(800);
+  expect(await played(page)).toEqual(["sigma", "bonus"]);
+});
+
+test("a context the device suspended is resumed before the next team sound and trumpet (no new click needed)", async ({ page }) => {
+  const d = await display(page, { slugs: TWO });
+  await openTeams(page, 2);
+  await allowAudio(page);
+  await page.evaluate(() => (window as unknown as { Howler: { ctx: AudioContext } }).Howler.ctx.suspend());
+  d.stream(sale("UI-PANTHERS-0", "Syed Noroz Ali Kazmi", TEAM.panthers).text);
+  await expect(page.getByTestId("team-celebration")).toHaveAttribute("data-theme", "panther", { timeout: 15_000 });
+  await page.waitForTimeout(1500);
+  expect(await played(page)).toEqual(["panthers"]);
+});
+
+test("Admin sound test on a display: one short test sound and a real acknowledgement; skipped when muted / locked; never a popup", async ({ browser }) => {
+  for (const [values, click, expectPlayed, reason] of [
+    [{}, true, true, /scheduled/],
+    [{ soundEnabled: false }, true, false, /Muted/],
+    [{}, false, true, /scheduled/], // this browser allows autoplay: no click needed since the fix
+  ] as const) {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await installSoundRecorder(page);
+    const acks: Array<{ id: string; result: { played: boolean; reason: string; readiness: string } }> = [];
+    await page.route("**/api/arena/sound-test", async (r) => {
+      acks.push(JSON.parse(r.request().postData() ?? "{}"));
+      await r.fulfill({ json: { ok: true } });
+    });
+    const d = await display(page, { slugs: TWO, values });
+    await openScreen(page, "daily");
+    if (click) await allowAudio(page);
+    const id = `st_ui_${Date.now()}`;
+    d.stream(sse("arena.sound.test", { id, target: { scope: "all" } }), 2); // redelivered: still once
+    await expect.poll(() => acks.length, { timeout: 10_000 }).toBe(1);
+    await page.waitForTimeout(1000);
+    expect(acks.length).toBe(1);
+    expect(acks[0].id).toBe(id);
+    expect(acks[0].result.played).toBe(expectPlayed);
+    expect(acks[0].result.reason).toMatch(reason);
+    expect(await played(page)).toEqual(expectPlayed ? ["sale"] : []);
+    await expect(page.getByText("SALE VALIDATED!")).toHaveCount(0);
+    await ctx.close();
+  }
 });

@@ -12,6 +12,7 @@ import { playTeamStinger } from "@/frontend/audio/team-stingers";
 import { WHEEL_THEMES } from "@/frontend/features/spins/wheel-theme";
 import { Section, Toggle, Range, Choice, GhostButton } from "@/frontend/components/admin/ui";
 import { SpinnerPreview } from "@/frontend/components/admin/SpinnerPreview";
+import { SoundDiagnostics } from "@/frontend/components/admin/SoundDiagnostics";
 import type { SoundCategory, SpinnerTheme } from "@/shared/types";
 import { cn } from "@/shared/utils";
 
@@ -152,6 +153,7 @@ export default function AppearanceSoundPage() {
           </div>
           {!s.soundEnabled && <p className="text-xs text-amber-300">Sound effects are off: previews are silent until you switch them on.</p>}
         </div>
+        <SoundDiagnostics />
       </Section>
 
       <div id="global-performance">

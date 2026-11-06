@@ -350,7 +350,7 @@ test("sound: the stinger respects mute; with sound on it plays only after the br
   for (const [values, click, expected] of [
     [{ soundEnabled: false }, true, "muted"],
     [{ teamSaleSound: false }, true, "muted"],
-    [{}, false, "locked"],
+    [{}, false, "played"], // this test browser allows autoplay: since the fix, no click is needed
     [{}, true, "played"],
   ] as const) {
     const ctx = await browser.newContext();
@@ -431,3 +431,4 @@ test("timing: on screen within ~1 s of the event reaching the display, ~5.6 s on
   expect(lat.visibleMs).toBeLessThan(7000);
   console.log(`[timing] receipt→enqueue ${lat.entry.stages.browserToEnqueue} ms, receipt→visible ${lat.entry.stages.browserToPopup} ms, on screen ${Math.round(lat.visibleMs)} ms`);
 });
+

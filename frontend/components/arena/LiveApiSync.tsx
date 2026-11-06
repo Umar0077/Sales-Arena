@@ -616,6 +616,16 @@ export function LiveApiSync() {
           // Teams Arena: an Admin changed teams / memberships / designations.
           eventSource.addEventListener("teams.updated", () => arenaBus.emit("teams:updated", {}, { broadcast: false }));
 
+          // Admin "Test Live Arena Sounds": one short test sound and a real acknowledgement (no popup, nothing created).
+          eventSource.addEventListener("arena.sound.test", (e) => {
+            try {
+              const p = JSON.parse((e as MessageEvent).data);
+              void import("@/frontend/audio/sound-test").then((m) => m.runDisplaySoundTest(p));
+            } catch {
+              /* malformed: ignored */
+            }
+          });
+
           // Arena Cub: an admin action validated, audited and broadcast by the server.
           eventSource.addEventListener("arena.cub.action", (e) => {
             try {

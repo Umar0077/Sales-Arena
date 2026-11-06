@@ -19,6 +19,17 @@ export function ArenaHeader() {
   const update = useSettingsStore((s) => s.update);
   const [time, setTime] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Browsers block sound until someone clicks / presses a key on the page: say so on the display itself.
+  const [audioLocked, setAudioLocked] = useState(false);
+  useEffect(() => {
+    const check = () => setAudioLocked(audioEngine.readiness() === "locked");
+    const t = setTimeout(check, 2500); // after the engine's own start attempt on load
+    const off = audioEngine.subscribe(check);
+    return () => {
+      clearTimeout(t);
+      off();
+    };
+  }, []);
 
   useEffect(() => {
     const fmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
@@ -79,6 +90,19 @@ export function ArenaHeader() {
             <span suppressHydrationWarning>{time || "--:--:--"}</span>
           </div>
           <DemoSpinButton />
+          {soundEnabled && audioLocked && (
+            <button
+              onClick={() => {
+                audioEngine.unlock();
+                audioEngine.play("ui");
+              }}
+              data-testid="enable-arena-audio"
+              title="This browser blocks sound until someone clicks once"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 text-xs font-semibold text-amber-200"
+            >
+              <VolumeX className="h-4 w-4" /> Enable audio
+            </button>
+          )}
           <button
             onClick={toggleSound}
             aria-pressed={soundEnabled}
