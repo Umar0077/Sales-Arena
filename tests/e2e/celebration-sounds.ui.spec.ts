@@ -1,12 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { sse } from "./cub-helpers";
 import { TWO, display, openTeams } from "./teams-ui-helpers";
+import { installSoundRecorder, playedSounds } from "./sound-recorder";
 
 /**
- * Celebration sound package, run WITHOUT a database (playwright.ui.config.ts) on SIMULATED live events: the stream
- * delivers sale / award events shaped exactly like the server's, and the real app decides which sound plays. The
- * player records every decision in window.__celebrationSounds (played / muted / locked / duplicate / stopped), so
- * the tests check what was played, when and how often. They do not judge how the audio sounds.
+ * Celebration sounds, run WITHOUT a database (playwright.ui.config.ts) on SIMULATED live events (shaped exactly like
+ * the server's). What plays is observed from outside the app (tests/e2e/sound-recorder.ts):
+ *  - validated sale → the ORIGINAL engine "sale" sound; Team Sigma / Panthers → the ORIGINAL stingers;
+ *  - cash bonus → the Owner's trumpet celebration (public/audio/celebrations/cash-bonus-trumpet.wav).
+ * The tests check what played, when and how often; they do not judge how it sounds.
  */
 test.describe.configure({ timeout: 180_000 });
 
@@ -29,12 +31,14 @@ function award(userCode: string, name: string) {
   };
   return { id: a.id, text: sse("rewards.award.created", { award: a, validatedAt: iso(now - 2000), source: "sse", firstSeenAt: iso(now - 300), broadcastAt: iso(now) }) };
 }
-type Rec = { id: string; key?: string; result: string; at: number };
-const sounds = (page: Page) => page.evaluate(() => (window as unknown as { __celebrationSounds?: Rec[] }).__celebrationSounds ?? []);
-const playedIds = async (page: Page) => (await sounds(page)).filter((r) => r.result === "played").map((r) => r.id);
-/** A person clicked the page: the app unlocks audio (browser autoplay policy). */
+type Rec = { id: string; key?: string; result: string };
+/** The bonus player's decisions. "duplicate" entries are React's development double-mount asking twice for the same
+ *  popup (the player refuses the repeat, which is the protection under test); actual playback is checked by played(). */
+const bonusLog = async (page: Page) => (await page.evaluate(() => (window as unknown as { __celebrationSounds?: Rec[] }).__celebrationSounds ?? [])).filter((r) => r.result !== "duplicate");
+/** Notification sounds only (interface clicks on the screen selector are not notifications). */
+const played = async (page: Page) => (await playedSounds(page)).filter((n) => n !== "other:0.1s");
 const allowAudio = async (page: Page) => {
-  await page.mouse.click(5, 300);
+  await page.mouse.click(5, 300); // a person clicked the page: the app unlocks audio (browser autoplay policy)
   await page.waitForTimeout(500);
 };
 async function openScreen(page: Page, mode: string) {
@@ -42,93 +46,99 @@ async function openScreen(page: Page, mode: string) {
   await expect(page.locator(`[data-arena-mode="${mode}"]`)).toBeVisible({ timeout: 120_000 });
   await page.waitForTimeout(1200);
 }
+test.beforeEach(async ({ page }) => installSoundRecorder(page));
 
-test("the four sound files are served as WAV audio from public/audio/celebrations", async ({ request }) => {
-  for (const f of ["sale-validated-chime", "sigma-lion-roar-victory", "panthers-big-cat-growl-victory", "cash-bonus-golden-ching"]) {
-    const r = await request.get(`http://127.0.0.1:3100/audio/celebrations/${f}.wav`);
-    expect(r.status(), f).toBe(200);
-    expect(r.headers()["content-type"]).toMatch(/audio\/(wav|x-wav|wave)/);
-    expect((await r.body()).subarray(0, 4).toString()).toBe("RIFF");
-  }
+test("only the cash bonus trumpet file is served; the old synthesized package files are gone", async ({ request }) => {
+  const r = await request.get("http://127.0.0.1:3100/audio/celebrations/cash-bonus-trumpet.wav");
+  expect(r.status()).toBe(200);
+  expect(r.headers()["content-type"]).toMatch(/audio\/(wav|x-wav|wave)/);
+  expect((await r.body()).subarray(0, 4).toString()).toBe("RIFF");
+  for (const f of ["sale-validated-chime", "sigma-lion-roar-victory", "panthers-big-cat-growl-victory", "cash-bonus-golden-ching"])
+    expect((await request.get(`http://127.0.0.1:3100/audio/celebrations/${f}.wav`)).status(), f).toBe(404);
 });
 
 for (const mode of ["daily", "weekly", "monthly"] as const) {
-  test(`${mode}: a validated sale plays the sale chime once with its popup (stream redelivery never replays it)`, async ({ page }) => {
+  test(`${mode}: a validated sale plays the ORIGINAL sale sound once with its popup (stream redelivery never replays it)`, async ({ page }) => {
     const d = await display(page, { slugs: TWO });
     await openScreen(page, mode);
     await allowAudio(page);
-    const s = sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma);
-    d.stream(s.text, 2); // delivered, then redelivered after a reconnect
+    d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text, 2); // delivered, then redelivered after a reconnect
     await expect(page.getByText("SALE VALIDATED!")).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(4000);
-    const recs = await sounds(page);
-    expect(recs.filter((r) => r.result === "played")).toEqual([expect.objectContaining({ id: "sale", key: `celeb_sale_${s.caseId}` })]);
-    expect(recs.some((r) => r.id !== "sale")).toBe(false); // no team sound off Teams Arena
+    expect(await played(page)).toEqual(["sale"]);
   });
 }
 
-test("Teams Arena: a Sigma sale plays the lion sound (and never the sale chime)", async ({ page }) => {
+test("Teams Arena: a Sigma sale plays the ORIGINAL Sigma sound (and never the sale sound)", async ({ page }) => {
   const d = await display(page, { slugs: TWO });
   await openTeams(page, 2);
   await allowAudio(page);
   d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text);
   await expect(page.getByTestId("team-celebration")).toHaveAttribute("data-theme", "lion", { timeout: 15_000 });
-  await page.waitForTimeout(800);
-  expect(await playedIds(page)).toEqual(["sigma"]);
-  // the sound starts with the celebration (the roar enters at 0.2 s, under the emblem entrance)
-  const rec = (await sounds(page)).find((r) => r.id === "sigma")!;
-  const shownAt = await page.evaluate(() => performance.now());
-  expect(shownAt - rec.at).toBeLessThan(1500);
+  await page.waitForTimeout(1500);
+  expect(await played(page)).toEqual(["sigma"]);
+  expect(await page.evaluate(() => document.documentElement.dataset.teamStinger)).toBe("played");
 });
 
-test("Teams Arena: a Panthers sale plays the panther sound", async ({ page }) => {
+test("Teams Arena: a Panthers sale plays the ORIGINAL Panthers sound", async ({ page }) => {
   const d = await display(page, { slugs: TWO });
   await openTeams(page, 2);
   await allowAudio(page);
   d.stream(sale("UI-PANTHERS-0", "Syed Noroz Ali Kazmi", TEAM.panthers).text);
   await expect(page.getByTestId("team-celebration")).toHaveAttribute("data-theme", "panther", { timeout: 15_000 });
-  await page.waitForTimeout(800);
-  expect(await playedIds(page)).toEqual(["panthers"]);
+  await page.waitForTimeout(1500);
+  expect(await played(page)).toEqual(["panthers"]);
 });
 
-test("cash bonus: the golden sound plays once with the popup; on Teams Arena the bonus sound comes first, then the team sound", async ({ page }) => {
+test("cash bonus: the trumpet plays once with its popup; on Teams Arena the bonus comes first, then the team sound", async ({ page }) => {
   const d = await display(page, { slugs: TWO });
   await openTeams(page, 2);
   await allowAudio(page);
-  const s = sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma);
   const a = award("UI-SIGMA-0", "Arsam Idrees");
-  d.stream(s.text + a.text);
+  d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text + a.text);
   await expect(page.getByTestId("bonus-popup")).toBeVisible({ timeout: 20_000 });
-  await page.waitForTimeout(400);
-  expect(await playedIds(page)).toEqual(["bonus"]);
-  expect((await sounds(page)).find((r) => r.id === "bonus")!.key).toBe(a.id);
+  await page.waitForTimeout(500);
+  expect(await played(page)).toEqual(["bonus"]);
+  expect((await bonusLog(page)).find((r) => r.result === "played")!.key).toBe(a.id);
   await expect(page.getByTestId("team-celebration")).toBeVisible({ timeout: 30_000 });
-  await page.waitForTimeout(800);
-  expect(await playedIds(page)).toEqual(["bonus", "sigma"]); // queue order, each once
+  await page.waitForTimeout(1500);
+  expect(await played(page)).toEqual(["bonus", "sigma"]); // queue order, each once
 });
 
-test("Daily: a sale and its cash bonus each play their own sound once, the bonus following its popup", async ({ page }) => {
+test("Daily: a sale and its cash bonus each play their own sound once (original sale sound, then the trumpet)", async ({ page }) => {
   const d = await display(page, { slugs: TWO });
   await openScreen(page, "daily");
   await allowAudio(page);
   d.stream(sale("UI-PANTHERS-1", "Hamna Nasir").text + award("UI-PANTHERS-1", "Hamna Nasir").text);
   await expect(page.getByTestId("bonus-popup")).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(9000);
-  const ids = await playedIds(page);
-  expect(ids.filter((x) => x === "bonus")).toHaveLength(1);
-  expect(ids.filter((x) => x === "sale")).toHaveLength(1);
-  expect(ids.every((x) => x === "sale" || x === "bonus")).toBe(true);
+  expect(await played(page)).toEqual(["sale", "bonus"]);
+});
+
+test("a bonus popup closed early: the trumpet fades out (no hard cut, nothing carried into the next popup)", async ({ page }) => {
+  const d = await display(page, { slugs: TWO });
+  await openScreen(page, "daily");
+  await allowAudio(page);
+  d.stream(award("UI-SIGMA-1", "Sahibzada Hassan Mehboob").text);
+  await expect(page.getByTestId("bonus-popup")).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1200);
+  await page.getByTestId("bonus-popup").getByRole("button", { name: "Close" }).click();
+  await expect(page.getByTestId("bonus-popup")).toHaveCount(0);
+  await expect.poll(async () => (await bonusLog(page)).map((r) => r.result), { timeout: 5000 }).toEqual(["played", "stopped"]);
+  await page.waitForTimeout(800);
+  expect(await page.evaluate(() => (window as unknown as { __celebrationAudio: { active: number } }).__celebrationAudio.active)).toBe(0);
 });
 
 test("mute: with Sound effects off nothing plays (the popups still appear)", async ({ page }) => {
   const d = await display(page, { slugs: TWO, values: { soundEnabled: false } });
   await openTeams(page, 2);
   await allowAudio(page);
-  d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text);
-  await expect(page.getByTestId("team-celebration")).toBeVisible({ timeout: 15_000 });
-  await page.waitForTimeout(600);
-  expect(await playedIds(page)).toEqual([]);
-  expect((await sounds(page)).map((r) => r.result)).toEqual(["muted"]);
+  d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text + award("UI-SIGMA-0", "Arsam Idrees").text);
+  await expect(page.getByTestId("bonus-popup")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("team-celebration")).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(800);
+  expect(await played(page)).toEqual([]);
+  expect((await bonusLog(page)).map((r) => r.result)).toEqual(["muted"]);
 });
 
 test("autoplay: before anyone clicked the page, sounds stay silent and are never replayed later", async ({ page }) => {
@@ -137,13 +147,12 @@ test("autoplay: before anyone clicked the page, sounds stay silent and are never
   d.stream(sale("UI-SIGMA-0", "Arsam Idrees").text);
   await expect(page.getByText("SALE VALIDATED!")).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(500);
-  expect((await sounds(page)).map((r) => r.result)).toEqual(["locked"]);
   await allowAudio(page); // a later click does not play the old sale
   await page.waitForTimeout(800);
-  expect(await playedIds(page)).toEqual([]);
+  expect(await played(page)).toEqual([]);
 });
 
-test("page refresh never replays historical sounds; leaving Teams Arena stops the team sound (no orphaned audio)", async ({ page }) => {
+test("page refresh never replays historical sounds; screen switching leaves no team sound running", async ({ page }) => {
   const d = await display(page, { slugs: TWO });
   await openTeams(page, 2);
   await allowAudio(page);
@@ -152,13 +161,12 @@ test("page refresh never replays historical sounds; leaving Teams Arena stops th
   await page.waitForTimeout(300);
   await page.getByRole("tablist", { name: "Live Arena screen" }).getByRole("tab", { name: "Daily Arena" }).click();
   await expect(page.getByTestId("team-celebration")).toHaveCount(0);
-  const recs = await sounds(page);
-  expect(recs.map((r) => `${r.id}:${r.result}`)).toEqual(["panthers:played", "panthers:stopped"]);
+  expect(await played(page)).toEqual(["panthers"]);
   await page.reload();
   await expect(page.locator("[data-arena-mode]")).toBeVisible({ timeout: 120_000 });
   await allowAudio(page);
   await page.waitForTimeout(3000);
-  expect(await sounds(page)).toEqual([]);
+  expect(await played(page)).toEqual([]);
 });
 
 test("Spin & Win: no celebration sound plays on its own; its own sounds are untouched", async ({ page }) => {
@@ -166,5 +174,5 @@ test("Spin & Win: no celebration sound plays on its own; its own sounds are unto
   await openScreen(page, "spin");
   await allowAudio(page);
   await page.waitForTimeout(1500);
-  expect(await sounds(page)).toEqual([]);
+  expect(await played(page)).toEqual([]);
 });

@@ -538,3 +538,66 @@ button, input, select, textarea { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .tc-root, .tc-root * { animation: none !important; }
 }
+
+/* ---------- Weekly Top Performer ceremony (frontend/components/celebrations/WeeklyTopCelebration.tsx) ----------
+   wtp-full (rays, beams, sweep, ring pulses), wtp-lite (entrances only), wtp-static (reduced motion: opacity only).
+   Transform / opacity only; the ceremony fades itself out in its last 0.7 s (--wtp-dur). */
+.wtp-root { animation: wtpFade 0.5s ease-out both, wtpOut 0.7s calc(var(--wtp-dur) - 0.7s) ease-in both; }
+.wtp-backdrop {
+  background:
+    radial-gradient(ellipse 46% 40% at 50% 40%, rgba(255, 200, 87, 0.22), transparent 70%),
+    radial-gradient(ellipse 70% 60% at 50% 100%, rgba(117, 104, 255, 0.22), transparent 70%),
+    radial-gradient(ellipse 120% 90% at 50% 45%, rgba(8, 6, 22, 0.86) 30%, rgba(4, 4, 14, 0.95) 100%);
+}
+.wtp-rays {
+  width: 170vmax; height: 170vmax; margin: -85vmax 0 0 -85vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 210, 122, 0.085) 0deg 4deg, transparent 4deg 14deg);
+  -webkit-mask-image: radial-gradient(circle, black 4%, transparent 32%);
+  mask-image: radial-gradient(circle, black 4%, transparent 32%);
+}
+.wtp-beam {
+  width: 22vw; height: 120vh; transform-origin: 50% 100%;
+  background: linear-gradient(to top, rgba(255, 216, 130, 0.28), rgba(255, 216, 130, 0) 80%);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 45%, black 55%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 45%, black 55%, transparent);
+  opacity: 0;
+}
+.wtp-medal { width: clamp(96px, 15vh, 190px); height: clamp(96px, 15vh, 190px); }
+.wtp-ring { border: 2px solid rgba(255, 217, 120, 0.7); opacity: 0; }
+.wtp-headline { font-size: clamp(40px, min(7.4vw, 12vh), 150px); line-height: 1; letter-spacing: 0.04em; filter: drop-shadow(0 6px 26px rgba(0, 0, 0, 0.85)); }
+.wtp-headline-text { background: linear-gradient(180deg, #FFF7DA 0%, #FFE08F 45%, #E9B04A 100%); color: transparent; -webkit-background-clip: text; background-clip: text; }
+.wtp-sweep { background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, 0.65) 50%, transparent 62%); mix-blend-mode: overlay; transform: translateX(-110%); }
+.wtp-rule { width: min(520px, 60vw); height: 2px; margin: 2vh auto 1.6vh; background: linear-gradient(90deg, transparent, #F5C451, transparent); }
+.wtp-kicker { font-size: clamp(14px, min(1.6vw, 2.6vh), 30px); letter-spacing: 0.42em; }
+.wtp-name { font-size: clamp(32px, min(5.4vw, 9vh), 112px); line-height: 1.05; text-shadow: 0 4px 28px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 200, 87, 0.25); }
+.wtp-chip > span:first-child { font-size: clamp(26px, min(3.6vw, 6vh), 72px); line-height: 1; }
+.wtp-chip > span:last-child { font-size: clamp(12px, min(1.3vw, 2.2vh), 24px); }
+
+.wtp-full .wtp-rays { animation: wtpRaysIn 1.2s 0.1s ease-out both, tcSpin 40s linear infinite; }
+.wtp-full .wtp-beam-l { animation: wtpBeamL 3.2s 0.3s ease-in-out both; }
+.wtp-full .wtp-beam-r { animation: wtpBeamR 3.2s 0.5s ease-in-out both; }
+.wtp-full .wtp-medal, .wtp-lite .wtp-medal { animation: wtpDrop 0.9s 0.15s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.wtp-full .wtp-ring { animation: wtpRing 1.6s 0.9s ease-out both; }
+.wtp-full .wtp-ring-2 { animation-delay: 1.5s; }
+.wtp-full .wtp-headline, .wtp-lite .wtp-headline { animation: wtpRise 0.8s 0.55s cubic-bezier(0.2, 1, 0.3, 1) both; }
+.wtp-full .wtp-sweep { animation: wtpSweep 1.4s 1.5s ease-in-out both; }
+.wtp-full .wtp-rule, .wtp-lite .wtp-rule { animation: wtpRule 0.8s 1s ease-out both; }
+.wtp-full .wtp-kicker, .wtp-lite .wtp-kicker { animation: wtpRise 0.6s 1.15s ease-out both; }
+.wtp-full .wtp-name, .wtp-lite .wtp-name { animation: wtpRise 0.7s 1.45s cubic-bezier(0.2, 1, 0.3, 1) both; }
+.wtp-full .wtp-chip, .wtp-lite .wtp-chip { animation: wtpPop 0.6s 1.9s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.wtp-full .wtp-week, .wtp-lite .wtp-week { animation: wtpFade 0.6s 2.2s ease-out both; }
+
+@keyframes wtpFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wtpOut { from { opacity: 1; } to { opacity: 0; } }
+@keyframes wtpRaysIn { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes wtpBeamL { 0% { opacity: 0; transform: rotate(-28deg); } 30% { opacity: 1; } 100% { opacity: 0; transform: rotate(18deg); } }
+@keyframes wtpBeamR { 0% { opacity: 0; transform: rotate(28deg); } 30% { opacity: 1; } 100% { opacity: 0; transform: rotate(-18deg); } }
+@keyframes wtpDrop { from { opacity: 0; transform: translateY(-40px) scale(0.6); } to { opacity: 1; transform: none; } }
+@keyframes wtpRing { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(2.2); } }
+@keyframes wtpRise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes wtpSweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(110%); } }
+@keyframes wtpRule { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: none; } }
+@keyframes wtpPop { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .wtp-root * { animation: none !important; }
+}

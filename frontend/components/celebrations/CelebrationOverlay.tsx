@@ -9,8 +9,9 @@ import { useSpinFlowStore } from "@/frontend/stores/spin-flow-store";
 import { teamCelebrationBusy, useTeamCelebrationStore } from "@/frontend/stores/team-celebration-store";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { audioEngine } from "@/frontend/audio/engine";
-import { celebrationSoundAllowed, playCelebrationSound } from "@/frontend/audio/celebration-sounds";
 import { ConfettiCanvas } from "./ConfettiCanvas";
+import { WEEKLY_TOP_MS, WeeklyTopCelebration, useWeeklyTopMotion } from "./WeeklyTopCelebration";
+import { celebrationSoundAllowed, playCelebrationSound } from "@/frontend/audio/celebration-sounds";
 import { TIERS } from "@/frontend/features/celebrations/tiers";
 import { 
   Sparkles, 
@@ -31,20 +32,25 @@ export function CelebrationOverlay() {
   // Teams Arena only: a team sale celebration on screen goes first (never two sale overlays at once). On every
   // other screen the team layer is not mounted, so this is always false there.
   const teamBusy = useTeamCelebrationStore(teamCelebrationBusy);
+  // The Weekly Top Performer ceremony is full screen: it also waits for a running spin (never on top of Spin & Win).
+  const spinStage = useSpinFlowStore((s) => s.stage);
+  // ... and for a bonus popup that is queued, open or still fading out (the bonus goes first).
+  const bonusBusy = useBonusFlowStore((s) => s.active !== null || s.queue.length > 0 || s.exiting);
+  const weeklyTopMotion = useWeeklyTopMotion();
 
   // Advance queue when current is null and queue has items
   useEffect(() => {
+    if (queue[0]?.tier === "weekly-top" && (spinStage !== "idle" || bonusBusy)) return;
     if (!current && queue.length > 0 && !paused && !teamBusy) {
       const next = advance();
       if (next) {
         const meta = TIERS[next.tier] || TIERS.sale;
-        // Play sound corresponding to the tier. A validated sale plays the "Ta-ta-TING!" chime file (same "sale"
-        // category switch), once per sale; the other tiers keep their existing sounds.
-        if (next.tier === "sale") playCelebrationSound("sale", { allowed: celebrationSoundAllowed(meta.sound), key: next.id });
+        // Play sound corresponding to the tier (the ceremony plays the Owner's trumpet celebration, once)
+        if (next.tier === "weekly-top") playCelebrationSound("bonus", { allowed: celebrationSoundAllowed(meta.sound), key: next.id });
         else audioEngine.play(meta.sound);
       }
     }
-  }, [current, queue, paused, advance, teamBusy]);
+  }, [current, queue, paused, advance, teamBusy, spinStage, bonusBusy]);
 
   // A pause belongs to an open bonus popup or spin journey. If neither is open any more (an owner unmounted
   // before resuming), the pause is stale: release it so sale popups never wait for minutes.
@@ -62,16 +68,18 @@ export function CelebrationOverlay() {
     if (current.id.startsWith("celeb_sale_")) noteShown("sale", current.id.slice("celeb_sale_".length)); // delivery timeline
 
     const meta = TIERS[current.tier] || TIERS.sale;
-    const duration = settings.celebrationDuration * meta.durationFactor * 1000;
+    const duration = current.tier === "weekly-top" ? WEEKLY_TOP_MS[weeklyTopMotion] : settings.celebrationDuration * meta.durationFactor * 1000;
 
     const timer = setTimeout(() => {
       finishCurrent();
     }, duration);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the ceremony length is fixed when it starts
   }, [current, paused, settings.celebrationDuration, finishCurrent]);
 
   if (!current) return null;
+  if (current.tier === "weekly-top") return <WeeklyTopCelebration key={current.id} event={current} motion={weeklyTopMotion} />;
 
   const meta = TIERS[current.tier] || TIERS.sale;
   const isFullScreen = meta.fullscreen;

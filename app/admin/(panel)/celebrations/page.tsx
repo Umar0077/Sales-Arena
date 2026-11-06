@@ -5,6 +5,7 @@ import { useSettingsStore, fillTemplate } from "@/frontend/stores/settings-store
 import { Section, Toggle, Range, Choice, TextField } from "@/frontend/components/admin/ui";
 import { ArenaCubSettings } from "@/frontend/components/admin/cub/ArenaCubSettings";
 import { TeamCelebrationSettings } from "@/frontend/components/admin/teams/TeamCelebrationSettings";
+import { WeeklyTopPerformerSettings } from "@/frontend/components/admin/celebrations/WeeklyTopPerformerSettings";
 
 export default function CelebrationSettingsPage() {
   const s = useSettingsStore();
@@ -68,6 +69,8 @@ export default function CelebrationSettingsPage() {
         />
         <Toggle label="Confetti & particles" checked={s.particles} onChange={(v) => update({ particles: v })} />
       </Section>
+
+      <WeeklyTopPerformerSettings />
 
       <TeamCelebrationSettings />
 

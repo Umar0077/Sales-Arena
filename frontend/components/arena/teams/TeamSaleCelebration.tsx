@@ -12,7 +12,6 @@ import { useReducedMotion } from "@/frontend/performance/reduced-motion";
 import { noteShown } from "@/frontend/live/latency";
 import { audioEngine } from "@/frontend/audio/engine";
 import { playTeamStinger, stopTeamStinger } from "@/frontend/audio/team-stingers";
-import { prepareCelebrationSound } from "@/frontend/audio/celebration-sounds";
 import { computeFrameStats, type FrameStats } from "@/frontend/performance/frame-monitor";
 import { useLiteDisplay } from "@/frontend/performance/lite";
 import { whenExitStalled } from "@/frontend/performance/exit-recovery";
@@ -256,12 +255,15 @@ function useDocumentVisible(): boolean {
 }
 
 /** Frame pacing while a celebration plays (a rAF sampler that runs only during the celebration). */
-function measureFrames(): () => { stats: FrameStats; hidden: boolean } {
+function measureFrames(): () => { stats: FrameStats; hidden: boolean; elapsedMs: number; frames: number } {
   const deltas: number[] = [];
+  const startedAt = performance.now();
+  let frames = 0;
   let last = 0;
   let raf = 0;
   let hidden = document.visibilityState === "hidden";
   const frame = (t: number) => {
+    frames++;
     if (last) deltas.push(t - last);
     last = t;
     raf = requestAnimationFrame(frame);
@@ -274,19 +276,20 @@ function measureFrames(): () => { stats: FrameStats; hidden: boolean } {
   return () => {
     cancelAnimationFrame(raf);
     document.removeEventListener("visibilitychange", onVis);
-    return { stats: computeFrameStats(deltas, deltas.length), hidden };
+    return { stats: computeFrameStats(deltas, deltas.length), hidden, elapsedMs: performance.now() - startedAt, frames };
   };
 }
 const recentFps: number[] = [];
 /** Measured, not assumed: two of the last three celebrations below ~40 fps (visible, ≥ 2 s measured) → Lite from then on. */
-function recordFrames(r: { stats: FrameStats; hidden: boolean }) {
-  const w = window as unknown as { __celebrationFrames?: Array<FrameStats & { hidden: boolean }> };
-  (w.__celebrationFrames ??= []).push({ ...r.stats, hidden: r.hidden });
+function recordFrames(r: { stats: FrameStats; hidden: boolean; elapsedMs: number; frames: number }) {
+  // Frames drawn per second of the celebration's real time: a display that drew few or NO frames while it was on
+  // screen is exactly the one to detect (0 fps counts). Hidden tabs draw nothing by design and are not measured.
+  const fps = r.elapsedMs > 0 ? (r.frames * 1000) / r.elapsedMs : 0;
+  const w = window as unknown as { __celebrationFrames?: Array<FrameStats & { hidden: boolean; measuredFps: number }> };
+  (w.__celebrationFrames ??= []).push({ ...r.stats, avgFps: fps, hidden: r.hidden, measuredFps: fps });
   if (w.__celebrationFrames.length > 30) w.__celebrationFrames.shift();
-  // Valid when the tab stayed visible and at least 2 s of frames were seen (a very slow PC draws few frames: that
-  // is exactly the case to detect, so the frame COUNT is not the criterion).
-  if (r.hidden || r.stats.samples < 2 || r.stats.samples * r.stats.frameTimeAvg < 2000) return;
-  recentFps.push(r.stats.avgFps);
+  if (r.hidden || r.elapsedMs < 2000) return;
+  recentFps.push(fps);
   if (recentFps.length > 3) recentFps.shift();
   if (recentFps.filter((f) => f < 40).length >= 2) useTeamCelebrationStore.getState().setMeasuredLite(true);
 }
@@ -317,8 +320,6 @@ export function TeamSaleCelebrationLayer({ data }: { data: TeamStandings | null 
     const st = useTeamCelebrationStore.getState();
     st.setMounted(true);
     Object.values(EMBLEM_ART).forEach((a) => void preloadImage(a.src));
-    void prepareCelebrationSound("sigma");
-    void prepareCelebrationSound("panthers");
     return () => {
       const s = useTeamCelebrationStore.getState();
       s.setMounted(false);
@@ -355,20 +356,19 @@ export function TeamSaleCelebrationLayer({ data }: { data: TeamStandings | null 
     return () => clearTimeout(t);
   }, [phase, queued, bonusBusy, spinStage, cardBusy, visible]);
 
-  // preparing → playing: artwork decoded and sound ready (bounded), then the animation and its sound start together
+  // preparing → playing: artwork decoded (bounded), then the animation and its sound start together
   useEffect(() => {
     if (phase !== "preparing" || !current) return;
     let alive = true;
     const theme = themeFor(current.team);
     const logo = useTeamCelebrationStore.getState().latest?.teams.find((t) => t.id === current.team.id)?.logoUrl ?? current.team.logoUrl;
-    const sound = theme === "lion" ? "sigma" : theme === "panther" ? "panthers" : null;
-    void within(Promise.all([preloadImage(theme === "crest" ? null : EMBLEM_ART[theme].src), preloadImage(logo), sound ? prepareCelebrationSound(sound) : null]), PREPARE_MS).then(() => {
+    void within(Promise.all([preloadImage(theme === "crest" ? null : EMBLEM_ART[theme].src), preloadImage(logo)]), PREPARE_MS).then(() => {
       const st = useTeamCelebrationStore.getState();
       if (!alive || st.current !== current || st.phase !== "preparing") return;
       st.play();
       noteShown("sale", saleKey(current.event.id));
       const s = useSettingsStore.getState();
-      const result = playTeamStinger(theme, { soundEnabled: s.soundEnabled, saleCategory: s.soundCategories?.sale !== false, teamSaleSound: s.teamSaleSound !== false }, current.event.id);
+      const result = playTeamStinger(theme, { soundEnabled: s.soundEnabled, saleCategory: s.soundCategories?.sale !== false, teamSaleSound: s.teamSaleSound !== false });
       document.documentElement.dataset.teamStinger = result; // diagnostics: played / muted / locked (autoplay)
     });
     return () => {

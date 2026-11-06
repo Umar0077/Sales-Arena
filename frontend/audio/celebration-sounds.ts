@@ -6,8 +6,10 @@ import { useSettingsStore } from "@/frontend/stores/settings-store";
 import type { SoundCategory } from "@/shared/types";
 
 /**
- * FE Sales Arena celebration sound package: four pre-rendered, original WAV files (public/audio/celebrations,
- * rendered by scripts/render-celebration-sounds.mjs). Presentation only.
+ * Cash-bonus celebration sound: the Owner's trumpet recording with a subtle celebratory background
+ * (public/audio/celebrations/cash-bonus-trumpet.wav, rendered by scripts/render-cash-bonus-sound.mjs). Presentation
+ * only. The validated-sale sound and the Sigma / Panthers team sounds are the original synthesized ones
+ * (frontend/audio/engine.ts "sale", frontend/audio/team-stingers.ts), unchanged.
  *
  * Uses the existing audio system, not a second one:
  *  - the ONE Web Audio context the audio engine already uses (Howler's), and its master gain, so the Admin sound
@@ -30,14 +32,12 @@ import type { SoundCategory } from "@/shared/types";
  *    once through the master gain.
  * Spin & Win sounds are not part of this package and are untouched.
  */
-export type CelebrationSoundId = "sale" | "sigma" | "panthers" | "bonus";
+export type CelebrationSoundId = "bonus";
 
 export const CELEBRATION_SOUNDS: Readonly<Record<CelebrationSoundId, { src: string; label: string; volume: number; core: number }>> = Object.freeze({
-  // core = seconds of the main, recognisable part (the rest is a fading tail)
-  sale: { src: "/audio/celebrations/sale-validated-chime.wav", label: "Validated sale: Ta-ta-TING!", volume: 0.85, core: 0.55 },
-  sigma: { src: "/audio/celebrations/sigma-lion-roar-victory.wav", label: "Team Sigma: lion roar victory", volume: 0.95, core: 1.6 },
-  panthers: { src: "/audio/celebrations/panthers-big-cat-growl-victory.wav", label: "Team Panthers: big-cat growl victory", volume: 0.95, core: 1.35 },
-  bonus: { src: "/audio/celebrations/cash-bonus-golden-ching.wav", label: "Cash bonus: Pa-pa-pa-CHING!", volume: 0.9, core: 1.1 },
+  // core = seconds of the main, recognisable part (the rest is a fading tail). 3 s file, well inside every bonus
+  // popup (6 / 7 / 8 s); if the popup closes first, the rest fades out (RewardRuntime).
+  bonus: { src: "/audio/celebrations/cash-bonus-trumpet.wav", label: "Cash bonus: trumpet celebration", volume: 0.9, core: 2.3 },
 });
 const IDS = Object.keys(CELEBRATION_SOUNDS) as CelebrationSoundId[];
 
@@ -242,17 +242,18 @@ export function playCelebrationSound(id: CelebrationSoundId, opts: { allowed: bo
   return "played";
 }
 
-/** Fades out what is playing (all, or only the given sounds): a left screen never leaves orphaned audio. */
-export function stopCelebrationSound(only?: CelebrationSoundId[]): void {
+/** Fades out what is playing (all, or only the given sounds) over `fadeSec`: never an abrupt cut, never orphaned audio. */
+export function stopCelebrationSound(only?: CelebrationSoundId[], fadeSec = 0.12): void {
   const c = audioCtx();
   const hit = voices.filter((v) => !only || only.includes(v.id));
   if (!hit.length) return;
+  voices = voices.filter((v) => !hit.includes(v)); // removed first, so the diagnostics see the real state
   for (const v of hit) {
     try {
       if (c) {
         v.gain.gain.setValueAtTime(v.gain.gain.value, c.currentTime);
-        v.gain.gain.linearRampToValueAtTime(0, c.currentTime + 0.12);
-        v.src.stop(c.currentTime + 0.13);
+        v.gain.gain.linearRampToValueAtTime(0, c.currentTime + fadeSec);
+        v.src.stop(c.currentTime + fadeSec + 0.01);
       } else v.src.stop();
     } catch {
       /* already ended */
@@ -260,7 +261,6 @@ export function stopCelebrationSound(only?: CelebrationSoundId[]): void {
     stats.stopped++;
     note(v.id, v.key, "stopped");
   }
-  voices = voices.filter((v) => !hit.includes(v));
 }
 
 /** Test hook. */

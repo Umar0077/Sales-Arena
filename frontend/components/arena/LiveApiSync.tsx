@@ -355,6 +355,7 @@ export function LiveApiSync() {
     isMountedRef.current = true;
     const seenSales = new Set<string>();
     const seenSpinEvents = new Set<string>();
+    const seenRecognitions = new Set<string>();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     /** When the stats / awards were last re-fetched (so the background check never repeats a live refresh). */
     let statsAt = 0;
@@ -579,6 +580,38 @@ export function LiveApiSync() {
                 scheduleLiveSync(400); // award list visibility changed
               }
             });
+
+          // Weekly Top Performer ceremony (Admin-triggered, once per week on the server): into the existing
+          // celebration queue, once per display (deduped by its id; never mirrored to other tabs, which have their own stream).
+          eventSource.addEventListener("arena.recognition.weekly_top", (e) => {
+            try {
+              const p = JSON.parse((e as MessageEvent).data);
+              const id = String(p?.id ?? "");
+              if (!id || !p?.name || seenRecognitions.has(id)) return;
+              seenRecognitions.add(id);
+              arenaBus.emit(
+                "celebration:enqueue",
+                {
+                  event: {
+                    id: `recognition_${id}`,
+                    tier: "weekly-top",
+                    headline: "CONGRATULATIONS!",
+                    subline: String(p.label ?? ""),
+                    agentId: String(p.userCode ?? ""),
+                    agentName: String(p.name),
+                    teamName: null,
+                    teamColor: null,
+                    value: Number(p.validated) || 0,
+                    createdAt: String(p.at ?? new Date().toISOString()),
+                    preview: false,
+                  },
+                },
+                { broadcast: false },
+              );
+            } catch {
+              /* malformed: ignored */
+            }
+          });
 
           // Teams Arena: an Admin changed teams / memberships / designations.
           eventSource.addEventListener("teams.updated", () => arenaBus.emit("teams:updated", {}, { broadcast: false }));

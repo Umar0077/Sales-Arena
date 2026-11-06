@@ -3,15 +3,13 @@
 import { Howl, Howler } from "howler";
 import { TEAM_STINGERS, encodeWav, type TeamStinger } from "./synth";
 import type { CelebrationTheme } from "@/shared/teams/celebration";
-import { playCelebrationSound, stopCelebrationSound, type CelebrationSoundResult } from "./celebration-sounds";
 
 /**
  * Teams Arena celebration stingers. Built lazily (first use), one at a time, and only:
  *  - once the browser has allowed audio (autoplay policy: never a burst after the first click);
  *  - with the global sound switch on, the "sale" sound category on and the Teams stinger switch on;
  *  - at the configured master volume (Howler's global volume is set by the existing audio engine).
- * Sigma and Panthers play their pre-rendered celebration files (frontend/audio/celebration-sounds.ts); any other
- * team keeps the synthesized neutral stinger below.
+ * The Daily / Weekly / Monthly sale and bonus sounds are untouched.
  */
 const howls: Partial<Record<TeamStinger, Howl>> = {};
 let current: { howl: Howl; id: number } | null = null;
@@ -37,11 +35,9 @@ export interface StingerPrefs {
   teamSaleSound: boolean;
 }
 
-/** Returns what happened (for diagnostics and tests): "played" or why it stayed silent. `key` = the sale (never replayed). */
-export function playTeamStinger(theme: CelebrationTheme, prefs: StingerPrefs, key?: string): CelebrationSoundResult {
-  const allowed = prefs.soundEnabled && prefs.saleCategory && prefs.teamSaleSound;
-  if (theme === "lion" || theme === "panther") return playCelebrationSound(theme === "lion" ? "sigma" : "panthers", { allowed, key });
-  if (!allowed) return "muted";
+/** Returns what happened (for diagnostics and tests): "played" or why it stayed silent. */
+export function playTeamStinger(theme: CelebrationTheme, prefs: StingerPrefs): "played" | "muted" | "locked" | "unavailable" {
+  if (!prefs.soundEnabled || !prefs.saleCategory || !prefs.teamSaleSound) return "muted";
   if (!Howler.ctx || Howler.ctx.state !== "running") return "locked";
   const howl = get(stingerFor(theme));
   if (!howl) return "unavailable";
@@ -53,5 +49,4 @@ export function playTeamStinger(theme: CelebrationTheme, prefs: StingerPrefs, ke
 export function stopTeamStinger(): void {
   if (current) current.howl.stop(current.id);
   current = null;
-  stopCelebrationSound(["sigma", "panthers"]);
 }

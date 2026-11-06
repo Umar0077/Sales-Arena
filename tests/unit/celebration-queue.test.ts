@@ -99,3 +99,18 @@ describe("Lite display rule", () => {
     expect(isLiteDisplay({ quality: "high", autoQuality: "low" }, true)).toBe(false); // an explicit choice wins
   });
 });
+
+describe("Weekly Top Performer ceremony in the existing celebration queue", () => {
+  it("goes ahead of queued sale cards, never drops them, and stays out of the Admin test-trigger list", async () => {
+    const { insertByPriority } = await import("@/frontend/stores/celebration-store");
+    const { TIERS, TIER_ORDER } = await import("@/frontend/features/celebrations/tiers");
+    const card = (id: string, tier: CelebrationEvent["tier"]): CelebrationEvent => ({ ...ev(id), tier, saleTeam: undefined });
+    let q = insertByPriority([], card("s1", "sale")).queue;
+    q = insertByPriority(q, card("s2", "sale")).queue;
+    q = insertByPriority(q, card("wt", "weekly-top")).queue;
+    expect(q.map((e) => e.id)).toEqual(["celeb_sale_wt", "celeb_sale_s1", "celeb_sale_s2"]);
+    expect(TIERS["weekly-top"]).toMatchObject({ priority: 7, fullscreen: true });
+    expect(Math.max(...TIER_ORDER.map((t) => TIERS[t].priority))).toBeLessThan(TIERS["weekly-top"].priority);
+    expect(TIER_ORDER).not.toContain("weekly-top");
+  });
+});

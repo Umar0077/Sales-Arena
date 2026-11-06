@@ -145,7 +145,9 @@ export type CelebrationTier =
   | "spin-unlocked"
   | "top-performer"
   | "team-target"
-  | "special";
+  | "special"
+  /** Admin-triggered Weekly Top Performer ceremony (recognition only, no reward). */
+  | "weekly-top";
 
 export interface CelebrationEvent {
   id: ID;

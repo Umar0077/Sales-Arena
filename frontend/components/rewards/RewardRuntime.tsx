@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { useArenaModeStore } from "@/frontend/stores/arena-mode-store";
 import { teamCelebrationBusy, useTeamCelebrationStore } from "@/frontend/stores/team-celebration-store";
 import { whenExitStalled } from "@/frontend/performance/exit-recovery";
+import { stopCelebrationSound } from "@/frontend/audio/celebration-sounds";
 import { arenaBus } from "@/frontend/events/bus";
 import { noteReceived, noteShown } from "@/frontend/live/latency";
 import { serverOffsetMs } from "@/frontend/live/sync-check";
@@ -66,6 +67,8 @@ export function RewardRuntime() {
   // never overlap.
   const teamBusy = useTeamCelebrationStore(teamCelebrationBusy);
   const exiting = useBonusFlowStore((s) => s.exiting);
+  // The Weekly Top Performer ceremony already on screen finishes first (~9 s): never covered by a bonus popup.
+  const ceremony = useCelebrationStore((s) => s.current?.tier === "weekly-top");
   const programs = useRewardsStore((s) => s.programs);
   const currency = useSettingsStore((s) => s.currencyLabel);
   const reducedMotion = useReducedMotion();
@@ -118,6 +121,17 @@ export function RewardRuntime() {
     return unsub;
   }, []);
 
+  // A bonus popup finished (its time ran out, it was closed, or the arena went offline): if its trumpet is still
+  // playing, the rest fades out (0.45 s) instead of carrying over into the next popup. Driven by the queue's real
+  // transition, not by component unmount (which React may simulate in development).
+  useEffect(
+    () =>
+      useBonusFlowStore.subscribe((s, prev) => {
+        if (prev.active && s.active !== prev.active) stopCelebrationSound(["bonus"], 0.45);
+      }),
+    [],
+  );
+
   // Admin → "Switch Live Arena screen".
   useEffect(() => arenaBus.on("arena:mode", ({ mode }) => useArenaModeStore.getState().setPicked(mode)), []);
 
@@ -126,13 +140,18 @@ export function RewardRuntime() {
 
   // Show the next popup when nothing else is on screen.
   useEffect(() => {
-    if (active || exiting || queueLength === 0 || spinStage !== "idle" || teamBusy) return;
+    if (active || exiting || queueLength === 0 || spinStage !== "idle" || teamBusy || ceremony) return;
     const t = setTimeout(() => {
-      if (useSpinFlowStore.getState().stage === "idle" && !teamCelebrationBusy(useTeamCelebrationStore.getState()) && !useBonusFlowStore.getState().exiting)
+      if (
+        useSpinFlowStore.getState().stage === "idle" &&
+        !teamCelebrationBusy(useTeamCelebrationStore.getState()) &&
+        !useBonusFlowStore.getState().exiting &&
+        useCelebrationStore.getState().current?.tier !== "weekly-top"
+      )
         useBonusFlowStore.getState().next();
     }, 400);
     return () => clearTimeout(t);
-  }, [active, exiting, queueLength, spinStage, teamBusy]);
+  }, [active, exiting, queueLength, spinStage, teamBusy, ceremony]);
 
   // Stall recovery: the exit animation normally reports back within ~0.3 s; if it never does (hidden tab, frozen
   // page) the queue is released, but a slow exit on a visible page is never cut short (frontend/performance/exit-recovery.ts).

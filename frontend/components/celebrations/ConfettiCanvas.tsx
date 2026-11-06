@@ -18,6 +18,8 @@ interface Particle {
 }
 
 const COLORS = ["#7568FF", "#27D5FF", "#36E0B5", "#FFC857", "#FF647C", "#FFFFFF"];
+/** Golden confetti for the Weekly Top Performer ceremony. */
+const GOLD = ["#FFD978", "#F5C451", "#E9B04A", "#FFF1C4", "#C98A2E", "#FFFFFF"];
 
 export function ConfettiCanvas({
   active,
@@ -46,7 +48,8 @@ export function ConfettiCanvas({
     };
     window.addEventListener("resize", onResize);
 
-    const isHighTier = tier === "team-target" || tier === "top-performer" || tier === "special";
+    const isHighTier = tier === "team-target" || tier === "top-performer" || tier === "special" || tier === "weekly-top";
+    const palette = tier === "weekly-top" ? GOLD : COLORS;
     // Particle budget follows the display's quality (full count at High / Ultra; fewer on Performance / Lite).
     const q = settings.quality === "auto" ? settings.autoQuality : settings.quality;
     const budget = Math.min(1, Math.max(0.2, QUALITY_PRESETS[q as keyof typeof QUALITY_PRESETS]?.particles ?? 1));
@@ -60,7 +63,7 @@ export function ConfettiCanvas({
         vx: (Math.random() - 0.5) * 16,
         vy: -Math.random() * 14 - 4,
         size: Math.random() * 8 + 4,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        color: palette[Math.floor(Math.random() * palette.length)],
         rotation: Math.random() * 360,
         rotationSpeed: (Math.random() - 0.5) * 12,
         opacity: 1,

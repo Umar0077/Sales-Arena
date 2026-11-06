@@ -1,55 +1,48 @@
 # Celebration sounds
 
-Four original sound effects for genuine validated sales, Teams Arena team sales and cash bonuses. Presentation
-only: no sale, bonus, spin, team or database behaviour depends on them. Spin & Win sounds are separate and
-unchanged.
+Presentation only: no sale, bonus, spin, team or database behaviour depends on them.
 
-| Sound | File (`public/audio/celebrations/`) | Length | Size | Design |
-| --- | --- | --- | --- | --- |
-| Validated sale: "Ta-ta-TING!" | `sale-validated-chime.wav` | 1.25 s | 108 KB | soft E5 pluck → B5 pluck → bright E6 metallic chime (0.18 s) → short shimmer |
-| Team Sigma: lion roar victory | `sigma-lion-roar-victory.wav` | 2.25 s | 194 KB | rising whoosh (0.0 s) → stylized lion roar (0.2 s) → cinematic impact (0.55 s) → golden bell shimmer (1.0 s) → fade 1.6–2.2 s |
-| Team Panthers: big-cat growl victory | `panthers-big-cat-growl-victory.wav` | 2.05 s | 177 KB | electric sweep (0.0 s) → stylized big-cat growl (0.2 s) → sharp whoosh (0.55 s) → electric power hit (0.85 s) → energy tail 1.35–2.05 s |
-| Cash bonus: "Pa-pa-pa-CHING!" | `cash-bonus-golden-ching.wav` | 1.75 s | 151 KB | three coins (0.01 / 0.12 / 0.23 s) → ascending flourish (0.4 s) → golden "CHING" (0.75 s) → sparkle (1.1 s) |
+| Notification | Sound | Where it comes from |
+| --- | --- | --- |
+| Validated sale (Daily / Weekly / Monthly sale card) | the original "sale" sound | synthesized by the audio engine (`frontend/audio/synth.ts` `GENERATORS.sale`), exactly as before the four-sound package (63f3fbf) |
+| Team Sigma sale on Teams Arena | the original Sigma stinger ("royal") | `frontend/audio/team-stingers.ts` / `TEAM_STINGERS.royal`, exactly as at 63f3fbf |
+| Team Panthers sale on Teams Arena | the original Panthers stinger ("electric") | `TEAM_STINGERS.electric`, exactly as at 63f3fbf |
+| Any other team's sale on Teams Arena | the original neutral stinger | `TEAM_STINGERS.neutral` |
+| Cash bonus (Daily / Weekly / Monthly) | **the Owner's trumpet recording** with a subtle celebratory background | `public/audio/celebrations/cash-bonus-trumpet.wav` |
+| Prize (non-cash) bonus | its program's existing sound | unchanged |
+| Spin & Win | its existing sounds | unchanged |
 
-All are 44.1 kHz 16-bit mono WAV, peak ≤ −2 dBFS (no clipping), loudness-matched, with fades in and out; the
-creature sounds keep their energy above ~90 Hz (clear on office speakers, no boomy sub peaks).
+`tests/unit/celebration-sounds.test.ts` pins the sample-for-sample fingerprints of the original sale and team sounds
+taken from 63f3fbf, so any change to them fails the tests.
 
-## How they were made (licensing)
+## Cash bonus trumpet
 
-Every sound is **original and fully synthesized** by `scripts/render-celebration-sounds.mjs` (plain Node, no
-samples, no recordings, no third-party audio); run `node scripts/render-celebration-sounds.mjs` to rebuild the
-same files. The lion roar and the big-cat growl are **stylized cinematic designs, not animal recordings**: a
-pitch-contoured pulse source with breath and rasp texture, shaped by vocal-tract-like formant filters, layered
-with impacts and shimmer. Licensed real roar / growl recordings were not available here; if the Owner supplies
-licensed recordings, replace the two WAVs at the same paths (no code change).
+* **Source**: `assets/audio/originals/mind_out_of_office-trumpet-blasts-sound-music-244011.mp3`, supplied by the
+  Owner (6.0 s, stereo, 44.1 kHz). The file carries no licence metadata; its name matches Pixabay's download naming
+  (author "mind_out_of_office", item 244011). Pixabay's Content License allows use inside an application, commercial
+  included, without attribution (not resale of the sound on its own). The Owner confirms the source and permission.
+* **Result**: `cash-bonus-trumpet.wav`, 3.0 s (Owner choice), 44.1 kHz 16-bit stereo, 517 KB. Rebuild with
+  `node scripts/render-cash-bonus-sound.mjs` (decodes and mixes in Playwright's Chromium; no other tool).
+* **Mix**: the trumpet recording is the dominant, unchanged sound (42 ms of leading silence trimmed, its first 3 s kept, with a
+  smooth 0.66 s fade at the end). Underneath, original layers synthesized by the script: a soft cinematic impact on the first blast,
+  short very high golden sparkles across the stereo field, and an airy uplifting texture. They are unpitched, so they
+  never clash with the trumpet's key. Measured: the background is 18.5 dB under the mix overall, 9 dB under at the impact,
+  24–26 dB under afterwards. A gentle compressor, a 38 Hz low cut (no excess bass) and a −1.5 dBFS peak limit (no
+  clipping) finish it.
+* **Timing**: it starts with the popup entrance and lasts 3 s, well inside every bonus popup (6 / 7 / 8 s), so it never
+  holds the queue. If a popup closes first (closed by hand, or the arena goes offline), the rest fades out over 0.45 s.
 
-## When each plays
+## Rules (unchanged)
 
-| Event (genuine, persisted) | Screen on this display | Sound | With |
-| --- | --- | --- | --- |
-| Validated sale | Daily / Weekly / Monthly (and any screen showing the sale card) | sale chime | the sale card's entrance |
-| Validated sale of Team Sigma | Teams Arena | Sigma lion | the lion emblem entrance; the shimmer lands with the headline |
-| Validated sale of Team Panthers | Teams Arena | Panthers | the panther emblem entrance; the hit lands just before the headline |
-| Validated sale of another team | Teams Arena | the existing neutral team stinger | the crest celebration |
-| Cash bonus award (Daily / Weekly / Monthly) | any | cash bonus | coins with the popup entrance, the "CHING" as the card lands on the amount (~0.75 s) |
-| Prize (non-cash) award | any | its existing sound (unchanged) | |
-| Spin & Win | Spin & Win | its existing sounds (unchanged) | |
-
-Submitted or unvalidated leads never play anything (only committed `sale.validated` / `rewards.award.created`
-events reach the popups).
-
-## Rules
-
-* **Existing controls**: Admin → Settings → Sound: *Sound effects* (master), *Master volume*, and the categories:
-  *Sale approved* gates the sale chime and the team sounds (team sounds also follow Admin → Celebrations →
-  *Team celebration sounds*); a bonus follows its program's sound category, as before.
-* **Autoplay**: nothing plays before someone has clicked or pressed a key on the display; a sound that could not
-  play is never replayed later.
-* **Once per event**: each sound is keyed by its event (sale case / popup / award ids); stream redelivery,
-  background-sync recovery, reconnects, re-renders and data refreshes never replay it. A page refresh never plays
-  history (the popups themselves never replay history).
-* **No stacking**: one celebration sound at a time; a new one fades the previous one out in 120 ms. Sounds follow
-  the popup queue (a bonus popup first, then the team celebration). Leaving Teams Arena stops the team sound.
-* **Previews**: Admin → Settings → Sound → *Celebration sounds* plays the exact production files on the Admin's own
-  screen (no request, no sale, bonus or spin). Admin → Celebrations keeps its Sigma / Panthers / other-team visual
-  previews, now with these sounds.
+* **Controls**: Admin → Settings → Sound: *Sound effects* (master), *Master volume* and the categories. *Sale approved*
+  gates the sale sound and the team sounds (team sounds also follow Admin → Celebrations → *Team celebration sounds*).
+  A bonus follows its program's sound category, as before.
+* **Autoplay**: nothing plays before someone has clicked or pressed a key on the display, and a sound that could not
+  play is never played later.
+* **Once per notification**: the popups play once per event (dedupe by sale case / award ids), and the trumpet is also
+  keyed by its popup.
+* **Trumpet playback**: decoded once and kept in memory; scheduled on the audio clock in the existing audio context;
+  stopped for good, never replayed late, if the browser or OS suspends audio. Details in
+  [CELEBRATION-RELIABILITY.md](CELEBRATION-RELIABILITY.md).
+* **Previews**: Admin → Settings → Sound → *Celebration sounds* plays exactly these four sounds on the Admin's own
+  screen (no request, no sale, bonus or spin).

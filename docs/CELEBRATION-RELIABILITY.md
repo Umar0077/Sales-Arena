@@ -37,15 +37,19 @@ duplicates / phase), `window.__celebrationAudio`, `window.__celebrationFrames`, 
 | Background timer throttling | End times are timestamps, re-checked when the tab becomes visible, so a throttled timer never extends a celebration. |
 | Refresh | Nothing from before the page load is replayed (unchanged rules). |
 | Stream reconnect / background sync | Redelivered or recovered events are deduplicated; never replayed. |
-| Leaving Teams Arena | The celebration on screen ends; anything not yet shown goes to the standard sale card (not lost); the team sound fades out (120 ms). |
+| Leaving Teams Arena | The celebration on screen ends; anything not yet shown goes to the standard sale card (not lost); the team stinger stops, as it always has. |
 | Standings / leaderboard refresh | Never restarts a celebration or touches its sound (keyed by sale id). |
 
 ## Audio
 
+The validated-sale sound and the team stingers are the original synthesized sounds, played by the existing audio
+engine exactly as before ([CELEBRATION-SOUNDS.md](CELEBRATION-SOUNDS.md)). The cash-bonus trumpet is a recorded file
+and uses the player below:
+
 * **One audio context**: the existing engine's (Howler's) Web Audio context and master gain (Admin sound switch,
   master volume, mute). No context per sale.
-* **Preload and cache**: the four files are fetched in the background after the page loads and decoded once audio
-  is allowed (first click); decoded buffers stay in memory. Playing never fetches or decodes again.
+* **Preload and cache**: the trumpet file is fetched in the background after the page loads and decoded once audio
+  is allowed (first click); the decoded buffer stays in memory. Playing never fetches or decodes again.
 * **Audio-clock scheduling**: `AudioBufferSourceNode.start(when)`; a busy main thread or a re-render cannot delay,
   restart or cut a sound once scheduled.
 * **Overlap**: a new sound never hard-cuts the previous one. If the previous one is in its main part, the new one
@@ -53,6 +57,9 @@ duplicates / phase), `window.__celebrationAudio`, `window.__celebrationFrames`, 
 * **Interruptions**: if the browser / OS suspends audio during a sound, that sound is stopped and not resumed or
   replayed later. A sound requested while audio is locked (no click yet) or suspended is skipped, never queued.
   Mute applies at once through the master gain. Autoplay rules and OS audio controls are respected.
+* **Bonus popup closes before the trumpet ends** (closed by hand, arena offline): the rest fades out over 0.45 s,
+  driven by the bonus queue's real "popup finished" transition. The trumpet (3 s) is well inside every bonus
+  popup, so normally it simply ends; it never holds the queue.
 * A slow PC never mutes anything automatically.
 
 ## Slow PCs and Lite mode

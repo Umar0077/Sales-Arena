@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { sse } from "./cub-helpers";
 import { MONTH, TWO, display, openTeams } from "./teams-ui-helpers";
+import { installSoundRecorder, playedSounds } from "./sound-recorder";
 
 /**
  * Celebration reliability on a SIMULATED slow PC (database-free, playwright.ui.config.ts): Chromium CPU throttling
@@ -37,6 +38,7 @@ function award(userCode: string, name: string) {
 
 /** In-page instruments (installed before the app runs). */
 async function instrument(page: Page) {
+  await installSoundRecorder(page);
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>;
     const perf = { longTasks: [] as number[], frames: [] as number[], overlaps: 0, maxStack: 0, order: [] as string[], motion: {} as Record<string, string> };
@@ -130,7 +132,9 @@ async function openDaily(page: Page) {
   await expect(page.locator('[data-arena-mode="daily"]')).toBeVisible({ timeout: 120_000 });
   await page.waitForTimeout(1200);
 }
-const playedIds = async (page: Page) => (await snap(page)).sounds.filter((r) => r.result === "played").map((r) => r.id);
+/** Notification sounds actually played, in order: original sale / Sigma / Panthers sounds and the bonus trumpet
+ *  (screen-selector clicks are interface sounds, not notifications). */
+const playedIds = async (page: Page) => (await playedSounds(page)).filter((n) => n !== "other:0.1s");
 const waitIdle = (page: Page, completed: number, timeout = 60_000) =>
   expect.poll(async () => (await snap(page)).team, { timeout }).toMatchObject({ completed, phase: "idle" });
 
@@ -278,14 +282,14 @@ test("11. tab hidden: no celebration starts while hidden (nothing dropped); show
   record("tab hidden and restored", 1, await snap(page));
 });
 
-test("12. audio context suspended mid-sound: the sound stops for good and is never replayed after resume", async ({ page }) => {
+test("12. audio context suspended mid-trumpet: the bonus sound stops for good and is never replayed after resume", async ({ page }) => {
   await instrument(page);
   const d = await display(page, { slugs: TWO });
-  await openTeams(page, 2);
+  await openDaily(page);
   await allowAudio(page);
-  d.stream(sale("UI-SIGMA-0", "Arsam Idrees", TEAM.sigma).text);
-  await expect(page.getByTestId("team-celebration")).toBeVisible({ timeout: 20_000 });
-  await page.waitForTimeout(500);
+  d.stream(award("UI-SIGMA-0", "Arsam Idrees"));
+  await expect(page.getByTestId("bonus-popup")).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(800);
   await page.evaluate(async () => {
     const ctx = (window as unknown as { Howler: { ctx: AudioContext } }).Howler?.ctx;
     await ctx.suspend();
@@ -294,9 +298,10 @@ test("12. audio context suspended mid-sound: the sound stops for good and is nev
   });
   await page.waitForTimeout(1500);
   const sn = await snap(page);
-  expect(sn.sounds.map((x) => x.result)).toEqual(["played", "interrupted"]);
+  // ("duplicate" entries are React's development double-mount asking twice for the same popup: refused, as intended)
+  expect(sn.sounds.map((x) => x.result).filter((r) => r !== "duplicate")).toEqual(["played", "interrupted"]);
+  expect(await playedIds(page)).toEqual(["bonus"]); // never replayed after the resume
   record("audio context suspended and resumed", 1, sn);
-  await waitIdle(page, 1);
 });
 
 test("15. slow artwork (2.5 s to load): the celebration still starts within its preparation limit and completes", async ({ page }) => {
@@ -332,7 +337,7 @@ test("16. leaderboard / standings updates during a celebration never restart it 
   await expect(page.getByTestId("team-celebration")).toHaveAttribute("data-marker", "same");
   await waitIdle(page, 1);
   const sn = await snap(page);
-  expect(sn.sounds.map((x) => x.result)).toEqual(["played"]);
+  expect(await playedIds(page)).toEqual(["sigma"]); // once, never restarted
   record("standings updates during a celebration", 1, sn);
 });
 
@@ -383,16 +388,13 @@ test("17 + 18. Arena Cub + celebrations while switching Teams / Daily / Weekly /
   // (handed to the standard sale card) or arrived after it closed (routed straight to the standard card): both
   // mean one standard card with one chime, never a lost or doubled notification.
   expect(sn.team).toMatchObject({ phase: "idle" });
-  const playedKeys = sn.sounds.filter((x) => x.result === "played").map((x) => `${x.id}:${x.key}`);
-  console.log(`[metrics] screen-switch sounds ${JSON.stringify(playedKeys)} queue ${JSON.stringify(sn.team)}`);
-  expect(playedKeys[0]).toBe(`sigma:celeb_sale_${a.caseId}`);
-  // the second sale: exactly once, as its own team celebration (if it had started before the switch) or as one
-  // standard sale card (handed back / routed after the switch)
-  const second = playedKeys.filter((k) => k.endsWith(`:celeb_sale_${b.caseId}`));
-  expect(second).toHaveLength(1);
-  expect(["panthers", "sale"]).toContain(second[0].split(":")[0]);
-  expect(playedKeys).toHaveLength(2);
-  expect(await page.evaluate(() => (window as unknown as { __celebrationAudio: { active: number } }).__celebrationAudio.active)).toBeLessThanOrEqual(1);
+  const names = await playedIds(page);
+  console.log(`[metrics] screen-switch sounds ${JSON.stringify(names)} queue ${JSON.stringify(sn.team)}`);
+  // the first sale: the Sigma sound once; the second sale exactly once, as its own Panthers celebration (if it had
+  // started before the switch) or as one standard sale card (handed back / routed after the switch)
+  expect(names[0]).toBe("sigma");
+  expect(names).toHaveLength(2);
+  expect(["panthers", "sale"]).toContain(names[1]);
   await expect(page.getByTestId("arena-cub")).toBeVisible();
   const m = record("Arena Cub + screen switching", 4, sn);
   expect(m.maxPopupsOnScreen).toBeLessThanOrEqual(1);

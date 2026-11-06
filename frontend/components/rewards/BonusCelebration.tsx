@@ -48,9 +48,10 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
     doneRef.current = onDone;
   });
 
-  // Sound: once per popup (keyed by its award ids), with the popup entrance. A cash award plays the
-  // "Pa-pa-pa-CHING!" file (coins with the entrance, the CHING at ~0.75 s as the card lands on the amount), gated by
-  // the same program sound-category switch as before; a prize award keeps its existing sound.
+  // Sound: once per popup (keyed by its award ids), with the popup entrance. A cash award plays the trumpet
+  // celebration, gated by the same program sound-category switch as before; a prize award keeps its existing sound.
+  // The popup keeps its own timing: if it closes before the trumpet has finished, the rest fades out (RewardRuntime,
+  // on the queue's real "popup finished" transition; no hard cut, nothing carried over to the next popup).
   const soundKey = awards.map((a) => a.id).join("|");
   const soundRef = useRef({ category: program?.sound ?? "target", cash: (last.rewardType ?? "cash") === "cash" });
   useEffect(() => {
