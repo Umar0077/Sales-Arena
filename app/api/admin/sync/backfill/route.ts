@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, writeAudit } from "@/lib/server/auth/guard";
-import { backfillSales } from "@/lib/server/sales/sync";
-import { readJson } from "@/lib/server/spins/http";
+import { requireAdmin, jsonError, requestIp, writeAudit } from "@/backend/auth/guard";
+import { backfillSales } from "@/backend/sales/sync";
+import { readJson } from "@/backend/spins/http";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;

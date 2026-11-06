@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { leadCountsByAgent, closedRate, rankClosers, closerCode } from "@/features/sales/leads";
-import { computeSpinCredit } from "@/features/targets/eligibility";
-import { detectNewUnlocks } from "@/components/arena/ArenaEventBridge";
-import { createSeedData } from "@/lib/mock-api/seed";
-import type { ArenaData } from "@/lib/mock-api/schema";
-import type { Sale, SaleStatus } from "@/types";
+import { leadCountsByAgent, closedRate, rankClosers, closerCode } from "@/shared/sales/leads";
+import { computeSpinCredit } from "@/frontend/features/targets/eligibility";
+import { detectNewUnlocks } from "@/frontend/components/arena/ArenaEventBridge";
+import { createSeedData } from "@/frontend/mock-api/seed";
+import type { ArenaData } from "@/shared/mock-api/schema";
+import type { Sale, SaleStatus } from "@/shared/types";
 
 let n = 0;
 const lead = (agentId: string, status: SaleStatus, id = `L${n++}`): Sale => ({

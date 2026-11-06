@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { readArenaConfig, readScreenSwitch } from "@/lib/server/settings/arena-config";
+import { getDbPool } from "@/database/client";
+import { readArenaConfig, readScreenSwitch } from "@/backend/settings/arena-config";
 
 export const dynamic = "force-dynamic";
 

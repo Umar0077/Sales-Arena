@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { cachedStandings, PERIODS } from "@/lib/server/teams/standings";
+import { getDbPool } from "@/database/client";
+import { cachedStandings, PERIODS } from "@/backend/teams/standings";
 
 export const dynamic = "force-dynamic";
 

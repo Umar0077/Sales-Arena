@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
-import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
-import { startPgEventBus } from "@/lib/server/events/pg-bus";
-import { deniedResponse, evaluateAccess } from "@/lib/server/security/enforce";
-import { resolveDeviceId } from "@/lib/server/auth/arena-device";
+import { safeQuoteSseConsumer } from "@/backend/safequote/sse-consumer";
+import { arenaBroadcaster } from "@/backend/events/broadcaster";
+import { startPgEventBus } from "@/backend/events/pg-bus";
+import { deniedResponse, evaluateAccess } from "@/backend/security/enforce";
+import { resolveDeviceId } from "@/backend/auth/arena-device";
 
 export const dynamic = "force-dynamic";
 

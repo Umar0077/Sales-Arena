@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { loadWheelCatalog } from "@/lib/server/rewards/catalog";
+import { getDbPool } from "@/database/client";
+import { loadWheelCatalog } from "@/backend/rewards/catalog";
 
 export const dynamic = "force-dynamic";
 

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { errorResponse } from "@/lib/server/spins/http";
-import { listAwards } from "@/lib/server/rewards/awards";
+import { requireAdmin } from "@/backend/auth/guard";
+import { errorResponse } from "@/backend/spins/http";
+import { listAwards } from "@/backend/rewards/awards";
 
 export const dynamic = "force-dynamic";
 

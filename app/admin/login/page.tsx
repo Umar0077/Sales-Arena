@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { getCurrentAdmin } from "@/lib/server/auth/guard";
-import { getDbPool } from "@/lib/server/db/client";
-import { LoginForm } from "@/components/admin/LoginForm";
+import { getCurrentAdmin } from "@/backend/auth/guard";
+import { getDbPool } from "@/database/client";
+import { LoginForm } from "@/frontend/components/admin/LoginForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Sign In — FE Sales Arena" };

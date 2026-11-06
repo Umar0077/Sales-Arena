@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { getMigrationStatus } from "@/lib/server/db/migrations";
+import { requireAdmin } from "@/backend/auth/guard";
+import { getMigrationStatus } from "@/database/migrations";
 
 export const dynamic = "force-dynamic";
 

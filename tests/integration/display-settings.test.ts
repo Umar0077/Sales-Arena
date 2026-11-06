@@ -3,7 +3,7 @@ import { GET as adminGet, PUT as adminPut } from "@/app/api/admin/display-settin
 import { GET as publicGet } from "@/app/api/arena/display-settings/route";
 import { GET as modeGet } from "@/app/api/arena/mode/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, pool, req, resetDatabase, restartPool, sessionFrom } from "./helpers";
 
 let sess: { cookie: string; csrf: string };

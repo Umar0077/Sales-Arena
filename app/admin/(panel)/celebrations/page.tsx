@@ -1,10 +1,10 @@
 "use client";
 
-import { saveSettings } from "@/lib/admin/global-settings";
-import { useSettingsStore, fillTemplate } from "@/store/settings-store";
-import { Section, Toggle, Range, Choice, TextField } from "@/components/admin/ui";
-import { ArenaCubSettings } from "@/components/admin/cub/ArenaCubSettings";
-import { TeamCelebrationSettings } from "@/components/admin/teams/TeamCelebrationSettings";
+import { saveSettings } from "@/frontend/admin/global-settings";
+import { useSettingsStore, fillTemplate } from "@/frontend/stores/settings-store";
+import { Section, Toggle, Range, Choice, TextField } from "@/frontend/components/admin/ui";
+import { ArenaCubSettings } from "@/frontend/components/admin/cub/ArenaCubSettings";
+import { TeamCelebrationSettings } from "@/frontend/components/admin/teams/TeamCelebrationSettings";
 
 export default function CelebrationSettingsPage() {
   const s = useSettingsStore();

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { closeRateOf, leaderOf, rankMembers, rankTeams, topPerformers, type MemberStats, type TeamInput } from "@/lib/teams/ranking";
-import { matchRosterName, normalizeName, type Candidate } from "@/lib/teams/matching";
-import { INITIAL_ROSTER } from "@/lib/teams/initial-roster";
-import { audienceOk } from "@/lib/server/rewards/engine";
-import { normalizeProgram, programSignature } from "@/lib/server/rewards/programs";
-import { resolveMode } from "@/store/arena-mode-store";
+import { closeRateOf, leaderOf, rankMembers, rankTeams, topPerformers, type MemberStats, type TeamInput } from "@/shared/teams/ranking";
+import { matchRosterName, normalizeName, type Candidate } from "@/shared/teams/matching";
+import { INITIAL_ROSTER } from "@/shared/teams/initial-roster";
+import { audienceOk } from "@/backend/rewards/engine";
+import { normalizeProgram, programSignature } from "@/backend/rewards/programs";
+import { resolveMode } from "@/frontend/stores/arena-mode-store";
 
 const m = (name: string, validated: number, submitted: number, designation: "senior" | "junior" | null = "senior"): MemberStats => ({
   userCode: `CLS-${name.toUpperCase().replace(/\W/g, "")}`,

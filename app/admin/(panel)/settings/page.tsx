@@ -1,17 +1,26 @@
 "use client";
 
-import { saveSettings } from "@/lib/admin/global-settings";
-import { GlobalPerformanceCard } from "@/components/admin/GlobalPerformanceCard";
+import { saveSettings } from "@/frontend/admin/global-settings";
+import { GlobalPerformanceCard } from "@/frontend/components/admin/GlobalPerformanceCard";
 import { Play, RotateCcw } from "lucide-react";
-import { useSettingsStore, DEFAULT_SETTINGS } from "@/store/settings-store";
-import { GLOBAL_SETTING_KEYS } from "@/lib/settings/global-keys";
-import type { DisplaySettings } from "@/types";
-import { audioEngine } from "@/lib/audio/engine";
-import { WHEEL_THEMES } from "@/features/spins/wheel-theme";
-import { Section, Toggle, Range, Choice, GhostButton } from "@/components/admin/ui";
-import { SpinnerPreview } from "@/components/admin/SpinnerPreview";
-import type { SoundCategory, SpinnerTheme } from "@/types";
-import { cn } from "@/lib/utils";
+import { useSettingsStore, DEFAULT_SETTINGS } from "@/frontend/stores/settings-store";
+import { GLOBAL_SETTING_KEYS } from "@/shared/settings/global-keys";
+import type { DisplaySettings } from "@/shared/types";
+import { audioEngine } from "@/frontend/audio/engine";
+import { CELEBRATION_SOUNDS, playCelebrationSound, type CelebrationSoundId } from "@/frontend/audio/celebration-sounds";
+import { WHEEL_THEMES } from "@/frontend/features/spins/wheel-theme";
+import { Section, Toggle, Range, Choice, GhostButton } from "@/frontend/components/admin/ui";
+import { SpinnerPreview } from "@/frontend/components/admin/SpinnerPreview";
+import type { SoundCategory, SpinnerTheme } from "@/shared/types";
+import { cn } from "@/shared/utils";
+
+/** Admin previews of the celebration sound package: the exact files the Live Arena plays. */
+const CELEBRATION_PREVIEWS: Array<[CelebrationSoundId, string]> = [
+  ["sale", "Preview Normal Sale Sound"],
+  ["sigma", "Preview Sigma Lion Sound"],
+  ["panthers", "Preview Panthers Sound"],
+  ["bonus", "Preview Cash Bonus Sound"],
+];
 
 const SOUND_LABELS: Record<SoundCategory, string> = {
   sale: "Sale approved",
@@ -35,7 +44,13 @@ export default function AppearanceSoundPage() {
       audioEngine.startLoop();
       audioEngine.setLoopIntensity(0.8);
       setTimeout(() => audioEngine.stopLoop(), 1200);
-    } else audioEngine.play(cat);
+    } else if (cat === "sale") previewCelebration("sale"); // the Live Arena sale popup plays the chime file
+    else audioEngine.play(cat);
+  };
+  /** Plays on this Admin screen only: no request, no sale, no bonus, no spin, nothing sent to the displays. */
+  const previewCelebration = (id: CelebrationSoundId) => {
+    audioEngine.unlock();
+    setTimeout(() => playCelebrationSound(id, { allowed: useSettingsStore.getState().soundEnabled !== false }), 60); // after the click resumed audio
   };
 
   return (
@@ -113,6 +128,22 @@ export default function AppearanceSoundPage() {
               </button>
             </div>
           ))}
+        </div>
+        <div className="space-y-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3" data-testid="celebration-sound-previews">
+          <p className="text-sm font-semibold text-white">Celebration sounds</p>
+          <p className="text-xs text-text-muted">
+            The exact sounds the Live Arena plays (sale chime, Team Sigma, Team Panthers, cash bonus). Preview plays on this screen only and creates no
+            sale, bonus or spin. They follow Sound effects, Master volume and the categories above (Sale approved for sales and team sounds; the
+            bonus program&apos;s category for bonuses). Spin &amp; Win sounds are separate and unchanged.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {CELEBRATION_PREVIEWS.map(([id, label]) => (
+              <GhostButton key={id} onClick={() => previewCelebration(id)} title={CELEBRATION_SOUNDS[id].label} data-testid={`preview-sound-${id}`} className="px-3 py-2 text-xs">
+                <Play className="h-3.5 w-3.5" /> {label}
+              </GhostButton>
+            ))}
+          </div>
+          {!s.soundEnabled && <p className="text-xs text-amber-300">Sound effects are off: previews are silent until you switch them on.</p>}
         </div>
       </Section>
 

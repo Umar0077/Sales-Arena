@@ -4,9 +4,9 @@ import { PATCH as adminPatch, DELETE as adminDelete } from "@/app/api/admin/cata
 import { POST as adminReorder } from "@/app/api/admin/catalog/reorder/route";
 import { GET as publicCatalog } from "@/app/api/arena/catalog/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { allocateManualSpins } from "@/lib/server/spins/ledger";
-import { executeSpin } from "@/lib/server/spins/execute";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { allocateManualSpins } from "@/backend/spins/ledger";
+import { executeSpin } from "@/backend/spins/execute";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, createAgent, pool, req, resetDatabase, restartPool, sessionFrom } from "./helpers";
 
 let admin: { id: string };

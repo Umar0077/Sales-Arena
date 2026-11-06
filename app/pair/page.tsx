@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { MonitorCheck } from "lucide-react";
-import { ArenaBackdrop } from "@/components/layout/ArenaBackdrop";
-import { BrandLogo } from "@/components/brand/BrandLogo";
-import { inputClass } from "@/components/admin/ui";
+import { ArenaBackdrop } from "@/frontend/components/layout/ArenaBackdrop";
+import { BrandLogo } from "@/frontend/components/brand/BrandLogo";
+import { inputClass } from "@/frontend/components/admin/ui";
 
 /** Open this page on the office TV and enter the code from Admin → Spin Management → Displays. */
 export default function PairDisplayPage() {

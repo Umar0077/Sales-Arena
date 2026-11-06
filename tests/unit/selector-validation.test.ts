@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { selectReward, seededRandom } from "@/features/spins/selector";
-import { validateReward, validateWheel } from "@/features/rewards/validation";
-import type { Reward } from "@/types";
+import { selectReward, seededRandom } from "@/frontend/features/spins/selector";
+import { validateReward, validateWheel } from "@/frontend/features/rewards/validation";
+import type { Reward } from "@/shared/types";
 
 const MOCK_REWARDS: Reward[] = [
   { id: "1", title: "Trophy", description: "", icon: "trophy", color: "#FFC857", active: true, quantity: 10, weight: 1, order: 0 },

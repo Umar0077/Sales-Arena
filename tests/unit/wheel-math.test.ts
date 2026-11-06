@@ -8,7 +8,7 @@ import {
   normalizeRotation,
   segmentSize,
   TAU,
-} from "@/features/spins/wheel-math";
+} from "@/frontend/features/spins/wheel-math";
 
 describe("Wheel Mathematics & Physics Timeline", () => {
   it("calculates segment sizes correctly", () => {

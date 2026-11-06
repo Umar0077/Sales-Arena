@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   periodWindow, zonedMidnight, selectRule, thresholdsToGrant, countingStart, validateRuleInput, autoGrantKey, type SpinRuleVersion,
-} from "@/lib/server/spins/rules";
-import { validateNewPassword, normalizeEmail } from "@/lib/server/auth/password";
-import { csrfTokenFor, safeEqual } from "@/lib/server/auth/session";
+} from "@/backend/spins/rules";
+import { validateNewPassword, normalizeEmail } from "@/backend/auth/password";
+import { csrfTokenFor, safeEqual } from "@/backend/auth/session";
 
 const NY = { timezone: "America/New_York", weekStartDay: 1 };
 

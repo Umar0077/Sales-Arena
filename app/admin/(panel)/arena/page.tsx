@@ -1,21 +1,21 @@
 "use client";
 
-import { saveSettings } from "@/lib/admin/global-settings";
+import { saveSettings } from "@/frontend/admin/global-settings";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, Gift, Disc3, RotateCcw, Upload, ExternalLink, Zap } from "lucide-react";
-import { useArenaStore, pickData } from "@/store/arena-store";
-import { useSettingsStore } from "@/store/settings-store";
-import { computeSpinCredit } from "@/features/targets/eligibility";
-import { leadCountsByAgent, closedRate } from "@/features/sales/leads";
-import { arenaBus } from "@/lib/events/bus";
-import { audioEngine } from "@/lib/audio/engine";
-import { TIERS, TIER_ORDER } from "@/features/celebrations/tiers";
-import { Section, Field, Toggle, Range, Choice, TextField, PrimaryButton, GhostButton, inputClass } from "@/components/admin/ui";
-import { adminApi } from "@/components/admin/admin-api";
-import { uid } from "@/lib/utils";
-import type { CelebrationTier, SaleStatus } from "@/types";
-import { TimeAgo } from "@/components/common/TimeAgo";
+import { useArenaStore, pickData } from "@/frontend/stores/arena-store";
+import { useSettingsStore } from "@/frontend/stores/settings-store";
+import { computeSpinCredit } from "@/frontend/features/targets/eligibility";
+import { leadCountsByAgent, closedRate } from "@/shared/sales/leads";
+import { arenaBus } from "@/frontend/events/bus";
+import { audioEngine } from "@/frontend/audio/engine";
+import { TIERS, TIER_ORDER } from "@/frontend/features/celebrations/tiers";
+import { Section, Field, Toggle, Range, Choice, TextField, PrimaryButton, GhostButton, inputClass } from "@/frontend/components/admin/ui";
+import { adminApi } from "@/frontend/components/admin/admin-api";
+import { uid } from "@/shared/utils";
+import type { CelebrationTier, SaleStatus } from "@/shared/types";
+import { TimeAgo } from "@/frontend/components/common/TimeAgo";
 
 const STATUS_LABEL: Record<SaleStatus, string> = { approved: "Validated", pending: "Pending", rejected: "Rejected", duplicate: "Duplicate" };
 const STATUS_STYLE: Record<SaleStatus, string> = {

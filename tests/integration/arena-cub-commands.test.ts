@@ -4,11 +4,11 @@ import { POST as command } from "@/app/api/admin/arena-cub/command/route";
 import { PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { GET as stream } from "@/app/api/arena/stream/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
-import { __resetCubRate, CUB_RATE } from "@/lib/server/cub/commands";
-import { deviceCookieName } from "@/lib/server/auth/arena-device";
-import { sha256 } from "@/lib/server/auth/session";
-import { DEFAULT_CUB } from "@/lib/cub/config";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
+import { __resetCubRate, CUB_RATE } from "@/backend/cub/commands";
+import { deviceCookieName } from "@/backend/auth/arena-device";
+import { sha256 } from "@/backend/auth/session";
+import { DEFAULT_CUB } from "@/shared/cub/config";
 import { createAdmin, pool, req, resetDatabase, sessionFrom } from "./helpers";
 
 /** Live Arena Cub commands: admin-only, allowlisted, permission-gated, rate-limited, audited; device targeting on the real SSE stream. */
@@ -85,7 +85,7 @@ describe("Arena Cub live commands", () => {
 
   it("rate limits per admin and a cooldown on the live greeting", async () => {
     let t = Date.now();
-    const { sendCubCommand } = await import("@/lib/server/cub/commands");
+    const { sendCubCommand } = await import("@/backend/cub/commands");
     const actor = { adminId: (await pool().query(`SELECT id FROM admin_users LIMIT 1`)).rows[0].id, ip: null, userAgent: null };
     await sendCubCommand(pool(), { action: "jump" }, actor, t);
     await expect(sendCubCommand(pool(), { action: "jump" }, actor, t + 200)).rejects.toMatchObject({ status: 429 }); // too fast

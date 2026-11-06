@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { deniedResponse, evaluateAccess } from "@/lib/server/security/enforce";
-import { recordDenied } from "@/lib/server/security/ip-policy";
+import { deniedResponse, evaluateAccess } from "@/backend/security/enforce";
+import { recordDenied } from "@/backend/security/ip-policy";
 
 /**
  * Runs before every page and API request (Node.js runtime, Next.js 16 proxy).
  *
  * 1. IP perimeter security: the trusted client IP (from Nginx) is checked against the PostgreSQL
  *    whitelist policy (cached, revision-checked). Blocked → branded 403 page / JSON 403. Static
- *    assets are never blocked. See lib/server/security/.
+ *    assets are never blocked. See backend/security/.
  * 2. Fast admin gate: no session cookie → login page (pages) or 401 (APIs). The real session check
  *    runs in app/admin/(panel)/layout.tsx and in every /api/admin handler.
  */

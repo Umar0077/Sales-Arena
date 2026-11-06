@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Target, Save, History, CalendarDays } from "lucide-react";
-import { adminApi } from "@/components/admin/admin-api";
-import { Notice, Table, fmtDate } from "@/components/admin/spins/shared";
-import { useSettingsStore } from "@/store/settings-store";
-import { periodInfo } from "@/lib/time/business";
-import { targetProgress, formatPercent, periodStartFor, periodEndFor, type TargetPeriod } from "@/lib/live/targets";
-import { cn } from "@/lib/utils";
+import { adminApi } from "@/frontend/components/admin/admin-api";
+import { Notice, Table, fmtDate } from "@/frontend/components/admin/spins/shared";
+import { useSettingsStore } from "@/frontend/stores/settings-store";
+import { periodInfo } from "@/shared/time/business";
+import { targetProgress, formatPercent, periodStartFor, periodEndFor, type TargetPeriod } from "@/shared/live/targets";
+import { cn } from "@/shared/utils";
 
 interface StoredTarget {
   periodType: TargetPeriod;

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSafeQuoteClient } from "@/lib/server/safequote/client";
-import { isDbConnected } from "@/lib/server/db/client";
-import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
-import { requireAdmin } from "@/lib/server/auth/guard";
+import { getSafeQuoteClient } from "@/backend/safequote/client";
+import { isDbConnected } from "@/database/client";
+import { safeQuoteSseConsumer } from "@/backend/safequote/sse-consumer";
+import { requireAdmin } from "@/backend/auth/guard";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);

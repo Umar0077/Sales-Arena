@@ -1,9 +1,9 @@
 "use client";
 
-import { getCsrfToken } from "@/components/admin/admin-api";
+import { getCsrfToken } from "@/frontend/components/admin/admin-api";
 
 import { useEffect, useState } from "react";
-import { useArenaStore } from "@/store/arena-store";
+import { useArenaStore } from "@/frontend/stores/arena-store";
 import { 
   Webhook, 
   CheckCircle2, 
@@ -16,7 +16,7 @@ import {
   RefreshCw,
   AlertTriangle
 } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/shared/utils";
 
 interface HealthData {
   status: string;
@@ -265,7 +265,7 @@ export default function AdminIntegrationsPage() {
           Production Integration Architecture
         </h4>
         <p className="text-xs text-muted leading-relaxed">
-          The Safe Quote API integrates securely on the server via <code className="text-secondary font-mono">lib/server/safequote/client.ts</code>. Real-time events are streamed from upstream <code className="text-secondary font-mono">/events</code> via a server worker, normalized, stored in PostgreSQL (<code className="text-secondary font-mono">sales_events_inbox</code> and <code className="text-secondary font-mono">validated_sales</code>), and broadcast to all browser displays through internal SSE without exposing secret tokens.
+          The Safe Quote API integrates securely on the server via <code className="text-secondary font-mono">backend/safequote/client.ts</code>. Real-time events are streamed from upstream <code className="text-secondary font-mono">/events</code> via a server worker, normalized, stored in PostgreSQL (<code className="text-secondary font-mono">sales_events_inbox</code> and <code className="text-secondary font-mono">validated_sales</code>), and broadcast to all browser displays through internal SSE without exposing secret tokens.
         </p>
       </div>
     </div>

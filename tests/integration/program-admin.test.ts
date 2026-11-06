@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
-import { ingestValidatedSale } from "@/lib/server/sales/ingest";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as createProgramRoute, GET as listProgramsRoute } from "@/app/api/admin/programs/route";
 import { PATCH as patchProgram, DELETE as archiveRoute } from "@/app/api/admin/programs/[id]/route";
 import { GET as checkRoute, POST as deleteRoute } from "@/app/api/admin/programs/[id]/permanent/route";
@@ -8,8 +8,8 @@ import { POST as extendRoute } from "@/app/api/admin/programs/extend/route";
 import { PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { GET as publicPrograms } from "@/app/api/arena/programs/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { lastDayOfMonth } from "@/lib/server/rewards/program-admin";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { lastDayOfMonth } from "@/backend/rewards/program-admin";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, pool, req, resetDatabase, sessionFrom, setSetting } from "./helpers";
 
 let owner: { cookie: string; csrf: string };

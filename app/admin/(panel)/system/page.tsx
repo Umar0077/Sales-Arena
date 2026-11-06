@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Database, Wifi, Radio, History } from "lucide-react";
-import { adminApi } from "@/components/admin/admin-api";
-import { Section, Field, GhostButton, PrimaryButton, inputClass } from "@/components/admin/ui";
-import { fmtDate, Notice, Table, td } from "@/components/admin/spins/shared";
-import { cn } from "@/lib/utils";
-import { LiveDeliveryPanel } from "@/components/admin/LiveDeliveryPanel";
+import { adminApi } from "@/frontend/components/admin/admin-api";
+import { Section, Field, GhostButton, PrimaryButton, inputClass } from "@/frontend/components/admin/ui";
+import { fmtDate, Notice, Table, td } from "@/frontend/components/admin/spins/shared";
+import { cn } from "@/shared/utils";
+import { LiveDeliveryPanel } from "@/frontend/components/admin/LiveDeliveryPanel";
 
 interface Checkpoint {
   id: string;

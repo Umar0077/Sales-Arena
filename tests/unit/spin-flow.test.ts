@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { fillTemplate } from "@/store/settings-store";
-import { enqueueUnlock, type SpinUnlock } from "@/store/spin-flow-store";
-import { detectNewUnlocks } from "@/components/arena/ArenaEventBridge";
-import { segmentColors } from "@/features/spins/wheel-theme";
-import { createSeedData } from "@/lib/mock-api/seed";
-import { computeSpinCredit } from "@/features/targets/eligibility";
-import type { Reward, Sale } from "@/types";
+import { fillTemplate } from "@/frontend/stores/settings-store";
+import { enqueueUnlock, type SpinUnlock } from "@/frontend/stores/spin-flow-store";
+import { detectNewUnlocks } from "@/frontend/components/arena/ArenaEventBridge";
+import { segmentColors } from "@/frontend/features/spins/wheel-theme";
+import { createSeedData } from "@/frontend/mock-api/seed";
+import { computeSpinCredit } from "@/frontend/features/targets/eligibility";
+import type { Reward, Sale } from "@/shared/types";
 
 const u = (agentId: string, reason: SpinUnlock["reason"] = "target", available = 1): SpinUnlock => ({
   id: `${agentId}-${reason}`,

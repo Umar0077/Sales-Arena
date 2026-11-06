@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { getMigrationStatus } from "@/lib/server/db/migrations";
-import { getSafeQuoteClient } from "@/lib/server/safequote/client";
-import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
-import { RECENT_SALES_LIMIT } from "@/lib/server/sales/sync";
+import { requireAdmin } from "@/backend/auth/guard";
+import { getMigrationStatus } from "@/database/migrations";
+import { getSafeQuoteClient } from "@/backend/safequote/client";
+import { safeQuoteSseConsumer } from "@/backend/safequote/sse-consumer";
+import { RECENT_SALES_LIMIT } from "@/backend/sales/sync";
 
 export const dynamic = "force-dynamic";
 

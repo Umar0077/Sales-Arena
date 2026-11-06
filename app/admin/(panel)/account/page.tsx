@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { KeyRound, LogOut } from "lucide-react";
-import { adminApi } from "@/components/admin/admin-api";
-import { Section, Field, PrimaryButton, GhostButton, inputClass } from "@/components/admin/ui";
-import { Notice } from "@/components/admin/spins/shared";
+import { adminApi } from "@/frontend/components/admin/admin-api";
+import { Section, Field, PrimaryButton, GhostButton, inputClass } from "@/frontend/components/admin/ui";
+import { Notice } from "@/frontend/components/admin/spins/shared";
 
 export default function AccountPage() {
   const router = useRouter();

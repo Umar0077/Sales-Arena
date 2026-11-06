@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, Send, Users, Target, TrendingUp, Flame, RefreshCw, AlertTriangle, Trophy, Clock } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { adminApi } from "@/components/admin/admin-api";
-import { useAdminSync } from "@/components/admin/AdminLiveSync";
-import { useSettingsStore } from "@/store/settings-store";
-import { getPeriodDateRange, type PeriodDateRange } from "@/lib/time/business";
-import { targetProgress, formatPercent, datesBetween, type TargetPeriod } from "@/lib/live/targets";
-import type { CloserRow } from "@/features/sales/leads";
-import type { Sale } from "@/types";
-import { cn } from "@/lib/utils";
+import { adminApi } from "@/frontend/components/admin/admin-api";
+import { useAdminSync } from "@/frontend/components/admin/AdminLiveSync";
+import { useSettingsStore } from "@/frontend/stores/settings-store";
+import { getPeriodDateRange, type PeriodDateRange } from "@/shared/time/business";
+import { targetProgress, formatPercent, datesBetween, type TargetPeriod } from "@/shared/live/targets";
+import type { CloserRow } from "@/shared/sales/leads";
+import type { Sale } from "@/shared/types";
+import { cn } from "@/shared/utils";
 
 interface Summary {
   submitted: number;

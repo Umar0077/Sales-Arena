@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { evaluateAwards, awardId, formatReward } from "@/lib/rewards/engine";
-import { periodInfo, withinDates } from "@/lib/time/business";
-import { DEFAULT_PROGRAMS, sanitizeProgram, type BonusProgram, type BonusAward } from "@/store/rewards-store";
-import { enqueueAnnouncement } from "@/store/bonus-flow-store";
-import { resolveMode } from "@/store/arena-mode-store";
-import type { Sale, SaleStatus, Agent } from "@/types";
+import { evaluateAwards, awardId, formatReward } from "@/frontend/rewards/engine";
+import { periodInfo, withinDates } from "@/shared/time/business";
+import { DEFAULT_PROGRAMS, sanitizeProgram, type BonusProgram, type BonusAward } from "@/frontend/stores/rewards-store";
+import { enqueueAnnouncement } from "@/frontend/stores/bonus-flow-store";
+import { resolveMode } from "@/frontend/stores/arena-mode-store";
+import type { Sale, SaleStatus, Agent } from "@/shared/types";
 
 const clock = { timezone: "UTC", weekStartDay: 1 };
 // Thursday 29 Oct 2026, 12:00 UTC → week started Monday 26th (3 days back), month day 29.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { calendarFrom, readArenaConfig } from "@/lib/server/settings/arena-config";
-import { periodWindow } from "@/lib/server/spins/rules";
+import { getDbPool } from "@/database/client";
+import { calendarFrom, readArenaConfig } from "@/backend/settings/arena-config";
+import { periodWindow } from "@/backend/spins/rules";
 
 export const dynamic = "force-dynamic";
 

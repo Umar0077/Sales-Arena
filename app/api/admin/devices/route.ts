@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
-import { generatePairingCode, PAIRING_TTL_MS } from "@/lib/server/auth/arena-device";
-import { sha256 } from "@/lib/server/auth/session";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
+import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/backend/auth/guard";
+import { generatePairingCode, PAIRING_TTL_MS } from "@/backend/auth/arena-device";
+import { sha256 } from "@/backend/auth/session";
+import { errorResponse, readJson } from "@/backend/spins/http";
 
 export const dynamic = "force-dynamic";
 

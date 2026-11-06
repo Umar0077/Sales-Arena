@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { errorResponse } from "@/lib/server/spins/http";
-import { deliveryTimeline } from "@/lib/server/sales/delivery";
-import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
-import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
-import { stageStats, traceRows } from "@/lib/server/sales/delivery-trace";
-import { discoverySeconds } from "@/lib/server/sales/scheduler";
+import { requireAdmin } from "@/backend/auth/guard";
+import { errorResponse } from "@/backend/spins/http";
+import { deliveryTimeline } from "@/backend/sales/delivery";
+import { safeQuoteSseConsumer } from "@/backend/safequote/sse-consumer";
+import { arenaBroadcaster } from "@/backend/events/broadcaster";
+import { stageStats, traceRows } from "@/backend/sales/delivery-trace";
+import { discoverySeconds } from "@/backend/sales/scheduler";
 
 export const dynamic = "force-dynamic";
 

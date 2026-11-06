@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
-import { jsonError } from "@/lib/server/auth/guard";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
-import { ProgramError } from "@/lib/server/rewards/programs";
-import { deleteCheck, deleteProgramPermanently } from "@/lib/server/rewards/program-admin";
-import { noStore, requireOwner } from "@/lib/server/security/http";
+import { jsonError } from "@/backend/auth/guard";
+import { errorResponse, readJson } from "@/backend/spins/http";
+import { ProgramError } from "@/backend/rewards/programs";
+import { deleteCheck, deleteProgramPermanently } from "@/backend/rewards/program-admin";
+import { noStore, requireOwner } from "@/backend/security/http";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };

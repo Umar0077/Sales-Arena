@@ -13,7 +13,7 @@ import {
   ExternalLink,
   X
 } from "lucide-react";
-import { adminApi } from "@/components/admin/admin-api";
+import { adminApi } from "@/frontend/components/admin/admin-api";
 import Link from "next/link";
 
 interface AgentRow {

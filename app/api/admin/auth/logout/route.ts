@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
-import { revokeSession, sessionCookieName, secureCookiesEnabled } from "@/lib/server/auth/session";
+import { requireAdmin, requestIp, requestUserAgent, writeAudit } from "@/backend/auth/guard";
+import { revokeSession, sessionCookieName, secureCookiesEnabled } from "@/backend/auth/session";
 
 export const dynamic = "force-dynamic";
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { saveSettings } from "@/lib/admin/global-settings";
-import { useArenaStore } from "@/store/arena-store";
-import { useSettingsStore } from "@/store/settings-store";
-import { Section, Toggle, Range, Choice, SelectField } from "@/components/admin/ui";
-import { LiveLeaderboard } from "@/components/arena/LiveLeaderboard";
-import type { LeaderboardPeriod } from "@/types";
+import { saveSettings } from "@/frontend/admin/global-settings";
+import { useArenaStore } from "@/frontend/stores/arena-store";
+import { useSettingsStore } from "@/frontend/stores/settings-store";
+import { Section, Toggle, Range, Choice, SelectField } from "@/frontend/components/admin/ui";
+import { LiveLeaderboard } from "@/frontend/components/arena/LiveLeaderboard";
+import type { LeaderboardPeriod } from "@/shared/types";
 
 export default function LeaderboardSettingsPage() {
   const s = useSettingsStore();

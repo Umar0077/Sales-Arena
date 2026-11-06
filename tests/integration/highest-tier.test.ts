@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
-import { ingestValidatedSale } from "@/lib/server/sales/ingest";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as createProgramRoute } from "@/app/api/admin/programs/route";
 import { PATCH as patchProgram } from "@/app/api/admin/programs/[id]/route";
 import { PATCH as patchAward } from "@/app/api/admin/awards/[id]/route";
@@ -11,7 +11,7 @@ import { POST as previewRoute } from "@/app/api/admin/awards/recovery/preview/ro
 import { POST as applyRoute } from "@/app/api/admin/awards/recovery/route";
 import { POST as scanRoute } from "@/app/api/admin/awards/recovery/scan/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, pool, req, resetDatabase, sessionFrom, setSetting } from "./helpers";
 
 /**
@@ -292,7 +292,7 @@ describe("highest achieved tier only (PostgreSQL supersession, no additive total
       [`${p2}:AG11:${key}:1`, p2, key],
     );
     await pool().query(`INSERT INTO audit_logs (action, target_type, target_id, details) VALUES ('bonus_award.recovered', 'bonus_award', $1, $2)`, [`${p2}:AG11:${key}:1`, JSON.stringify({ salesCounted: cases })]);
-    const sql = readFileSync("lib/server/db/migrations/009_highest_tier_rewards.sql", "utf8");
+    const sql = readFileSync("database/migrations/009_highest_tier_rewards.sql", "utf8");
     await pool().query(sql.slice(sql.lastIndexOf("INSERT INTO bonus_sale_approvals")));
     expect((await pool().query(`SELECT COUNT(*)::int AS n FROM bonus_sale_approvals WHERE user_code = 'AG11'`)).rows[0].n).toBe(2);
     expect(await chain("AG11")).toHaveLength(1); // no award created by the backfill

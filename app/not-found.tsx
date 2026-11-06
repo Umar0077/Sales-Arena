@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Disc3 } from "lucide-react";
-import { PoweredBy } from "@/components/brand/PoweredBy";
+import { PoweredBy } from "@/frontend/components/brand/PoweredBy";
 
 export default function NotFound() {
   return (

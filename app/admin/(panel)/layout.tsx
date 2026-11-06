@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { getCurrentAdmin } from "@/lib/server/auth/guard";
-import { csrfTokenFor } from "@/lib/server/auth/session";
-import AdminShell from "@/components/admin/AdminShell";
+import { getCurrentAdmin } from "@/backend/auth/guard";
+import { csrfTokenFor } from "@/backend/auth/session";
+import AdminShell from "@/frontend/components/admin/AdminShell";
 
 // Every request re-checks the database session; nothing about admin access is cached.
 export const dynamic = "force-dynamic";

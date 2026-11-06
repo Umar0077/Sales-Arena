@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { readGlobalDisplay } from "@/lib/server/settings/display";
+import { getDbPool } from "@/database/client";
+import { readGlobalDisplay } from "@/backend/settings/display";
 
 export const dynamic = "force-dynamic";
 

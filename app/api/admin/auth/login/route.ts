@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { normalizeEmail, verifyAgainstDummy, verifyPassword } from "@/lib/server/auth/password";
-import { createSession, csrfTokenFor, sessionCookieName, sha256, secureCookiesEnabled, SESSION_ABSOLUTE_MS } from "@/lib/server/auth/session";
-import { isLoginBlocked, recordLoginAttempt } from "@/lib/server/auth/rate-limit";
-import { isSameOrigin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
+import { getDbPool } from "@/database/client";
+import { normalizeEmail, verifyAgainstDummy, verifyPassword } from "@/backend/auth/password";
+import { createSession, csrfTokenFor, sessionCookieName, sha256, secureCookiesEnabled, SESSION_ABSOLUTE_MS } from "@/backend/auth/session";
+import { isLoginBlocked, recordLoginAttempt } from "@/backend/auth/rate-limit";
+import { isSameOrigin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/backend/auth/guard";
 
 export const dynamic = "force-dynamic";
 

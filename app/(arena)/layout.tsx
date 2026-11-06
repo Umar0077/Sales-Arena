@@ -1,16 +1,16 @@
-import { ArenaBackdrop } from "@/components/layout/ArenaBackdrop";
-import { ArenaHeader } from "@/components/layout/ArenaHeader";
-import { CelebrationOverlay } from "@/components/celebrations/CelebrationOverlay";
-import { ArenaEventBridge } from "@/components/arena/ArenaEventBridge";
-import { AutoSimulator } from "@/components/arena/AutoSimulator";
-import { SpinFlow } from "@/components/spinflow/SpinFlow";
-import { HydrationGate } from "@/components/common/HydrationGate";
-import { ArenaContent, WhenArenaOnline } from "@/components/arena/ArenaSwitch";
-import { PoweredBy } from "@/components/brand/PoweredBy";
-import { RewardRuntime } from "@/components/rewards/RewardRuntime";
-import { ArenaCub } from "@/components/cub/ArenaCub";
-import { LiveApiSync } from "@/components/arena/LiveApiSync";
-import { LiveDataGate, ArenaSkeleton } from "@/components/arena/LiveDataGate";
+import { ArenaBackdrop } from "@/frontend/components/layout/ArenaBackdrop";
+import { ArenaHeader } from "@/frontend/components/layout/ArenaHeader";
+import { CelebrationOverlay } from "@/frontend/components/celebrations/CelebrationOverlay";
+import { ArenaEventBridge } from "@/frontend/components/arena/ArenaEventBridge";
+import { AutoSimulator } from "@/frontend/components/arena/AutoSimulator";
+import { SpinFlow } from "@/frontend/components/spinflow/SpinFlow";
+import { HydrationGate } from "@/frontend/components/common/HydrationGate";
+import { ArenaContent, WhenArenaOnline } from "@/frontend/components/arena/ArenaSwitch";
+import { PoweredBy } from "@/frontend/components/brand/PoweredBy";
+import { RewardRuntime } from "@/frontend/components/rewards/RewardRuntime";
+import { ArenaCub } from "@/frontend/components/cub/ArenaCub";
+import { LiveApiSync } from "@/frontend/components/arena/LiveApiSync";
+import { LiveDataGate, ArenaSkeleton } from "@/frontend/components/arena/LiveDataGate";
 
 /** Public Live Arena shell (TV display). No admin navigation here. */
 export default function ArenaLayout({ children }: { children: React.ReactNode }) {

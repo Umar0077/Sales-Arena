@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { CubDirector, type CubView } from "@/lib/cub/director";
-import { DEFAULT_CUB, type ArenaCubConfig } from "@/lib/cub/config";
+import { CubDirector, type CubView } from "@/frontend/cub/director";
+import { DEFAULT_CUB, type ArenaCubConfig } from "@/shared/cub/config";
 
 const cfg = (p: Partial<ArenaCubConfig> = {}): ArenaCubConfig => ({ ...DEFAULT_CUB, feedingSec: 5, bonusSec: 6, bubbleSec: 4, reminderCooldownMin: 5, ...p });
 const sale = (id: string, name = "Hamna Nasir") => ({ kind: "feeding" as const, sales: [{ caseId: id, agentName: name, validatedAt: new Date().toISOString() }] });

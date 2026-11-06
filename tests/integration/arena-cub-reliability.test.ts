@@ -5,9 +5,9 @@ import { POST as command } from "@/app/api/admin/arena-cub/command/route";
 import { GET as commandStatus } from "@/app/api/admin/arena-cub/command/[id]/route";
 import { POST as ack } from "@/app/api/arena/cub/ack/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { __resetCubRate } from "@/lib/server/cub/commands";
-import { __resetAcks } from "@/lib/server/cub/acks";
-import { DEFAULT_CUB } from "@/lib/cub/config";
+import { __resetCubRate } from "@/backend/cub/commands";
+import { __resetAcks } from "@/backend/cub/acks";
+import { DEFAULT_CUB } from "@/shared/cub/config";
 import { createAdmin, pool, req, resetDatabase, sessionFrom } from "./helpers";
 
 /** Arena Cub reliability on the server: partial saves never flip the public permission; delivery acknowledgments. */

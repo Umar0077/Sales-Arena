@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { allocateManualSpins, SpinError } from "@/lib/server/spins/ledger";
-import { executeSpin } from "@/lib/server/spins/execute";
+import { allocateManualSpins, SpinError } from "@/backend/spins/ledger";
+import { executeSpin } from "@/backend/spins/execute";
 import { POST as spinApi } from "@/app/api/arena/spin/route";
 import { POST as pairApi } from "@/app/api/arena/device/pair/route";
 import { POST as createDevice } from "@/app/api/admin/devices/route";
 import { DELETE as revokeDevice } from "@/app/api/admin/devices/[id]/route";
 import { POST as allocateApi } from "@/app/api/admin/spins/allocate/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { deviceCookieName } from "@/lib/server/auth/arena-device";
+import { deviceCookieName } from "@/backend/auth/arena-device";
 import { createAdmin, createAgent, pool, req, resetDatabase, sessionFrom } from "./helpers";
 
 let admin: { id: string };

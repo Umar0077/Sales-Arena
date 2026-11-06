@@ -2,13 +2,13 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { NextRequest } from "next/server";
-import { SafeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
+import { SafeQuoteSseConsumer } from "@/backend/safequote/sse-consumer";
 import { GET as stream } from "@/app/api/arena/stream/route";
 import { PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { POST as createProgram } from "@/app/api/admin/programs/route";
 import { GET as liveDelivery } from "@/app/api/admin/live-delivery/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, pool, req, resetDatabase, sessionFrom } from "./helpers";
 
 /**

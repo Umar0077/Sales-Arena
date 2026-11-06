@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { readSyncState } from "@/lib/server/live/sync-state";
+import { getDbPool } from "@/database/client";
+import { readSyncState } from "@/backend/live/sync-state";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Background sync check for Live Arena displays and Admin tabs (read-only, PostgreSQL only): dataset
  * fingerprints, settings revisions and the sales stored in the last few minutes. Public sale fields only
- * (case id, closer, times, source); no customer data. Shared by all callers for 2 s (lib/server/live/sync-state.ts).
+ * (case id, closer, times, source); no customer data. Shared by all callers for 2 s (backend/live/sync-state.ts).
  */
 export async function GET() {
   const pool = getDbPool();

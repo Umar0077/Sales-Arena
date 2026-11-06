@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { applyGlobalDisplay, __resetDisplaySync } from "@/lib/live/display-sync";
-import { useSettingsStore } from "@/store/settings-store";
-import { useSpinFlowStore } from "@/store/spin-flow-store";
-import { useLiveStore } from "@/store/live-store";
+import { applyGlobalDisplay, __resetDisplaySync } from "@/frontend/live/display-sync";
+import { useSettingsStore } from "@/frontend/stores/settings-store";
+import { useSpinFlowStore } from "@/frontend/stores/spin-flow-store";
+import { useLiveStore } from "@/frontend/stores/live-store";
 
 const quality = () => useSettingsStore.getState().quality;
 

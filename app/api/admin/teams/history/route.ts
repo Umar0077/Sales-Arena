@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
-import { noStore } from "@/lib/server/security/http";
-import { teamHistory } from "@/lib/server/teams/repo";
-import { teamAuth, teamErrorResponse } from "@/lib/server/teams/http";
+import { noStore } from "@/backend/security/http";
+import { teamHistory } from "@/backend/teams/repo";
+import { teamAuth, teamErrorResponse } from "@/backend/teams/http";
 
 export const dynamic = "force-dynamic";
 

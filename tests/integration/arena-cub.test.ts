@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
-import { ingestValidatedSale, recordSaleStatus } from "@/lib/server/sales/ingest";
+import { ingestValidatedSale, recordSaleStatus } from "@/backend/sales/ingest";
 import { GET as cubActivity } from "@/app/api/arena/cub/route";
 import { GET as publicConfig } from "@/app/api/arena/config/route";
 import { GET as getConfig, PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
-import { DEFAULT_CUB } from "@/lib/cub/config";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
+import { DEFAULT_CUB } from "@/shared/cub/config";
 import { createAdmin, pool, req, resetDatabase, sessionFrom } from "./helpers";
 
 /** Arena Cub server side: read-only activity, the sale event's source flag, and its PostgreSQL settings. */

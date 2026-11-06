@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, requestIp, writeAudit } from "@/lib/server/auth/guard";
-import { reconcileRecentSales } from "@/lib/server/sales/sync";
+import { requireAdmin, requestIp, writeAudit } from "@/backend/auth/guard";
+import { reconcileRecentSales } from "@/backend/sales/sync";
 
 export const dynamic = "force-dynamic";
 

@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { deviceCookieName, redeemPairingCode } from "@/lib/server/auth/arena-device";
-import { secureCookiesEnabled } from "@/lib/server/auth/session";
-import { isSameOrigin, requestIp, writeAudit } from "@/lib/server/auth/guard";
-import { isLoginBlocked, recordLoginAttempt } from "@/lib/server/auth/rate-limit";
+import { getDbPool } from "@/database/client";
+import { deviceCookieName, redeemPairingCode } from "@/backend/auth/arena-device";
+import { secureCookiesEnabled } from "@/backend/auth/session";
+import { isSameOrigin, requestIp, writeAudit } from "@/backend/auth/guard";
+import { isLoginBlocked, recordLoginAttempt } from "@/backend/auth/rate-limit";
 
 export const dynamic = "force-dynamic";
 

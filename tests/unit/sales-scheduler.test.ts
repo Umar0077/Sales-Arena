@@ -16,8 +16,8 @@ const h = vi.hoisted(() => ({
   listeners: [] as Array<(i: { caseId: string; eventType: string }) => void>,
 }));
 
-vi.mock("@/lib/server/db/client", () => ({ getDbPool: () => ({}) }));
-vi.mock("@/lib/server/safequote/sse-consumer", () => ({
+vi.mock("@/database/client", () => ({ getDbPool: () => ({}) }));
+vi.mock("@/backend/safequote/sse-consumer", () => ({
   safeQuoteSseConsumer: {
     start: () => {},
     stop: () => {},
@@ -27,7 +27,7 @@ vi.mock("@/lib/server/safequote/sse-consumer", () => ({
     },
   },
 }));
-vi.mock("@/lib/server/sales/sync", () => {
+vi.mock("@/backend/sales/sync", () => {
   const track = async <T,>(ms: number, v: T) => {
     h.inFlight++;
     h.maxInFlight = Math.max(h.maxInFlight, h.inFlight);
@@ -47,7 +47,7 @@ vi.mock("@/lib/server/sales/sync", () => {
   };
 });
 
-import { startSalesSync, stopSalesSync } from "@/lib/server/sales/scheduler";
+import { startSalesSync, stopSalesSync } from "@/backend/sales/scheduler";
 
 const emit = () => h.listeners.forEach((fn) => fn({ caseId: "C-1", eventType: "case.updated" }));
 const t0 = () => Date.now();

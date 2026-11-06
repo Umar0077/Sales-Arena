@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { jsonError } from "@/lib/server/auth/guard";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
-import { RecoveryError, scanRecovery } from "@/lib/server/rewards/recovery";
-import { noStore, requireOwner } from "@/lib/server/security/http";
+import { jsonError } from "@/backend/auth/guard";
+import { errorResponse, readJson } from "@/backend/spins/http";
+import { RecoveryError, scanRecovery } from "@/backend/rewards/recovery";
+import { noStore, requireOwner } from "@/backend/security/http";
 
 export const dynamic = "force-dynamic";
 

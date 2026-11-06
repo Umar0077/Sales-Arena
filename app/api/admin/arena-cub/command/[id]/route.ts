@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError } from "@/lib/server/auth/guard";
-import { commandStatus } from "@/lib/server/cub/acks";
+import { requireAdmin, jsonError } from "@/backend/auth/guard";
+import { commandStatus } from "@/backend/cub/acks";
 
 export const dynamic = "force-dynamic";
 

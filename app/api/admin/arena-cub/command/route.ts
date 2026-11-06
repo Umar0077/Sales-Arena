@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/lib/server/auth/guard";
-import { errorResponse } from "@/lib/server/spins/http";
-import { CubCommandError, sendCubCommand } from "@/lib/server/cub/commands";
+import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/backend/auth/guard";
+import { errorResponse } from "@/backend/spins/http";
+import { CubCommandError, sendCubCommand } from "@/backend/cub/commands";
 
 export const dynamic = "force-dynamic";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
+import { arenaBroadcaster } from "@/backend/events/broadcaster";
 
 describe("ArenaBroadcaster", () => {
   it("delivers broadcast events to subscribers", () => {

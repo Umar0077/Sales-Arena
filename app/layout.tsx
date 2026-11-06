@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { AppProviders } from "@/components/providers/AppProviders";
+import { AppProviders } from "@/frontend/components/providers/AppProviders";
 
 export const metadata: Metadata = {
   title: "FE Sales Arena — Live Final Expense Sales & Rewards",

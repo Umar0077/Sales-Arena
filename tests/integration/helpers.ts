@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
-import { closeDbPool, getDbPool } from "@/lib/server/db/client";
-import { runMigrations } from "@/lib/server/db/migrate-core.mjs";
-import { hashPassword } from "@/lib/server/auth/password";
-import { csrfTokenFor, sessionCookieName } from "@/lib/server/auth/session";
+import { closeDbPool, getDbPool } from "@/database/client";
+import { runMigrations } from "@/database/migrate-core.mjs";
+import { hashPassword } from "@/backend/auth/password";
+import { csrfTokenFor, sessionCookieName } from "@/backend/auth/session";
 
 export const ORIGIN = "http://arena.test";
 

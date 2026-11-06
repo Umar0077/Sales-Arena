@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/lib/server/auth/guard";
-import { allocateManualSpins } from "@/lib/server/spins/ledger";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
-import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
+import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/backend/auth/guard";
+import { allocateManualSpins } from "@/backend/spins/ledger";
+import { errorResponse, readJson } from "@/backend/spins/http";
+import { arenaBroadcaster } from "@/backend/events/broadcaster";
 
 export const dynamic = "force-dynamic";
 

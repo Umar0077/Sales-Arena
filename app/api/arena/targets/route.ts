@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { readTargets } from "@/lib/server/targets/store";
+import { getDbPool } from "@/database/client";
+import { readTargets } from "@/backend/targets/store";
 
 export const dynamic = "force-dynamic";
 

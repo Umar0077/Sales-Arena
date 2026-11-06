@@ -5,7 +5,7 @@ import {
   mapClosersToCloserRows,
   mapRecentSaleToDomainSale,
   parseSseSaleEvent,
-} from "@/lib/server/safequote/mapper";
+} from "@/backend/safequote/mapper";
 
 describe("Safe Quote Mapper", () => {
   describe("extractCloserIdentity", () => {

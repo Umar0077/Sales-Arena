@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from "vitest";
-import { useRewardsStore, DEFAULT_PROGRAMS, REWARDS_STORAGE_KEY, type BonusProgram } from "@/store/rewards-store";
+import { useRewardsStore, DEFAULT_PROGRAMS, REWARDS_STORAGE_KEY, type BonusProgram } from "@/frontend/stores/rewards-store";
 
 const prog = (salesRequired: number, amount: number, o: Partial<BonusProgram> = {}): BonusProgram =>
   ({ ...DEFAULT_PROGRAMS[0], id: `p${salesRequired}`, name: `T${salesRequired}`, salesRequired, amount, currency: "PKR", rewardType: "cash", stackable: true, ...o }) as BonusProgram;

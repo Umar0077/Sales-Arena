@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MASCOT_THEMES, celebrationMs, headlineFor, parseSaleTeam, routeSale, themeFor, verifiedTeamTotal, type SaleTeamInfo } from "@/lib/teams/celebration";
-import { useTeamCelebrationStore, TEAM_QUEUE_MAX } from "@/store/team-celebration-store";
-import { routeTeamSale } from "@/components/arena/ArenaEventBridge";
-import { playTeamStinger, stingerFor } from "@/lib/audio/team-stingers";
-import { TEAM_STINGERS } from "@/lib/audio/synth";
-import type { CelebrationEvent } from "@/types";
+import { MASCOT_THEMES, celebrationMs, headlineFor, parseSaleTeam, routeSale, themeFor, verifiedTeamTotal, type SaleTeamInfo } from "@/shared/teams/celebration";
+import { useTeamCelebrationStore, TEAM_QUEUE_MAX } from "@/frontend/stores/team-celebration-store";
+import { routeTeamSale } from "@/frontend/components/arena/ArenaEventBridge";
+import { playTeamStinger, stingerFor } from "@/frontend/audio/team-stingers";
+import { TEAM_STINGERS } from "@/frontend/audio/synth";
+import type { CelebrationEvent } from "@/shared/types";
 
 const SIGMA: SaleTeamInfo = { id: "team_sigma", slug: "sigma", name: "Team Sigma", active: true, logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", accentSecondary: null, businessDate: "2026-11-05" };
 const PANTHERS: SaleTeamInfo = { ...SIGMA, id: "team_panthers", slug: "panthers", name: "Team Panthers", logoUrl: "/teams/team-panthers.webp" };

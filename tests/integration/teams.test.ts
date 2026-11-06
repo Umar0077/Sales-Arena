@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { ingestValidatedSale } from "@/lib/server/sales/ingest";
-import { assignMember, createTeam, designationOn, removeMember, setDesignation, teamHistory, updateTeam, TeamError, type Actor } from "@/lib/server/teams/repo";
-import { computeStandings } from "@/lib/server/teams/standings";
-import { __resetSyncState, readSyncState } from "@/lib/server/live/sync-state";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
+import { assignMember, createTeam, designationOn, removeMember, setDesignation, teamHistory, updateTeam, TeamError, type Actor } from "@/backend/teams/repo";
+import { computeStandings } from "@/backend/teams/standings";
+import { __resetSyncState, readSyncState } from "@/backend/live/sync-state";
 import { GET as previewRoute, POST as importRoute } from "@/app/api/admin/teams/import/route";
 import { GET as teamsRoute, POST as createTeamRoute } from "@/app/api/admin/teams/route";
 import { POST as membersRoute } from "@/app/api/admin/teams/members/route";
@@ -18,8 +18,8 @@ import { POST as scanRoute } from "@/app/api/admin/awards/recovery/scan/route";
 import { POST as recoveryApplyRoute } from "@/app/api/admin/awards/recovery/route";
 import { PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
-import { INITIAL_ROSTER } from "@/lib/teams/initial-roster";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
+import { INITIAL_ROSTER } from "@/shared/teams/initial-roster";
 import { NextRequest } from "next/server";
 import { createAdmin, createAgent, pool, req, resetDatabase, sessionFrom, setSetting } from "./helpers";
 
@@ -554,7 +554,7 @@ describe("Teams Arena: PostgreSQL model, roster import, standings, Senior / Juni
     await pool().query(`INSERT INTO team_memberships (team_id, user_code, effective_from, effective_to) VALUES ($1, 'CLS-MV', '2026-10-01', '2026-11-05'), ($2, 'CLS-MV', '2026-11-05', NULL)`, [sg.id, pn.id]);
     await pool().query(`INSERT INTO team_memberships (team_id, user_code, effective_from) VALUES ($1, 'CLS-D1', '2026-10-01'), ($2, 'CLS-D2', '2026-10-01'), ($3, 'CLS-AL', '2026-10-01')`, [sg.id, pn.id, al.id]);
     await updateTeam(pool(), al.id, { active: false }, actor); // archived (members stay assigned)
-    const { teamForSale, teamsForSales } = await import("@/lib/server/teams/attribution");
+    const { teamForSale, teamsForSales } = await import("@/backend/teams/attribution");
     // 03:30 UTC on Nov 5 is still Nov 4 in New York: the sale belongs to the team of Nov 4 (Sigma), never "current".
     expect((await teamForSale(pool(), "CLS-MV", "2026-11-05T03:30:00Z"))).toMatchObject({ id: sg.id, slug: "sigma", businessDate: "2026-11-04", active: true, logoUrl: "/teams/team-sigma.webp", hasLogo: true });
     expect((await teamForSale(pool(), "cls-mv", "2026-11-05T15:00:00Z"))).toMatchObject({ id: pn.id, slug: "panthers", businessDate: "2026-11-05" });

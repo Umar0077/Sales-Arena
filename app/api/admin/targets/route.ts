@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/lib/server/auth/guard";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
-import { readTargets, saveTarget, targetHistory, TargetError } from "@/lib/server/targets/store";
+import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/backend/auth/guard";
+import { errorResponse, readJson } from "@/backend/spins/http";
+import { readTargets, saveTarget, targetHistory, TargetError } from "@/backend/targets/store";
 
 export const dynamic = "force-dynamic";
 

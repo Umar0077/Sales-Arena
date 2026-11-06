@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Ban, CheckCircle2, Globe, KeyRound, Pencil, Plus, Search, ShieldAlert, ShieldCheck, ShieldOff, Trash2, Wifi, X } from "lucide-react";
-import { adminApi } from "@/components/admin/admin-api";
-import { Notice, fmtDate } from "@/components/admin/spins/shared";
-import { inputClass } from "@/components/admin/ui";
-import { parseNetwork } from "@/lib/security/ip";
-import { cn } from "@/lib/utils";
+import { adminApi } from "@/frontend/components/admin/admin-api";
+import { Notice, fmtDate } from "@/frontend/components/admin/spins/shared";
+import { inputClass } from "@/frontend/components/admin/ui";
+import { parseNetwork } from "@/shared/security/ip";
+import { cn } from "@/shared/utils";
 
 interface Rule {
   id: number;

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { resolveSpinActor } from "@/lib/server/auth/arena-device";
-import { loadWheelSegments } from "@/lib/server/spins/execute";
+import { getDbPool } from "@/database/client";
+import { resolveSpinActor } from "@/backend/auth/arena-device";
+import { loadWheelSegments } from "@/backend/spins/execute";
 
 export const dynamic = "force-dynamic";
 

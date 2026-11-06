@@ -7,9 +7,9 @@ import { PATCH as patchRuleRoute, DELETE as deleteRuleRoute } from "@/app/api/ad
 import { POST as currentIpRoute } from "@/app/api/admin/ip-security/rules/current/route";
 import { GET as streamRoute } from "@/app/api/arena/stream/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { __resetPolicyCache, getPolicy, decide, REVISION_CHECK_MS } from "@/lib/server/security/ip-policy";
-import { deniedResponse } from "@/lib/server/security/enforce";
-import { ipInNetwork, parseIp, parseNetwork } from "@/lib/security/ip";
+import { __resetPolicyCache, getPolicy, decide, REVISION_CHECK_MS } from "@/backend/security/ip-policy";
+import { deniedResponse } from "@/backend/security/enforce";
+import { ipInNetwork, parseIp, parseNetwork } from "@/shared/security/ip";
 import { createAdmin, pool, req, resetDatabase, restartPool, sessionFrom } from "./helpers";
 
 const OFFICE = "192.0.2.10"; // owner's network (documentation range)

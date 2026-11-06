@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, vi, afterEach } from "vitest";
-import { ingestValidatedSale, recordSaleStatus } from "@/lib/server/sales/ingest";
-import { backfillSales, reconcileRecentSales } from "@/lib/server/sales/sync";
-import { getSafeQuoteClient } from "@/lib/server/safequote/client";
+import { ingestValidatedSale, recordSaleStatus } from "@/backend/sales/ingest";
+import { backfillSales, reconcileRecentSales } from "@/backend/sales/sync";
+import { getSafeQuoteClient } from "@/backend/safequote/client";
 import { POST as createRule } from "@/app/api/admin/spins/rules/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
 import { createAdmin, pool, req, resetDatabase, restartPool, sessionFrom, setSetting } from "./helpers";

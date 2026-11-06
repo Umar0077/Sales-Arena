@@ -1,19 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { ingestValidatedSale } from "@/lib/server/sales/ingest";
-import { discoverTodaySales } from "@/lib/server/sales/sync";
-import { startSalesSync, stopSalesSync } from "@/lib/server/sales/scheduler";
-import { safeQuoteSseConsumer } from "@/lib/server/safequote/sse-consumer";
-import { __resetSyncState, readSyncState } from "@/lib/server/live/sync-state";
-import { __resetTraces, traceRows } from "@/lib/server/sales/delivery-trace";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
+import { discoverTodaySales } from "@/backend/sales/sync";
+import { startSalesSync, stopSalesSync } from "@/backend/sales/scheduler";
+import { safeQuoteSseConsumer } from "@/backend/safequote/sse-consumer";
+import { __resetSyncState, readSyncState } from "@/backend/live/sync-state";
+import { __resetTraces, traceRows } from "@/backend/sales/delivery-trace";
 import { GET as syncRoute } from "@/app/api/arena/sync/route";
 import { POST as deliveryRoute } from "@/app/api/arena/delivery/route";
 import { GET as liveDelivery } from "@/app/api/admin/live-delivery/route";
 import { POST as createProgramRoute } from "@/app/api/admin/programs/route";
 import { PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, pool, req, resetDatabase, sessionFrom, setSetting } from "./helpers";
 
 /**

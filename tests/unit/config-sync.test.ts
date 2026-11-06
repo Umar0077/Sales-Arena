@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { applyArenaConfig, applyScreenSwitch, __resetConfigSync } from "@/lib/live/config-sync";
-import { useSettingsStore, DEFAULT_SETTINGS } from "@/store/settings-store";
-import { useSpinFlowStore } from "@/store/spin-flow-store";
-import { useArenaModeStore } from "@/store/arena-mode-store";
-import { canAnnounce } from "@/components/rewards/RewardRuntime";
-import { GLOBAL_SETTING_KEYS } from "@/lib/settings/global-keys";
-import { GLOBAL_SETTING_KEYS as SERVER_KEYS, validatePatch } from "@/lib/server/settings/arena-config";
+import { applyArenaConfig, applyScreenSwitch, __resetConfigSync } from "@/frontend/live/config-sync";
+import { useSettingsStore, DEFAULT_SETTINGS } from "@/frontend/stores/settings-store";
+import { useSpinFlowStore } from "@/frontend/stores/spin-flow-store";
+import { useArenaModeStore } from "@/frontend/stores/arena-mode-store";
+import { canAnnounce } from "@/frontend/components/rewards/RewardRuntime";
+import { GLOBAL_SETTING_KEYS } from "@/shared/settings/global-keys";
+import { GLOBAL_SETTING_KEYS as SERVER_KEYS, validatePatch } from "@/backend/settings/arena-config";
 
 const s = () => useSettingsStore.getState();
 

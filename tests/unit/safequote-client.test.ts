@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { SafeQuoteClient } from "@/lib/server/safequote/client";
-import { SafeQuoteApiError } from "@/lib/server/safequote/errors";
+import { SafeQuoteClient } from "@/backend/safequote/client";
+import { SafeQuoteApiError } from "@/backend/safequote/errors";
 
 describe("SafeQuoteClient", () => {
   beforeEach(() => {

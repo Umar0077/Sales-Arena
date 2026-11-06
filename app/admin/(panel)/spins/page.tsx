@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useArenaStore } from "@/store/arena-store";
-import type { SpinResult } from "@/types";
+import { useArenaStore } from "@/frontend/stores/arena-store";
+import type { SpinResult } from "@/shared/types";
 import { 
   Disc3, 
   Search, 
@@ -13,7 +13,7 @@ import {
   Eye, 
   X 
 } from "lucide-react";
-import { formatDateTime, toCsv, downloadText } from "@/lib/utils";
+import { formatDateTime, toCsv, downloadText } from "@/shared/utils";
 
 export default function AdminSpinsPage() {
   const store = useArenaStore();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { listPrograms, todayIn } from "@/lib/server/rewards/programs";
-import { calendarFrom, readArenaConfig } from "@/lib/server/settings/arena-config";
+import { getDbPool } from "@/database/client";
+import { listPrograms, todayIn } from "@/backend/rewards/programs";
+import { calendarFrom, readArenaConfig } from "@/backend/settings/arena-config";
 
 export const dynamic = "force-dynamic";
 

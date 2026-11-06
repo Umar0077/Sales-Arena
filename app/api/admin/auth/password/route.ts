@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
-import { hashPassword, validateNewPassword, verifyPassword } from "@/lib/server/auth/password";
-import { revokeOtherSessions } from "@/lib/server/auth/session";
+import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/backend/auth/guard";
+import { hashPassword, validateNewPassword, verifyPassword } from "@/backend/auth/password";
+import { revokeOtherSessions } from "@/backend/auth/session";
 
 export const dynamic = "force-dynamic";
 

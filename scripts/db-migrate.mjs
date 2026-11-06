@@ -11,7 +11,7 @@
 import pg from "pg";
 import readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { runMigrations, migrationStatus } from "../lib/server/db/migrate-core.mjs";
+import { runMigrations, migrationStatus } from "../database/migrate-core.mjs";
 
 const args = process.argv.slice(2);
 const cmd = args.find((a) => !a.startsWith("--")) ?? "status";

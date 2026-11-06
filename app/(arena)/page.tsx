@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ARENA_MODE_ORDER, useArenaMode, useArenaModeStore } from "@/store/arena-mode-store";
-import { TeamsScreen } from "@/components/arena/screens/TeamsScreen";
-import type { ArenaMode } from "@/types";
-import { useReducedMotion } from "@/lib/performance/reduced-motion";
-import { FloorScreen } from "@/components/arena/screens/FloorScreen";
-import { PeriodScreen } from "@/components/arena/screens/PeriodScreen";
+import { ARENA_MODE_ORDER, useArenaMode, useArenaModeStore } from "@/frontend/stores/arena-mode-store";
+import { TeamsScreen } from "@/frontend/components/arena/screens/TeamsScreen";
+import type { ArenaMode } from "@/shared/types";
+import { useReducedMotion } from "@/frontend/performance/reduced-motion";
+import { FloorScreen } from "@/frontend/components/arena/screens/FloorScreen";
+import { PeriodScreen } from "@/frontend/components/arena/screens/PeriodScreen";
 
 /** Live Arena: Daily, Weekly, Monthly, Teams or Spin & Win, switched in place with a soft transition. */
 export default function LiveArenaPage() {

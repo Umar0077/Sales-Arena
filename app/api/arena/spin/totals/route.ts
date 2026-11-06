@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
+import { getDbPool } from "@/database/client";
 
 export const dynamic = "force-dynamic";
 

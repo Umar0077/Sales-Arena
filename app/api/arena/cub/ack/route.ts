@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { recordAck } from "@/lib/server/cub/acks";
+import { recordAck } from "@/backend/cub/acks";
 
 export const dynamic = "force-dynamic";
 

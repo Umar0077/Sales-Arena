@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { ipInNetwork, networksOverlap, parseIp, parseNetwork, formatIp } from "@/lib/security/ip";
-import { classifyPath, decide, type Policy, type PolicyRule } from "@/lib/server/security/ip-policy";
-import { trustedClientIp } from "@/lib/server/security/client-ip";
-import { lockoutProblem } from "@/lib/server/security/ip-admin";
+import { ipInNetwork, networksOverlap, parseIp, parseNetwork, formatIp } from "@/shared/security/ip";
+import { classifyPath, decide, type Policy, type PolicyRule } from "@/backend/security/ip-policy";
+import { trustedClientIp } from "@/backend/security/client-ip";
+import { lockoutProblem } from "@/backend/security/ip-admin";
 
 const net = (s: string) => {
   const r = parseNetwork(s);

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getSafeQuoteClient } from "@/lib/server/safequote/client";
-import { getDbPool } from "@/lib/server/db/client";
-import { readGlobalDisplay } from "@/lib/server/settings/display";
-import { readArenaConfig, readScreenSwitch } from "@/lib/server/settings/arena-config";
+import { getSafeQuoteClient } from "@/backend/safequote/client";
+import { getDbPool } from "@/database/client";
+import { readGlobalDisplay } from "@/backend/settings/display";
+import { readArenaConfig, readScreenSwitch } from "@/backend/settings/arena-config";
 
 export const dynamic = "force-dynamic";
 

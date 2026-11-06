@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { resolveSpinActor, spinRequestAllowed } from "@/lib/server/auth/arena-device";
-import { executeSpin } from "@/lib/server/spins/execute";
-import { SpinError } from "@/lib/server/spins/ledger";
-import { writeAudit, requestIp } from "@/lib/server/auth/guard";
-import { arenaBroadcaster } from "@/lib/server/events/broadcaster";
-import { publishCatalogUpdated } from "@/lib/server/rewards/catalog";
+import { getDbPool } from "@/database/client";
+import { resolveSpinActor, spinRequestAllowed } from "@/backend/auth/arena-device";
+import { executeSpin } from "@/backend/spins/execute";
+import { SpinError } from "@/backend/spins/ledger";
+import { writeAudit, requestIp } from "@/backend/auth/guard";
+import { arenaBroadcaster } from "@/backend/events/broadcaster";
+import { publishCatalogUpdated } from "@/backend/rewards/catalog";
 
 export const dynamic = "force-dynamic";
 

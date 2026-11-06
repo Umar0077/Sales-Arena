@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { overview } from "@/lib/server/security/ip-admin";
-import { ipSecurityError, noStore, requireOwner } from "@/lib/server/security/http";
+import { overview } from "@/backend/security/ip-admin";
+import { ipSecurityError, noStore, requireOwner } from "@/backend/security/http";
 
 export const dynamic = "force-dynamic";
 

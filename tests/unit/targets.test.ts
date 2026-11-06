@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { targetProgress, formatPercent, periodStartFor, periodEndFor, datesBetween, isValidPeriodKey } from "@/lib/live/targets";
-import { createLiveData } from "@/lib/mock-api/seed";
+import { targetProgress, formatPercent, periodStartFor, periodEndFor, datesBetween, isValidPeriodKey } from "@/shared/live/targets";
+import { createLiveData } from "@/frontend/mock-api/seed";
 
 describe("target maths", () => {
   it("computes completed, remaining and uncapped percentage", () => {

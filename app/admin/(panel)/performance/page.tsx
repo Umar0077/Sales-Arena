@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useArenaStore } from "@/store/arena-store";
-import { computeSpinCredit, ruleForTeam } from "@/features/targets/eligibility";
-import { computeLeaderboard } from "@/features/sales/stats";
-import { AnimatedCounter } from "@/components/arena/AnimatedCounter";
-import { adminApi } from "@/components/admin/admin-api";
+import { useArenaStore } from "@/frontend/stores/arena-store";
+import { computeSpinCredit, ruleForTeam } from "@/frontend/features/targets/eligibility";
+import { computeLeaderboard } from "@/frontend/features/sales/stats";
+import { AnimatedCounter } from "@/frontend/components/arena/AnimatedCounter";
+import { adminApi } from "@/frontend/components/admin/admin-api";
 import { 
   Trophy, 
   Disc3, 
@@ -21,7 +21,7 @@ import {
   Gift
 } from "lucide-react";
 import Link from "next/link";
-import { TimeAgo } from "@/components/common/TimeAgo";
+import { TimeAgo } from "@/frontend/components/common/TimeAgo";
 
 export default function AgentDashboardPage() {
   const store = useArenaStore();

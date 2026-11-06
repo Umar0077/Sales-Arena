@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getDbPool } from "@/lib/server/db/client";
-import { readLastSaleAt } from "@/lib/server/cub/activity";
+import { getDbPool } from "@/database/client";
+import { readLastSaleAt } from "@/backend/cub/activity";
 
 export const dynamic = "force-dynamic";
 

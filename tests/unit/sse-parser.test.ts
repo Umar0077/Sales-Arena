@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { SseParser } from "@/lib/server/safequote/sse-parser";
-import { parseSseSaleEvent } from "@/lib/server/safequote/mapper";
+import { SseParser } from "@/backend/safequote/sse-parser";
+import { parseSseSaleEvent } from "@/backend/safequote/mapper";
 
 const sale = (n: number) =>
   `id: evt-${n}\nevent: sale.validated\ndata: ${JSON.stringify({ caseId: `CASE-${n}`, closer: { userCode: "CLS-1", name: "Test Closer" }, validatedAt: "2026-11-04T10:00:00Z", premium: 50 })}\n\n`;

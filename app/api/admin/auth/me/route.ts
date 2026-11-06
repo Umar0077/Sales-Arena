@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { csrfTokenFor } from "@/lib/server/auth/session";
+import { requireAdmin } from "@/backend/auth/guard";
+import { csrfTokenFor } from "@/backend/auth/session";
 
 export const dynamic = "force-dynamic";
 

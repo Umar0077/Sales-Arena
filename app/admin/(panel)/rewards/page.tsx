@@ -2,9 +2,9 @@
 
 import { useCallback, useState } from "react";
 import { Gift } from "lucide-react";
-import { SpinnerPreview } from "@/components/admin/SpinnerPreview";
-import { PrizesTab, type Prize } from "@/components/admin/spins/PrizesTab";
-import type { Reward } from "@/types";
+import { SpinnerPreview } from "@/frontend/components/admin/SpinnerPreview";
+import { PrizesTab, type Prize } from "@/frontend/components/admin/spins/PrizesTab";
+import type { Reward } from "@/shared/types";
 
 /**
  * Spin & Rewards: live wheel preview + prize odds, managed through the same PostgreSQL

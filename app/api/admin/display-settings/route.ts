@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/lib/server/auth/guard";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
-import { readGlobalDisplay, saveGlobalPerformanceMode, DisplaySettingsError } from "@/lib/server/settings/display";
+import { requireAdmin, jsonError, requestIp, requestUserAgent } from "@/backend/auth/guard";
+import { errorResponse, readJson } from "@/backend/spins/http";
+import { readGlobalDisplay, saveGlobalPerformanceMode, DisplaySettingsError } from "@/backend/settings/display";
 
 export const dynamic = "force-dynamic";
 

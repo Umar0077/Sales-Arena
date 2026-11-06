@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_CUB, validateCub, readCub, CubConfigError, type ArenaCubConfig } from "@/lib/cub/config";
-import { ambient, activeWindow, enqueue, interrupts, isFreshSale, RecentIds, reminderMoments, shouldPlayIntro, cubVisibleOn, zonedClock, MAX_QUEUE, type CubAct } from "@/lib/cub/machine";
-import { bonusLines, feedingLines, phrase, PHRASES } from "@/lib/cub/phrases";
-import { charHeight, homeFor, movePlan, roamPick, CHAR_BOX, bubbleSideFor } from "@/lib/cub/motion";
-import { CUB_ACTIONS, isCubCommand } from "@/lib/cub/actions";
-import { validatePatch } from "@/lib/server/settings/arena-config";
+import { DEFAULT_CUB, validateCub, readCub, CubConfigError, type ArenaCubConfig } from "@/shared/cub/config";
+import { ambient, activeWindow, enqueue, interrupts, isFreshSale, RecentIds, reminderMoments, shouldPlayIntro, cubVisibleOn, zonedClock, MAX_QUEUE, type CubAct } from "@/frontend/cub/machine";
+import { bonusLines, feedingLines, phrase, PHRASES } from "@/frontend/cub/phrases";
+import { charHeight, homeFor, movePlan, roamPick, CHAR_BOX, bubbleSideFor } from "@/frontend/cub/motion";
+import { CUB_ACTIONS, isCubCommand } from "@/shared/cub/actions";
+import { validatePatch } from "@/backend/settings/arena-config";
 
 const cfg = (p: Partial<ArenaCubConfig> = {}): ArenaCubConfig => ({ ...DEFAULT_CUB, activeStart: "00:00", activeEnd: "23:59", activeDays: [0, 1, 2, 3, 4, 5, 6], ...p });
 // Tue 2026-11-03 15:00 UTC = 10:00 New York (EST) = 20:00 Karachi.

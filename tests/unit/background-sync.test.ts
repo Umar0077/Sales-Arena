@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clampInterval, createBackgroundSync } from "@/lib/live/background-sync";
-import { __resetClock, changedDatasets, missedSales, noteClockSample, serverOffsetMs, toServerTime, type RecentSale, type SyncFingerprints } from "@/lib/live/sync-check";
-import { __resetTraces, recordDisplayReport, stageStats, traceBroadcast, traceRows, TRACE_WINDOW_MS } from "@/lib/server/sales/delivery-trace";
-import { discoverySeconds } from "@/lib/server/sales/scheduler";
+import { clampInterval, createBackgroundSync } from "@/frontend/live/background-sync";
+import { __resetClock, changedDatasets, missedSales, noteClockSample, serverOffsetMs, toServerTime, type RecentSale, type SyncFingerprints } from "@/frontend/live/sync-check";
+import { __resetTraces, recordDisplayReport, stageStats, traceBroadcast, traceRows, TRACE_WINDOW_MS } from "@/backend/sales/delivery-trace";
+import { discoverySeconds } from "@/backend/sales/scheduler";
 
 describe("background sync scheduler", () => {
   beforeEach(() => vi.useFakeTimers());

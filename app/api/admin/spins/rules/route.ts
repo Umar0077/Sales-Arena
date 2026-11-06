@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/lib/server/auth/guard";
-import { validateRuleInput } from "@/lib/server/spins/rules";
-import { errorResponse, readJson } from "@/lib/server/spins/http";
+import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/backend/auth/guard";
+import { validateRuleInput } from "@/backend/spins/rules";
+import { errorResponse, readJson } from "@/backend/spins/http";
 
 export const dynamic = "force-dynamic";
 

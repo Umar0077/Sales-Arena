@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { recordDisplayReport } from "@/lib/server/sales/delivery-trace";
+import { recordDisplayReport } from "@/backend/sales/delivery-trace";
 
 export const dynamic = "force-dynamic";
 

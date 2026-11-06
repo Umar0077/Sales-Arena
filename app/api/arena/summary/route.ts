@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSafeQuoteClient } from "@/lib/server/safequote/client";
-import { SafeQuoteApiError } from "@/lib/server/safequote/errors";
+import { getSafeQuoteClient } from "@/backend/safequote/client";
+import { SafeQuoteApiError } from "@/backend/safequote/errors";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

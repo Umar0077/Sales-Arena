@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { jsonError } from "@/lib/server/auth/guard";
-import { readJson } from "@/lib/server/spins/http";
-import { saveSettings } from "@/lib/server/security/ip-admin";
-import { ipSecurityError, noStore, requireOwner } from "@/lib/server/security/http";
+import { jsonError } from "@/backend/auth/guard";
+import { readJson } from "@/backend/spins/http";
+import { saveSettings } from "@/backend/security/ip-admin";
+import { ipSecurityError, noStore, requireOwner } from "@/backend/security/http";
 
 export const dynamic = "force-dynamic";
 

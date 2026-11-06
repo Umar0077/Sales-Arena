@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { computeSpinCredit, previewRule } from "@/features/targets/eligibility";
-import { createSeedData } from "@/lib/mock-api/seed";
+import { computeSpinCredit, previewRule } from "@/frontend/features/targets/eligibility";
+import { createSeedData } from "@/frontend/mock-api/seed";
 
 describe("Target Rules & Spin Credit Eligibility", () => {
   it("calculates spin credits earned based on rule threshold", () => {

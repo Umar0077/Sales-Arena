@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useArenaStore } from "@/store/arena-store";
-import { computeSpinCredit } from "@/features/targets/eligibility";
+import { useArenaStore } from "@/frontend/stores/arena-store";
+import { computeSpinCredit } from "@/frontend/features/targets/eligibility";
 
 describe("Arena Store State Machine & Actions", () => {
   beforeEach(() => {

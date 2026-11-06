@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { RulesTab } from "@/components/admin/spins/RulesTab";
-import { AllocateTab } from "@/components/admin/spins/AllocateTab";
-import { BalancesTab } from "@/components/admin/spins/BalancesTab";
-import { HistoryTab } from "@/components/admin/spins/HistoryTab";
-import { PrizesTab } from "@/components/admin/spins/PrizesTab";
-import { DevicesTab } from "@/components/admin/spins/DevicesTab";
-import { cn } from "@/lib/utils";
+import { RulesTab } from "@/frontend/components/admin/spins/RulesTab";
+import { AllocateTab } from "@/frontend/components/admin/spins/AllocateTab";
+import { BalancesTab } from "@/frontend/components/admin/spins/BalancesTab";
+import { HistoryTab } from "@/frontend/components/admin/spins/HistoryTab";
+import { PrizesTab } from "@/frontend/components/admin/spins/PrizesTab";
+import { DevicesTab } from "@/frontend/components/admin/spins/DevicesTab";
+import { cn } from "@/shared/utils";
 
 const TABS = ["Rules & Settings", "Manual Allocation", "Agent Balances", "Credit History", "Prizes", "Displays"] as const;
 type Tab = (typeof TABS)[number];

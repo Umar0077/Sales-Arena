@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { runMigrations, migrationStatus, defaultMigrationsDir, MIGRATIONS } from "@/lib/server/db/migrate-core.mjs";
+import { runMigrations, migrationStatus, defaultMigrationsDir, MIGRATIONS } from "@/database/migrate-core.mjs";
 import { pool, resetDatabase } from "./helpers";
 
 const EXPECTED_TABLES = [

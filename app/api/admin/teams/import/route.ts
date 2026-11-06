@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
-import { noStore } from "@/lib/server/security/http";
-import { readJson } from "@/lib/server/spins/http";
-import { jsonError } from "@/lib/server/auth/guard";
-import { applyRoster, previewRoster } from "@/lib/server/teams/roster-import";
-import { teamAuth, teamErrorResponse } from "@/lib/server/teams/http";
+import { noStore } from "@/backend/security/http";
+import { readJson } from "@/backend/spins/http";
+import { jsonError } from "@/backend/auth/guard";
+import { applyRoster, previewRoster } from "@/backend/teams/roster-import";
+import { teamAuth, teamErrorResponse } from "@/backend/teams/http";
 
 export const dynamic = "force-dynamic";
 

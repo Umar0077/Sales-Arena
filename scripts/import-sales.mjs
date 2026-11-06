@@ -29,7 +29,7 @@ if (!process.env.DATABASE_URL) fail("DATABASE_URL is not set (use node --env-fil
 if (!token) fail("SALES_ARENA_API_TOKEN is not set.", 2);
 if (!/^\d{4}-\d{2}-\d{2}$/.test(from ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(to ?? "") || from > to) fail("Use --from=YYYY-MM-DD [--to=YYYY-MM-DD].", 2);
 
-// Same closer identity rules as lib/server/safequote/mapper.ts (extractCloserIdentity).
+// Same closer identity rules as backend/safequote/mapper.ts (extractCloserIdentity).
 function hashString(input) {
   let h = 2166136261;
   for (let i = 0; i < input.length; i++) {
@@ -87,7 +87,7 @@ try {
       const id = closerIdentity(s.closer);
       const userCode = id.userCode.trim().toUpperCase().slice(0, 60);
       const name = id.name;
-      const agentId = `agt_${userCode.slice(0, 60)}`; // same mapping as lib/server/sales/ingest.ts
+      const agentId = `agt_${userCode.slice(0, 60)}`; // same mapping as backend/sales/ingest.ts
       const initials = (name.split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join("") || "CL").toUpperCase();
       const c = await pool.connect();
       try {

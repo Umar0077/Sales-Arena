@@ -338,3 +338,57 @@ Deploy migration 007 in the same release as the code, after a fresh `pg_dump` (s
 Do not turn restriction on in production until the whitelist is verified (transition steps above). Rollback: turn the
 restriction off (Admin or `scripts/ip-security.mjs disable`), then roll back the code as in section 10. The 007 tables are
 additive and can stay.
+
+---
+
+## 13. Worktree releases (current procedure) and known operational issues
+
+Releases are built in their own git worktree and the service is switched by pointing systemd's `WorkingDirectory`
+at it; the previous worktree stays untouched as the rollback target. Placeholders: `<repo>` (the server clone),
+`<releases>` (the folder holding release worktrees), `<sha>` (the exact commit), `<prev>` (the release running now).
+
+**Before anything** (disk usage has reached 98 % before):
+
+```bash
+df -h / /var <releases>                      # need room for one more worktree + node_modules + .next (~1.5 GB) and the backup
+du -sh <releases>/* | sort -h                # see what the old releases take
+git -C <repo> worktree list                  # which releases exist; note <prev> = the current WorkingDirectory
+systemctl show sales-arena -p WorkingDirectory
+```
+
+Old releases are removed **only by a person, after the new release is verified**, and never `<prev>` (the
+rollback target) or the running one: `git -C <repo> worktree remove <releases>/<old>` then `git -C <repo> worktree prune`.
+Nothing in this repo deletes releases or backups automatically.
+
+**Release** (read-only for the database: no migration in this release):
+
+```bash
+# 1. backup (section 5) and verify it is readable
+pg_dump --format=custom --file=/var/backups/sales-arena/pre-<sha>.dump "$PGURL" && pg_restore --list /var/backups/sales-arena/pre-<sha>.dump | head
+# 2. exact commit into its own worktree
+git -C <repo> fetch origin && git -C <repo> worktree add <releases>/<sha> <sha>
+cd <releases>/<sha> && npm ci && npm run typecheck && npm run build        # build = next build --webpack
+# 3. migration STATUS only (reads database/migrations in this worktree): expect 10 applied, 0 pending
+node --env-file=/etc/sales-arena/sales-arena.env scripts/db-migrate.mjs status
+# 4. switch (a drop-in keeps the unit file itself unchanged)
+sudo systemctl edit sales-arena              # [Service] WorkingDirectory=<releases>/<sha>
+sudo systemctl daemon-reload && sudo systemctl restart sales-arena
+```
+
+* **Slow shutdown**: `systemctl restart` waits for open SSE streams to close; earlier deploys showed long stop
+  delays. Check `systemctl show sales-arena -p TimeoutStopUSec`; let systemd finish the stop (do not `kill -9` the
+  process mid-request). Displays reconnect on their own and resync missed events; nothing is replayed.
+* **IP perimeter (HTTP 403)**: smoke tests run on the server against `http://127.0.0.1:3102` (section 9) or from a
+  whitelisted network. A 403 from elsewhere is the perimeter working; never disable it to make a test pass.
+* **Verify**: section 9 checks, then System Health (DB, Safe Quote, SSE green), a live display on Daily and on Teams
+  Arena receiving the next genuine sale, Admin → Settings → Sound previews, and `journalctl -u sales-arena -n 200`.
+
+**Rollback** (no database change in this release, so the code switch is enough):
+
+```bash
+sudo systemctl edit sales-arena              # WorkingDirectory=<prev>
+sudo systemctl daemon-reload && sudo systemctl restart sales-arena
+```
+
+`<prev>` must still exist and still have its `node_modules` and `.next`: keep it until the new release has run
+through a normal working day.

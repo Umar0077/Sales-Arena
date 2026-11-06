@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
-import { ingestValidatedSale } from "@/lib/server/sales/ingest";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as createProgramRoute, GET as listProgramsRoute } from "@/app/api/admin/programs/route";
 import { PATCH as patchProgram } from "@/app/api/admin/programs/[id]/route";
 import { PATCH as patchAward } from "@/app/api/admin/awards/[id]/route";
@@ -7,7 +7,7 @@ import { GET as listAwardsRoute } from "@/app/api/admin/awards/route";
 import { PUT as putConfig } from "@/app/api/admin/arena-config/route";
 import { GET as publicAwards } from "@/app/api/arena/awards/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
-import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/lib/server/events/broadcaster";
+import { arenaBroadcaster, type ArenaBroadcastEvent } from "@/backend/events/broadcaster";
 import { createAdmin, pool, req, resetDatabase, sessionFrom, setSetting } from "./helpers";
 
 /**

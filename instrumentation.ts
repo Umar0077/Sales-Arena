@@ -13,6 +13,6 @@ export async function register() {
   const enabled = flag === "true" || (flag !== "false" && process.env.NODE_ENV === "production");
   if (!enabled || !process.env.DATABASE_URL || !process.env.SALES_ARENA_API_TOKEN) return;
 
-  const { startSalesSync } = await import("./lib/server/sales/scheduler");
+  const { startSalesSync } = await import("./backend/sales/scheduler");
   startSalesSync();
 }

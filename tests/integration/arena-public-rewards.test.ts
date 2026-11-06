@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { ingestValidatedSale } from "@/lib/server/sales/ingest";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as createProgramRoute } from "@/app/api/admin/programs/route";
 import { PATCH as patchProgram } from "@/app/api/admin/programs/[id]/route";
 import { PATCH as patchAward } from "@/app/api/admin/awards/[id]/route";

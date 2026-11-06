@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/server/auth/guard";
-import { readSpinSettings } from "@/lib/server/spins/ledger";
-import { errorResponse } from "@/lib/server/spins/http";
+import { requireAdmin } from "@/backend/auth/guard";
+import { readSpinSettings } from "@/backend/spins/ledger";
+import { errorResponse } from "@/backend/spins/http";
 
 export const dynamic = "force-dynamic";
 
