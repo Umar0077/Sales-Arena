@@ -171,6 +171,7 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
             subtitle={`${weekDateLabel} · ranked by validated sales, then submitted leads`}
             testId="top3-weekly"
             bonusPeriod="week"
+            tier="daily"
           />
         )}
 

@@ -139,6 +139,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           title={cfg.title}
           accent={accent}
           inactiveNote={dateRangeLabel || `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+          tone={kind === "monthly" ? "championship" : undefined}
         />
 
         <StatGrid
@@ -188,6 +189,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
           subtitle={`${dateRangeLabel} · ranked by validated sales, then submitted leads`}
           testId={`top3-${kind}`}
           bonusPeriod={kind === "weekly" ? "week" : "month"}
+          tier={kind}
         />
 
         <div className="grid gap-5 md:grid-cols-2">

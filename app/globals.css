@@ -601,3 +601,85 @@ button, input, select, textarea { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .wtp-root * { animation: none !important; }
 }
+
+/* ===================================================================================================
+   Arena screens: premium presentation (Daily / Weekly / Monthly). Presentation only: transforms, opacity,
+   borders, gradients. Lite (performance) mode drops glows and animated light; reduced motion stops it.
+   =================================================================================================== */
+.ac-kpi {
+  --ac: #7568ff;
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--ac) 30%, transparent);
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--ac) 14%, transparent), transparent 60%),
+    linear-gradient(180deg, rgba(20, 28, 54, 0.92), rgba(10, 15, 31, 0.92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 18px 40px -26px color-mix(in srgb, var(--ac) 70%, transparent);
+  padding: 0.95rem 1.05rem 0.9rem;
+}
+.ac-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 18% auto 18%;
+  height: 2px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, transparent, var(--ac), transparent);
+  opacity: 0.85;
+}
+.ac-kpi__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem; }
+.ac-kpi__label { min-width: 0; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #aab3d1; line-height: 1.25; }
+.ac-kpi__icon {
+  display: grid; place-items: center; flex-shrink: 0; width: 1.9rem; height: 1.9rem; border-radius: 0.6rem;
+  color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ac) 28%, transparent);
+}
+.ac-kpi .kpi-number { font-size: clamp(1.6rem, 17cqi, 2.35rem); letter-spacing: -0.02em; }
+.tv-mode .ac-kpi .kpi-number { font-size: clamp(1.8rem, 19cqi, 3.25rem); }
+.ac-kpi__sub { margin-top: 0.3rem; font-size: 0.72rem; color: #8a93b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-kpi__bar { margin-top: 0.55rem; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ac-kpi__bar > div { height: 100%; border-radius: 999px; transition: width 0.7s ease; background: linear-gradient(90deg, color-mix(in srgb, var(--ac) 60%, #7568ff), var(--ac)); box-shadow: 0 0 12px color-mix(in srgb, var(--ac) 60%, transparent); }
+
+/* Panels (feeds, achievements) */
+.ac-panel {
+  position: relative;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(18, 25, 48, 0.94), rgba(10, 15, 31, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 60px -40px rgba(117, 104, 255, 0.6);
+}
+.ac-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.55rem;
+  padding: 1.75rem 1rem; text-align: center; border-radius: 1rem;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  background: radial-gradient(60% 80% at 50% 0%, rgba(117, 104, 255, 0.08), transparent 70%);
+}
+.ac-empty__icon { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 0.9rem; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* Podium */
+.ac-podium-spot {
+  position: absolute; left: 50%; top: -30%; width: min(720px, 80%); height: 120%; transform: translateX(-50%);
+  background: radial-gradient(50% 55% at 50% 30%, rgba(255, 200, 87, 0.16), transparent 70%);
+  pointer-events: none;
+}
+.ac-podium-spot--monthly { background: radial-gradient(50% 55% at 50% 30%, rgba(255, 200, 87, 0.22), transparent 70%), radial-gradient(45% 50% at 20% 60%, rgba(117, 104, 255, 0.14), transparent 70%), radial-gradient(45% 50% at 80% 60%, rgba(117, 104, 255, 0.14), transparent 70%); }
+.ac-champ-ring { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(140deg, rgba(255, 224, 138, 0.9), rgba(232, 163, 23, 0.25) 35%, rgba(255, 224, 138, 0.05) 60%, rgba(255, 200, 87, 0.7)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; padding: 1.5px; }
+.ac-champ-sheen { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.ac-champ-sheen::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(100deg, transparent, rgba(255, 236, 170, 0.09), transparent); transform: skewX(-12deg); animation: acSheen 7s ease-in-out infinite; }
+@keyframes acSheen { 0%, 55% { transform: translateX(0) skewX(-12deg); } 100% { transform: translateX(420%) skewX(-12deg); } }
+
+/* Hero */
+.ac-radar { position: relative; width: 4.5rem; height: 4.5rem; flex-shrink: 0; }
+.ac-radar span { position: absolute; inset: 0; border-radius: 999px; border: 1px solid rgba(54, 224, 181, 0.45); animation: acRadar 3.2s ease-out infinite; opacity: 0; }
+.ac-radar span:nth-child(2) { animation-delay: 1.05s; }
+.ac-radar span:nth-child(3) { animation-delay: 2.1s; }
+@keyframes acRadar { 0% { transform: scale(0.45); opacity: 0.9; } 100% { transform: scale(1.25); opacity: 0; } }
+
+[data-perf-mode="performance"] .ac-kpi { box-shadow: none; }
+[data-perf-mode="performance"] .ac-champ-sheen::after,
+[data-perf-mode="performance"] .ac-radar span { animation: none; opacity: 0; }
+[data-perf-mode="performance"] .ac-podium-spot { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ac-champ-sheen::after, .ac-radar span { animation: none; opacity: 0; }
+}

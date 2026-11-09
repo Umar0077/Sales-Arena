@@ -52,27 +52,38 @@ export const ArenaLiveActivity = memo(function ArenaLiveActivity({
   };
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-[#0D1426]/90 p-5 lg:p-6 backdrop-blur-xl flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-secondary" />
-          <h3 className="font-heading text-base font-bold text-white tracking-tight">
+    <div className="ac-panel p-5 lg:p-6 flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4 border-b border-white/[0.06] pb-3">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-8 w-8 place-items-center rounded-lg border border-secondary/30 bg-secondary/10">
+            <Clock className="w-4 h-4 text-secondary" />
+          </span>
+          <h3 className="font-heading text-base font-bold text-white tracking-wide">
             {title}
           </h3>
         </div>
-        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-mono font-bold">
+        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 text-emerald-300 text-[10px] font-mono font-bold tracking-wider">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           {badge}
         </span>
       </div>
 
       <div className="space-y-2.5 overflow-y-auto max-h-[420px] pr-1">
-        {displayEvents.length === 0 && <p className="py-8 text-center text-sm text-text-muted">{emptyText}</p>}
+        {displayEvents.length === 0 && (
+          <div className="ac-empty">
+            <span className="ac-empty__icon">
+              <Clock className="h-5 w-5 text-secondary" />
+            </span>
+            <p className="text-sm font-semibold text-text-secondary">{emptyText}</p>
+            <p className="text-xs text-text-muted">New entries stream in live as they happen.</p>
+          </div>
+        )}
         {displayEvents.map((e) => (
           <div
             key={e.id}
-            className="flex items-start gap-3 p-2.5 rounded-xl bg-surface/40 border border-white/5 hover:border-white/10 transition-colors"
+            className="flex items-start gap-3 p-3 rounded-xl border border-white/[0.06] bg-gradient-to-r from-white/[0.04] to-transparent"
           >
-            <div className="mt-0.5 p-1 rounded-lg bg-surface border border-white/10 shrink-0">
+            <div className="mt-0.5 grid h-7 w-7 place-items-center rounded-lg bg-white/[0.05] border border-white/10 shrink-0">
               {getIcon(e.type)}
             </div>
 

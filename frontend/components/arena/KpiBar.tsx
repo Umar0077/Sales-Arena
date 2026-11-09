@@ -47,98 +47,60 @@ export const KpiBar = memo(function KpiBar({ stats, showSpinCredits = true }: { 
   return (
     <div className={showSpinCredits ? "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"} data-testid="kpi-bar" data-cards={showSpinCredits ? 6 : 5}>
       {/* 1. Total Approved Sales */}
-      <div className="rounded-2xl border border-emerald-500/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-success">
-        <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>APPROVED SALES</span>
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-        </div>
-        <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          {approvedCount === null ? dash : <AnimatedCounter value={approvedCount} />}
-        </div>
-        <div className="text-[11px] font-mono text-emerald-400 mt-1">
-          {volumeStr}
-        </div>
-      </div>
+      <Card accent="#36E0B5" label="APPROVED SALES" icon={<CheckCircle2 className="h-4 w-4" />}>
+        <div className="font-heading font-black text-white kpi-number">{approvedCount === null ? dash : <AnimatedCounter value={approvedCount} />}</div>
+        <div className="ac-kpi__sub font-mono text-emerald-300">{volumeStr}</div>
+      </Card>
 
       {/* 2. Today's Target */}
-      <div className="rounded-2xl border border-white/10 bg-[#0D1426]/80 p-4 backdrop-blur-md">
-        <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>TODAY&apos;S TARGET</span>
-          <Target className="w-4 h-4 text-secondary" />
-        </div>
-        <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
+      <Card accent="#22D3FF" label="TODAY'S TARGET" icon={<Target className="h-4 w-4" />}>
+        <div className="font-heading font-black text-white kpi-number">
           {progress.target === null ? <span className="text-2xl text-text-muted" data-testid="target-not-set">Not set</span> : <AnimatedCounter value={progress.target} />}
         </div>
-        <div className="text-[11px] font-mono text-muted mt-1">
-          {progress.target === null ? "Set it in Admin → Targets" : "Validated sales goal"}
-        </div>
-      </div>
+        <div className="ac-kpi__sub">{progress.target === null ? "Set it in Admin → Targets" : "Validated sales goal"}</div>
+      </Card>
 
       {/* 3. Target Completion % */}
-      <div className="rounded-2xl border border-secondary/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-cyan">
-        <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>COMPLETION</span>
-          <TrendingUp className="w-4 h-4 text-secondary" />
+      <Card accent="#27D5FF" label="COMPLETION" icon={<TrendingUp className="h-4 w-4" />}>
+        <div className="font-heading font-black text-secondary kpi-number">{percentStr}</div>
+        <div className="ac-kpi__bar">
+          <div style={{ width: `${Math.min(100, completionRate * 100)}%` }} />
         </div>
-        <div className="font-heading text-3xl font-black text-secondary tracking-tight kpi-number">
-          {percentStr}
-        </div>
-        <div className="w-full bg-white/10 h-1.5 rounded-full mt-2 overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700"
-            style={{ width: `${Math.min(100, completionRate * 100)}%` }}
-          />
-        </div>
-        {summary && (
-          <div className="text-[11px] font-mono text-muted mt-1">
-            {summary.closeRate.toFixed(1)}% close rate
-          </div>
-        )}
-      </div>
+        {summary && <div className="ac-kpi__sub font-mono">{summary.closeRate.toFixed(1)}% close rate</div>}
+      </Card>
 
       {/* 4. Remaining Sales to Target */}
-      <div className="rounded-2xl border border-white/10 bg-[#0D1426]/80 p-4 backdrop-blur-md">
-        <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>REMAINING</span>
-          <Flame className="w-4 h-4 text-gold" />
-        </div>
-        <div className="font-heading text-3xl font-black text-gold tracking-tight kpi-number">
-          {remainingCount === null ? <span className="text-2xl text-text-muted">—</span> : <AnimatedCounter value={remainingCount} />}
-        </div>
-        <div className="text-[11px] font-mono text-muted mt-1">
-          {remainingSub}
-        </div>
-      </div>
+      <Card accent="#FFC857" label="REMAINING" icon={<Flame className="h-4 w-4" />}>
+        <div className="font-heading font-black text-gold kpi-number">{remainingCount === null ? <span className="text-2xl text-text-muted">—</span> : <AnimatedCounter value={remainingCount} />}</div>
+        <div className="ac-kpi__sub font-mono">{remainingSub}</div>
+      </Card>
 
       {/* 5. Spin credits (Spin & Win screen only) */}
       {showSpinCredits && (
-      <div data-testid="kpi-spin-credits" className="rounded-2xl border border-primary/25 bg-[#0D1426]/80 p-4 backdrop-blur-md glow-primary">
-        <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>SPIN CREDITS</span>
-          <Disc3 className="w-4 h-4 text-primary" />
-        </div>
-        <div className="font-heading text-3xl font-black text-primary tracking-tight kpi-number">
-          {unlockedCount === null ? dash : <AnimatedCounter value={unlockedCount} />}
-        </div>
-        <div className="text-[11px] font-mono text-secondary mt-1">
-          {availableCount === null ? "Spin credits unavailable" : `${availableCount} spin credit${availableCount === 1 ? "" : "s"} ready`}
-        </div>
-      </div>
+        <Card accent="#7568FF" label="SPIN CREDITS" icon={<Disc3 className="h-4 w-4" />} testId="kpi-spin-credits">
+          <div className="font-heading font-black text-primary kpi-number">{unlockedCount === null ? dash : <AnimatedCounter value={unlockedCount} />}</div>
+          <div className="ac-kpi__sub font-mono text-secondary">{availableCount === null ? "Spin credits unavailable" : `${availableCount} spin credit${availableCount === 1 ? "" : "s"} ready`}</div>
+        </Card>
       )}
 
       {/* 6. Active Agents on Floor (spans the last row when there are five cards, so no gap is left) */}
-      <div className={`rounded-2xl border border-white/10 bg-[#0D1426]/80 p-4 backdrop-blur-md${showSpinCredits ? "" : " col-span-2 sm:col-span-2 lg:col-span-1"}`}>
-        <div className="flex items-center justify-between text-muted text-xs font-semibold mb-1">
-          <span>ACTIVE AGENTS</span>
-          <Users className="w-4 h-4 text-text-secondary" />
-        </div>
-        <div className="font-heading text-3xl font-black text-white tracking-tight kpi-number">
-          {activeCount === null ? dash : <AnimatedCounter value={activeCount} />}
-        </div>
-        <div className="text-[11px] font-mono text-muted mt-1">
-          {activeSub}
-        </div>
-      </div>
+      <Card accent="#FF7AD9" label="ACTIVE AGENTS" icon={<Users className="h-4 w-4" />} className={showSpinCredits ? "" : "col-span-2 sm:col-span-2 lg:col-span-1"}>
+        <div className="font-heading font-black text-white kpi-number">{activeCount === null ? dash : <AnimatedCounter value={activeCount} />}</div>
+        <div className="ac-kpi__sub font-mono">{activeSub}</div>
+      </Card>
     </div>
   );
 });
+
+/** One KPI card: label, tinted icon, big number (children), accent light along the top edge. */
+function Card({ accent, label, icon, children, className = "", testId }: { accent: string; label: string; icon: React.ReactNode; children: React.ReactNode; className?: string; testId?: string }) {
+  return (
+    <div data-testid={testId} className={`ac-kpi ${className}`} style={{ ["--ac" as string]: accent } as React.CSSProperties}>
+      <div className="ac-kpi__head">
+        <span className="ac-kpi__label">{label}</span>
+        <span className="ac-kpi__icon">{icon}</span>
+      </div>
+      {children}
+    </div>
+  );
+}

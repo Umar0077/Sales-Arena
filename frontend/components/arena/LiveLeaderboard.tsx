@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, memo } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { motion, LayoutGroup } from "motion/react";
 import { Trophy, Crown } from "lucide-react";
 import { useArenaStore } from "@/frontend/stores/arena-store";
@@ -12,10 +12,45 @@ import { businessClock } from "@/frontend/rewards/runner";
 import { EarnedBonus } from "@/frontend/components/arena/EarnedBonus";
 
 const MEDALS = [
-  { bg: "linear-gradient(135deg, #FFE08A, #E8A317)", ring: "rgba(255,200,87,0.55)", glow: "rgba(255,200,87,0.35)", text: "#2A1C00" },
-  { bg: "linear-gradient(135deg, #F1F4FA, #9AA4B6)", ring: "rgba(215,222,234,0.45)", glow: "rgba(215,222,234,0.22)", text: "#1B2130" },
-  { bg: "linear-gradient(135deg, #F2B27D, #B4652E)", ring: "rgba(224,145,90,0.5)", glow: "rgba(224,145,90,0.25)", text: "#2B1406" },
+  { bg: "linear-gradient(135deg, #FFE08A, #E8A317)", ring: "rgba(255,200,87,0.55)", glow: "rgba(255,200,87,0.35)", text: "#2A1C00", tint: "rgba(255,200,87,0.12)", bar: "#FFC857" },
+  { bg: "linear-gradient(135deg, #F1F4FA, #9AA4B6)", ring: "rgba(215,222,234,0.45)", glow: "rgba(215,222,234,0.22)", text: "#1B2130", tint: "rgba(215,222,234,0.08)", bar: "#D7DEEA" },
+  { bg: "linear-gradient(135deg, #F2B27D, #B4652E)", ring: "rgba(224,145,90,0.5)", glow: "rgba(224,145,90,0.25)", text: "#2B1406", tint: "rgba(224,145,90,0.1)", bar: "#E0915A" },
 ];
+
+/**
+ * Keeps leaderboard rows clear of the Arena Cub: measures where the cub stands (when it is at rest) and, if it
+ * overlaps the bottom of the list, ends the list's visible area just above it. The list still scrolls as before.
+ */
+function useCubClearance(list: React.RefObject<HTMLOListElement | null>): number {
+  const [gap, setGap] = useState(0);
+  useEffect(() => {
+    const measure = () => {
+      const el = list.current;
+      const cub = document.querySelector<HTMLElement>("[data-testid='arena-cub']");
+      if (!el) return;
+      if (cub?.dataset.move) return; // moving: wait until it is back at rest
+      let next = 0;
+      if (cub) {
+        const c = cub.getBoundingClientRect();
+        const box = el.getBoundingClientRect();
+        const bottom = box.bottom + gap; // the list's full height without our own clearance
+        const overlapsX = c.right > box.left + 8 && c.left < box.right - 8;
+        if (overlapsX && c.top < bottom && c.bottom > box.top && c.width > 0) next = Math.min(Math.round(bottom - c.top + 8), Math.round((bottom - box.top) * 0.55));
+      }
+      next = Math.max(0, next);
+      if (Math.abs(next - gap) > 12) setGap(next);
+    };
+    const t = setTimeout(measure, 600);
+    const id = setInterval(measure, 2000);
+    window.addEventListener("resize", measure);
+    return () => {
+      clearTimeout(t);
+      clearInterval(id);
+      window.removeEventListener("resize", measure);
+    };
+  }, [list, gap]);
+  return gap;
+}
 
 /** Bar colour by closed rate: green when strong, amber in the middle, rose when low. */
 function rateColor(rate: number): string {
@@ -71,6 +106,8 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
   const count = countOverride ?? settingsCount;
   const medals = style !== "minimal";
   const compact = size === "compact";
+  const listRef = useRef<HTMLOListElement | null>(null);
+  const cubGap = useCubClearance(listRef);
 
   // Remember previous ranks to flash closers who just moved up.
   const prevRanks = useRef(new Map<string, number>());
@@ -115,7 +152,7 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
       </header>
 
       {/* Column headings */}
-      <div className={cn("mx-3 mt-3 grid items-end rounded-xl bg-white/[0.05] px-3 py-2.5 text-[10px] font-bold uppercase leading-tight tracking-[0.08em] text-text-secondary", cols)}>
+      <div className={cn("mx-3 mt-3 grid items-end rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-[10px] font-bold uppercase leading-tight tracking-[0.08em] text-text-secondary", cols)}>
         <span>Rank</span>
         <span>Closer Name</span>
         <span className="hidden text-center @[32rem]:block">Submitted Leads</span>
@@ -124,7 +161,13 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
       </div>
 
       <LayoutGroup>
-        <ol className={cn("min-h-0 flex-1 overflow-y-auto px-3 py-2.5", compact ? "space-y-1.5" : "space-y-2")} data-testid="closer-rows">
+        <ol
+          ref={listRef}
+          className={cn("min-h-0 flex-1 overflow-y-auto px-3 py-2.5 transition-[margin] duration-500", compact ? "space-y-1.5" : "space-y-2")}
+          style={cubGap ? { marginBottom: cubGap } : undefined}
+          data-testid="closer-rows"
+          data-cub-clearance={cubGap || undefined}
+        >
           {rows.map((r) => {
             const medal = medals && r.rank <= 3 ? MEDALS[r.rank - 1] : null;
             const rate = Math.round(r.rate);
@@ -136,14 +179,23 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
                 transition={{ type: "spring", stiffness: 380, damping: 34 }}
                 data-agent={r.agent.id}
                 className={cn(
-                  "grid items-center rounded-xl border bg-white/[0.025] px-3",
+                  "relative grid items-center overflow-hidden rounded-xl border px-3",
                   cols,
                   compact ? "py-2" : "py-2.5",
-                  !medal && "border-white/[0.06]",
+                  !medal && "border-white/[0.06] bg-white/[0.025]",
                   climbed.has(r.agent.id) && "lb-climb",
                 )}
-                style={medal ? { borderColor: medal.ring, boxShadow: r.rank === 1 ? `0 0 28px -12px ${medal.glow}` : undefined } : undefined}
+                style={
+                  medal
+                    ? {
+                        borderColor: medal.ring,
+                        background: `linear-gradient(90deg, ${medal.tint}, rgba(255,255,255,0.02) 55%)`,
+                        boxShadow: r.rank === 1 ? `0 0 28px -12px ${medal.glow}, inset 0 1px 0 rgba(255,255,255,0.05)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
+                      }
+                    : undefined
+                }
               >
+                {medal && <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full" style={{ background: medal.bar, boxShadow: `0 0 10px ${medal.glow}` }} aria-hidden />}
                 {/* Rank */}
                 <span
                   className={cn(
@@ -158,7 +210,7 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
                 {/* Closer */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-sm font-bold text-white" title={r.agent.name}>{r.agent.name}</span>
+                    <span className={cn("truncate font-bold text-white", r.rank <= 3 ? "text-[15px]" : "text-sm")} title={r.agent.name}>{r.agent.name}</span>
                     {r.rank === 1 && medals && <Crown className="h-4 w-4 shrink-0 fill-gold/30 text-gold" aria-label="Top closer" />}
                   </div>
                   <div className="truncate text-[11px] font-medium text-text-muted tabular">{r.code}</div>
@@ -170,8 +222,8 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
                 </div>
 
                 {/* Submitted / Validated */}
-                <span className="hidden text-center font-heading text-base font-bold text-white tabular @[32rem]:block" data-col="submitted">{r.counts.submitted}</span>
-                <span className="hidden text-center font-heading text-base font-semibold text-emerald-300 tabular @[32rem]:block" data-col="validated">{r.counts.validated}</span>
+                <span className="hidden text-center font-heading text-base font-bold text-white/90 tabular @[32rem]:block" data-col="submitted">{r.counts.submitted}</span>
+                <span className="hidden justify-self-center rounded-lg bg-emerald-400/10 px-2.5 py-0.5 text-center font-heading text-lg font-extrabold text-emerald-300 tabular @[32rem]:block" data-col="validated">{r.counts.validated}</span>
 
                 {/* Closed rate */}
                 <div className="min-w-0">
