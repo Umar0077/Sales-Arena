@@ -4,6 +4,7 @@ import { memo } from "react";
 import { motion, LayoutGroup } from "motion/react";
 import { Crown, Trophy, Medal, Users } from "lucide-react";
 import type { CloserRow } from "@/shared/sales/leads";
+import { formatSalesCount } from "@/shared/sales/weighting";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { cn } from "@/shared/utils";
 import { EarnedBonus } from "@/frontend/components/arena/EarnedBonus";
@@ -178,7 +179,7 @@ export const TopPerformersPodium = memo(function TopPerformersPodium({
                       style={{ color: p.color, textShadow: champ ? `0 0 26px ${p.glow}` : undefined }}
                       data-col="validated"
                     >
-                      {r.counts.validated}
+                      {formatSalesCount(r.counts.validated)}
                     </div>
                     <div className="text-[10px] font-bold tracking-[0.2em] text-text-muted">VALIDATED</div>
                     {bonusPeriod && <div className={cn(solo && "sm:hidden")}><EarnedBonus code={r.code} period={bonusPeriod} variant="podium" /></div>}

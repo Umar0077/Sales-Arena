@@ -79,7 +79,7 @@ export function StatGrid({ stats }: { stats: Stat[] }) {
               </span>
             </div>
             <div className="font-heading font-black text-white kpi-number tabular" data-testid={s.testId}>
-              <AnimatedCounter value={s.value} formatter={s.format ?? ((v) => Math.round(v).toLocaleString("en-US"))} />
+              <AnimatedCounter value={s.value} formatter={s.format ?? ((v) => (Number.isInteger(v) ? v.toLocaleString("en-US") : (Math.round(v * 2) / 2).toString()))} />
             </div>
             {s.progress !== undefined && (
               <div className="ac-kpi__bar" role="progressbar" aria-valuenow={Math.round(Math.min(100, s.progress * 100))} aria-valuemin={0} aria-valuemax={100} aria-label={`${s.label} progress`}>

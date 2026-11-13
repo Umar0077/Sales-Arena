@@ -2,6 +2,7 @@ import type { SpinCredit, TargetPeriod, TargetRule } from "@/shared/types";
 import type { ArenaData } from "@/shared/mock-api/schema";
 import { startOfDay } from "@/shared/utils";
 import { leadCountsByAgent } from "@/shared/sales/leads";
+import { addCredits } from "@/shared/sales/weighting";
 
 export const FALLBACK_RULE: TargetRule = {
   id: "rule_fallback",
@@ -78,11 +79,12 @@ export function computeSpinCredit(
   const today = ctx.today.get(agentId) ?? 0;
   const hist = data.history[agentId] ?? [];
   const periodSales =
-    rule.period === "weekly" ? today + hist.slice(0, 6).reduce((t, n) => t + n, 0) : today;
+    rule.period === "weekly" ? hist.slice(0, 6).reduce((t, n) => addCredits(t, n), today) : today;
   const perSpin = Math.max(1, Math.floor(rule.salesPerSpin));
   const earned = rule.enabled ? Math.floor(periodSales / perSpin) : 0;
   const bonus = data.bonusCredits[agentId] ?? 0;
   const used = (rule.period === "weekly" ? ctx.usedWeekly : ctx.usedDaily).get(agentId) ?? 0;
+  const remToNext = rule.enabled ? Math.round((perSpin - (periodSales % perSpin)) * 2) / 2 : null;
   return {
     agentId,
     earned,
@@ -91,7 +93,7 @@ export function computeSpinCredit(
     available: Math.max(0, earned + bonus - used),
     periodSales,
     salesPerSpin: perSpin,
-    salesToNext: rule.enabled ? perSpin - (periodSales % perSpin) : null,
+    salesToNext: remToNext !== null && remToNext <= 0 ? perSpin : remToNext,
     ruleEnabled: rule.enabled,
   };
 }

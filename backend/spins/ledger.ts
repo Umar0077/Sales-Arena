@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
+import { sqlCarrierWeight } from "@/shared/sales/weighting";
 import {
   autoGrantKey,
   countingStart,
@@ -242,7 +243,7 @@ export async function grantAutomaticSpins(
   const start = countingStart(rule, win, settings.activationCutoff);
   // Count only reward-eligible, still-validated sales in [start, end) that this rule version covers.
   const cnt = await client.query(
-    `SELECT COUNT(*)::int AS n FROM validated_sales
+    `SELECT COALESCE(SUM(${sqlCarrierWeight("carrier")}), 0)::numeric AS n FROM validated_sales
       WHERE user_code = $1 AND reward_eligible AND status = 'validated'
         AND validated_at >= $2 AND ($3::timestamptz IS NULL OR validated_at < $3)
         AND ($4::timestamptz IS NULL OR validated_at < $4)`,
@@ -253,7 +254,7 @@ export async function grantAutomaticSpins(
     [rule.id, args.userCode, win.key],
   );
   const out: AutoGrant[] = [];
-  for (const n of thresholdsToGrant(cnt.rows[0].n, rule.salesPerSpin, granted.rows[0].n)) {
+  for (const n of thresholdsToGrant(Number(cnt.rows[0].n), rule.salesPerSpin, Number(granted.rows[0].n))) {
     const res = await applyLedgerEntry(client, {
       userCode: args.userCode,
       kind: "automatic",

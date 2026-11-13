@@ -1,6 +1,7 @@
 import type { Agent, Sale, SaleStatus } from "@/shared/types";
 import type { ArenaData } from "@/shared/mock-api/schema";
 import { hashString } from "@/shared/utils";
+import { getCompanySaleWeight, addCredits } from "@/shared/sales/weighting";
 
 /**
  * Single source of truth for lead counts.
@@ -35,8 +36,11 @@ export function leadCountsByAgent(sales: Sale[]): Map<string, LeadCounts> {
     let c = map.get(s.agentId);
     if (!c) map.set(s.agentId, (c = empty()));
     c.submitted++;
-    const key: Exclude<SaleStatus, "approved"> | "validated" = s.status === "approved" ? "validated" : s.status;
-    c[key]++;
+    if (s.status === "approved") {
+      c.validated = addCredits(c.validated, getCompanySaleWeight(s.carrier, s.product));
+    } else {
+      c[s.status]++;
+    }
   }
   return map;
 }
@@ -53,12 +57,12 @@ export function periodLeadCounts(
   if (daysBack <= 0) return map;
   const ids = new Set([...Object.keys(data.history ?? {}), ...map.keys()]);
   for (const id of ids) {
-    const v = (data.history?.[id] ?? []).slice(0, daysBack).reduce((t, n) => t + n, 0);
+    const v = (data.history?.[id] ?? []).slice(0, daysBack).reduce((t, n) => addCredits(t, n), 0);
     const sub = (data.historySubmitted?.[id] ?? []).slice(0, daysBack).reduce((t, n) => t + n, 0);
     if (v === 0 && sub === 0) continue;
     const c = map.get(id) ?? empty();
-    c.validated += v;
-    c.submitted += Math.max(sub, v);
+    c.validated = addCredits(c.validated, v);
+    c.submitted += Math.max(sub, Math.ceil(v));
     map.set(id, c);
   }
   return map;

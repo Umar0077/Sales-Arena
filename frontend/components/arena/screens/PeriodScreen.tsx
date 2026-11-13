@@ -6,6 +6,7 @@ import { useArenaStore } from "@/frontend/stores/arena-store";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { useRewardsStore, programFor } from "@/frontend/stores/rewards-store";
 import { periodLeadCounts, closedRate } from "@/shared/sales/leads";
+import { addCredits } from "@/shared/sales/weighting";
 import { LiveLeaderboard, useCloserRows, usePeriodInfo } from "@/frontend/components/arena/LiveLeaderboard";
 import { TopPerformersPodium } from "@/frontend/components/arena/TopPerformersPodium";
 import { ArenaLiveActivity } from "@/frontend/components/arena/ArenaLiveActivity";
@@ -60,7 +61,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
       const active = new Set(agents.filter((a) => a.active).map((a) => a.id));
       counts.forEach((c, id) => {
         if (!active.has(id)) return;
-        validated += c.validated;
+        validated = addCredits(validated, c.validated);
         submitted += c.submitted;
       });
       closeRate = closedRate({ submitted, validated });

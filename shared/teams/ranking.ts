@@ -7,6 +7,8 @@
  * among tied entries is the deterministic tie-break above. Nothing is random, nothing uses cash amounts.
  */
 
+import { addCredits } from "@/shared/sales/weighting";
+
 export type Designation = "senior" | "junior";
 
 export interface MemberStats {
@@ -83,7 +85,7 @@ export const closeRateOf = (validated: number, submitted: number): number | null
 
 export function rankTeams(teams: TeamInput[]): RankedTeam[] {
   const totals = teams.map((t) => {
-    const validated = t.members.reduce((s, m) => s + m.validated, 0);
+    const validated = t.members.reduce((s, m) => addCredits(s, m.validated), 0);
     const submitted = t.members.reduce((s, m) => s + m.submitted, 0);
     return {
       ...t,

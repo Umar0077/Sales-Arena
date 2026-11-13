@@ -9,6 +9,7 @@ import { AnimatedCounter } from "@/frontend/components/arena/AnimatedCounter";
 import { useTeamStandings, type TeamPeriod, type TeamStandings } from "@/frontend/hooks/use-team-standings";
 import { TeamSaleCelebrationLayer } from "@/frontend/components/arena/teams/TeamSaleCelebration";
 import type { RankedMember, RankedTeam, TopPerformer } from "@/shared/teams/ranking";
+import { formatSalesCount, addCredits } from "@/shared/sales/weighting";
 import { cn } from "@/shared/utils";
 
 const PERIODS: Array<{ id: TeamPeriod; label: string }> = [
@@ -158,7 +159,7 @@ export function TeamsScreen() {
   const fresh = useFreshSales(data);
   const takeoverTeam = takeover ? data?.teams.find((t) => t.id === takeover.teamId) : null;
   const leader = data?.teams.find((t) => t.id === data.leaderTeamId) ?? null;
-  const totalValidated = data?.teams.reduce((s, t) => s + t.validated, 0) ?? 0;
+  const totalValidated = data?.teams.reduce((s, t) => addCredits(s, t.validated), 0) ?? 0;
 
   return (
     <div className={cn("mx-auto flex w-full max-w-[1880px] flex-1 flex-col gap-4 px-3 pt-3 sm:px-5 lg:gap-5", animate && "teams-motion")} data-testid="teams-screen">
@@ -195,7 +196,7 @@ export function TeamsScreen() {
               <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
                 <Radio className="h-3.5 w-3.5 text-secondary" /> Floor total
               </span>
-              <span className="font-heading text-lg font-extrabold text-white tabular-nums">{totalValidated}</span>
+              <span className="font-heading text-lg font-extrabold text-white tabular-nums">{formatSalesCount(totalValidated)}</span>
               <span className="h-5 w-px bg-white/10" />
               <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: leader ? MEDAL[1].color : undefined }}>
                 <Crown className="h-3.5 w-3.5" /> {leader ? leader.name : "Lead open"}
@@ -645,7 +646,7 @@ function MemberRow({ m, team, fresh, animate }: { m: RankedMember; team: RankedT
         </span>
       </span>
       <span className="hidden w-8 text-right text-sm tabular-nums text-text-secondary sm:block min-[1800px]:w-10 min-[1800px]:text-lg" data-testid="member-submitted">{m.submitted}</span>
-      <span className={cn("w-9 text-right font-heading text-lg font-extrabold tabular-nums min-[1800px]:w-12 min-[1800px]:text-3xl", m.validated > 0 && "text-white")} data-testid="member-validated">{m.validated}</span>
+      <span className={cn("w-9 text-right font-heading text-lg font-extrabold tabular-nums min-[1800px]:w-12 min-[1800px]:text-3xl", m.validated > 0 && "text-white")} data-testid="member-validated">{formatSalesCount(m.validated)}</span>
       <span className="hidden w-10 text-right text-xs tabular-nums text-text-secondary sm:block min-[1800px]:w-12 min-[1800px]:text-base">{rate(m.closeRate)}</span>
     </motion.li>
   );
@@ -732,7 +733,7 @@ function Performer({ p, big, animate }: { p: TopPerformer; big?: boolean; animat
         </p>
       </div>
       <div className="text-right">
-        <p className={cn("font-heading font-extrabold tabular-nums leading-none text-white", big ? "text-3xl min-[1800px]:text-4xl" : "text-xl min-[1800px]:text-3xl")} style={big ? { color: m.color, textShadow: `0 0 16px ${m.glow}` } : undefined}>{p.validated}</p>
+        <p className={cn("font-heading font-extrabold tabular-nums leading-none text-white", big ? "text-3xl min-[1800px]:text-4xl" : "text-xl min-[1800px]:text-3xl")} style={big ? { color: m.color, textShadow: `0 0 16px ${m.glow}` } : undefined}>{formatSalesCount(p.validated)}</p>
         <p className="mt-1 text-[10px] uppercase tracking-wider text-text-muted">{p.submitted} sub.</p>
       </div>
     </motion.li>

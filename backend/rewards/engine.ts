@@ -3,6 +3,7 @@ import { writeAudit } from "../auth/guard";
 import { periodWindow, type BusinessCalendar, type PeriodWindow, type RulePeriod } from "../spins/rules";
 import { COLS, duplicateProgramIds, rowToProgram, type RewardProgram } from "./programs";
 import { designationOn } from "../teams/repo";
+import { getCompanySaleWeight, addCredits, sqlCarrierWeight } from "@/shared/sales/weighting";
 
 /**
  * Daily / weekly / monthly bonus engine (server side). Programs come only from reward_programs.
@@ -91,19 +92,28 @@ export interface TierSale {
   validatedAt: Date;
   source: string;
   approved: boolean;
+  carrier?: string | null;
+  product?: string | null;
 }
 
 /** Sales of one agent in one period, with whether the Owner approved each for this kind / group. */
 export async function loadTierSales(client: PoolClient | { query: PoolClient["query"] }, userCode: string, kind: string, group: string, win: PeriodWindow): Promise<TierSale[]> {
   const { rows } = await client.query(
-    `SELECT s.id, s.case_id, s.validated_at, s.source, (ap.id IS NOT NULL) AS approved
+    `SELECT s.id, s.case_id, s.validated_at, s.source, s.carrier, (ap.id IS NOT NULL) AS approved
        FROM validated_sales s
        LEFT JOIN bonus_sale_approvals ap ON ap.sale_id = s.id AND ap.kind = $2 AND ap.reward_group = $3 AND ap.period_key = $4
       WHERE s.user_code = $1 AND s.status = 'validated' AND s.validated_at >= $5 AND s.validated_at < $6
       ORDER BY s.validated_at, s.id`,
     [userCode, kind, group, win.key, win.start, win.end],
   );
-  return rows.map((r) => ({ id: String(r.id), caseId: String(r.case_id), validatedAt: new Date(r.validated_at), source: String(r.source), approved: Boolean(r.approved) }));
+  return rows.map((r) => ({
+    id: String(r.id),
+    caseId: String(r.case_id),
+    validatedAt: new Date(r.validated_at),
+    source: String(r.source),
+    approved: Boolean(r.approved),
+    carrier: r.carrier ? String(r.carrier) : null,
+  }));
 }
 
 /** When the automatic rule starts counting for a program in this period. */
@@ -117,11 +127,20 @@ export function countedFor(p: RewardProgram, sales: TierSale[], win: PeriodWindo
   return sales.filter((s) => s.approved || extra?.has(s.id) || (s.source !== "backfill" && s.validatedAt.getTime() >= from));
 }
 
+/** Total credited sales for a list of tier sales, applying company weighting (Gerber/Corebridge = 0.5, others = 1.0). */
+export function creditedSalesOf(sales: TierSale[]): number {
+  return sales.reduce((sum, s) => addCredits(sum, getCompanySaleWeight(s.carrier, s.product)), 0);
+}
+
 /** Achieved tiers, highest first (by milestone, then amount, then oldest program). */
 export function achievedTiers(programs: RewardProgram[], sales: TierSale[], win: PeriodWindow, cutoff: Date | null, extra?: Set<string>) {
   return programs
-    .map((p) => ({ program: p, counted: countedFor(p, sales, win, cutoff, extra) }))
-    .filter((t) => t.counted.length >= t.program.salesRequired)
+    .map((p) => {
+      const counted = countedFor(p, sales, win, cutoff, extra);
+      const credits = creditedSalesOf(counted);
+      return { program: p, counted, credits };
+    })
+    .filter((t) => t.credits >= t.program.salesRequired)
     .sort((a, b) => b.program.salesRequired - a.program.salesRequired || b.program.amount - a.program.amount || a.program.createdAt.localeCompare(b.program.createdAt));
 }
 
@@ -173,11 +192,24 @@ export function planTierAward(
     if (p.amount <= previousAmount) return null; // never reduce or duplicate an entitlement
     if (capReached(p.id)) continue;
     const paidSoFar = chain.filter((c) => c.status === "paid").reduce((s, c) => s + c.payableAmount, 0);
+
+    // Identify the exact trigger sale whose validation crossed p.salesRequired credits
+    let runningCredits = 0;
+    let trigger = t.counted[0];
+    for (const s of t.counted) {
+      runningCredits = addCredits(runningCredits, getCompanySaleWeight(s.carrier, s.product));
+      if (runningCredits >= p.salesRequired) {
+        trigger = s;
+        break;
+      }
+    }
+
     return {
       id,
       program: p,
       counted: t.counted,
-      trigger: t.counted[p.salesRequired - 1],
+      credits: t.credits,
+      trigger,
       effective,
       previousAmount,
       incrementAmount: p.amount - previousAmount,
@@ -338,13 +370,15 @@ export async function evaluateBonusAwards(
     const ck = `${from.getTime()}|${win.end?.getTime()}`;
     let validated = countCache.get(ck);
     if (validated === undefined) {
-      validated = (
-        await client.query(
-          `SELECT COUNT(*)::int AS n FROM validated_sales
-            WHERE user_code = $1 AND source <> 'backfill' AND status = 'validated' AND validated_at >= $2 AND validated_at < $3`,
-          [args.userCode, from, win.end],
-        )
-      ).rows[0].n as number;
+      validated = Number(
+        (
+          await client.query(
+            `SELECT COALESCE(SUM(${sqlCarrierWeight("carrier")}), 0)::numeric AS n FROM validated_sales
+              WHERE user_code = $1 AND source <> 'backfill' AND status = 'validated' AND validated_at >= $2 AND validated_at < $3`,
+            [args.userCode, from, win.end],
+          )
+        ).rows[0].n,
+      );
       countCache.set(ck, validated);
     }
     const prior = (

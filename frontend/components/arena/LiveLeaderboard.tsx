@@ -6,6 +6,7 @@ import { Trophy, Crown } from "lucide-react";
 import { useArenaStore } from "@/frontend/stores/arena-store";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { rankClosers, type CloserRow } from "@/shared/sales/leads";
+import { formatSalesCount } from "@/shared/sales/weighting";
 import { cn } from "@/shared/utils";
 import { periodInfo, type RewardPeriod } from "@/shared/time/business";
 import { businessClock } from "@/frontend/rewards/runner";
@@ -215,7 +216,7 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
                   </div>
                   <div className="truncate text-[11px] font-medium text-text-muted tabular">{r.code}</div>
                   <div className="mt-0.5 text-[11px] text-text-secondary tabular @[32rem]:hidden">
-                    {r.counts.submitted} submitted · <span className="text-emerald-300">{r.counts.validated} validated</span>
+                    {r.counts.submitted} submitted · <span className="text-emerald-300">{formatSalesCount(r.counts.validated)} validated</span>
                   </div>
                   {/* Real earned cash for this period (PostgreSQL bonus_awards); hidden when none. */}
                   <EarnedBonus code={r.code} period={period} variant="row" />
@@ -223,7 +224,7 @@ export const LiveLeaderboard = memo(function LiveLeaderboard({ period = "day", c
 
                 {/* Submitted / Validated */}
                 <span className="hidden text-center font-heading text-base font-bold text-white/90 tabular @[32rem]:block" data-col="submitted">{r.counts.submitted}</span>
-                <span className="hidden justify-self-center rounded-lg bg-emerald-400/10 px-2.5 py-0.5 text-center font-heading text-lg font-extrabold text-emerald-300 tabular @[32rem]:block" data-col="validated">{r.counts.validated}</span>
+                <span className="hidden justify-self-center rounded-lg bg-emerald-400/10 px-2.5 py-0.5 text-center font-heading text-lg font-extrabold text-emerald-300 tabular @[32rem]:block" data-col="validated">{formatSalesCount(r.counts.validated)}</span>
 
                 {/* Closed rate */}
                 <div className="min-w-0">

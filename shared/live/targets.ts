@@ -13,10 +13,11 @@ export interface TargetProgress {
 }
 
 export function targetProgress(completed: number, target: number | null | undefined): TargetProgress {
-  const done = Math.max(0, Math.floor(Number(completed) || 0));
-  const t = typeof target === "number" && Number.isFinite(target) && target > 0 ? Math.floor(target) : null;
+  const done = Math.max(0, Math.round((Number(completed) || 0) * 2) / 2);
+  const t = typeof target === "number" && Number.isFinite(target) && target > 0 ? Math.round(target * 2) / 2 : null;
   if (t === null) return { target: null, completed: done, remaining: null, percent: null };
-  return { target: t, completed: done, remaining: Math.max(t - done, 0), percent: (done / t) * 100 };
+  const rem = Math.max(0, Math.round((t - done) * 2) / 2);
+  return { target: t, completed: done, remaining: rem, percent: Math.round((done / t) * 1000000) / 10000 };
 }
 
 export function formatPercent(p: number | null): string {

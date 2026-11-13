@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 export function AnimatedCounter({
   value,
   duration = 800,
-  formatter = (v: number) => v.toLocaleString(),
+  formatter = (v: number) => (Number.isInteger(v) ? v.toLocaleString() : (Math.round(v * 2) / 2).toString()),
 }: {
   value: number;
   duration?: number;
@@ -38,13 +38,15 @@ export function AnimatedCounter({
       if (!startTimeRef.current) return;
       const elapsed = now - startTimeRef.current;
       const progress = Math.min(1, elapsed / duration);
-      // Ease out cubic
-      const ease = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(startRef.current + (endRef.current - startRef.current) * ease);
-
-      setDisplayValue(current);
-
-      if (progress < 1) {
+      if (progress >= 1) {
+        setDisplayValue(endRef.current);
+      } else {
+        // Ease out cubic
+        const ease = 1 - Math.pow(1 - progress, 3);
+        const isFractional = !Number.isInteger(endRef.current) || !Number.isInteger(startRef.current);
+        const raw = startRef.current + (endRef.current - startRef.current) * ease;
+        const current = isFractional ? Math.round(raw * 2) / 2 : Math.round(raw);
+        setDisplayValue(current);
         animId = requestAnimationFrame(animate);
       }
     };

@@ -2,6 +2,7 @@ import type { ArenaStatistics, LeaderboardEntry, LeaderboardPeriod, TeamStanding
 import type { ArenaData } from "@/shared/mock-api/schema";
 import { computeAllCredits, ruleForTeam, teamTarget } from "@/frontend/features/targets/eligibility";
 import { startOfDay } from "@/shared/utils";
+import { getCompanySaleWeight, addCredits } from "@/shared/sales/weighting";
 
 const ACHIEVEMENT_TYPES = new Set(["spin-unlocked", "milestone", "top-performer", "team-target", "special"]);
 
@@ -15,7 +16,7 @@ export function computeArenaStatistics(data: ArenaData, now?: Date, teamId?: str
   let pendingToday = 0;
   for (const s of data.sales) {
     if (!teamFilter(s.teamId)) continue;
-    if (s.status === "approved") approvedToday++;
+    if (s.status === "approved") approvedToday = addCredits(approvedToday, getCompanySaleWeight(s.carrier, s.product));
     else if (s.status === "pending") pendingToday++;
   }
   const targetToday = activeTeams.reduce((t, team) => t + teamTarget(data, team.id), 0);
@@ -43,7 +44,7 @@ export function computeArenaStatistics(data: ArenaData, now?: Date, teamId?: str
     approvedToday,
     pendingToday,
     targetToday,
-    remaining: Math.max(0, targetToday - approvedToday),
+    remaining: Math.max(0, Math.round((targetToday - approvedToday) * 2) / 2),
     completion: targetToday > 0 ? approvedToday / targetToday : 0,
     achievementsToday,
     activeAgents: agents.filter((a) => a.active && activeTeamIds.has(a.teamId)).length,
@@ -81,7 +82,7 @@ export function salesForPeriod(data: ArenaData, period: LeaderboardPeriod, cutof
   for (const s of data.sales) {
     if (s.status !== "approved") continue;
     if (cutoff !== undefined && new Date(s.approvedAt ?? s.createdAt).getTime() > cutoff) continue;
-    map.set(s.agentId, (map.get(s.agentId) ?? 0) + 1);
+    map.set(s.agentId, addCredits(map.get(s.agentId) ?? 0, getCompanySaleWeight(s.carrier, s.product)));
   }
   return map;
 }
@@ -178,6 +179,9 @@ export function dailyTotals(data: ArenaData, days = 14, now: Date = new Date()):
     d.setDate(d.getDate() - i);
     out.push({ day: fmt.format(d), sales: total });
   }
-  out.push({ day: "Today", sales: data.sales.filter((s) => s.status === "approved").length });
+  const todaySales = data.sales
+    .filter((s) => s.status === "approved")
+    .reduce((t, s) => addCredits(t, getCompanySaleWeight(s.carrier, s.product)), 0);
+  out.push({ day: "Today", sales: todaySales });
   return out;
 }
