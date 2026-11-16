@@ -48,7 +48,7 @@ export const KpiBar = memo(function KpiBar({ stats, showSpinCredits = true }: { 
     <div className={showSpinCredits ? "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"} data-testid="kpi-bar" data-cards={showSpinCredits ? 6 : 5}>
       {/* 1. Total Approved Sales */}
       <Card accent="#36E0B5" label="APPROVED SALES" icon={<CheckCircle2 className="h-4 w-4" />}>
-        <div className="font-heading font-black text-white kpi-number">{approvedCount === null ? dash : <AnimatedCounter value={approvedCount} />}</div>
+        <div className="font-heading font-black text-white kpi-number">{approvedCount === null ? dash : <AnimatedCounter value={approvedCount} formatter={(v) => Math.round(v).toLocaleString()} />}</div>
         <div className="ac-kpi__sub font-mono text-emerald-300">{volumeStr}</div>
       </Card>
 
