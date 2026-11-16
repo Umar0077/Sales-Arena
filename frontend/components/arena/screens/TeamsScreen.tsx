@@ -570,7 +570,7 @@ function Metric({ icon: Icon, label, value, text, accent, primary, testId, hero 
         data-testid={testId}
         data-value={value}
       >
-        {value !== undefined ? <AnimatedCounter value={value} /> : text}
+        {value !== undefined ? <AnimatedCounter value={value} formatter={primary ? (v) => Math.round(v).toLocaleString() : undefined} /> : text}
       </p>
     </div>
   );
