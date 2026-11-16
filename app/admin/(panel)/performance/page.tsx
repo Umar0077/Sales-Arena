@@ -1,5 +1,7 @@
 "use client";
 
+import { getValidatedSaleCredit } from "@/shared/sales/weighting";
+
 import { useMemo, useState, useEffect } from "react";
 import { useArenaStore } from "@/frontend/stores/arena-store";
 import { computeSpinCredit, ruleForTeam } from "@/frontend/features/targets/eligibility";
@@ -70,6 +72,8 @@ export default function AgentDashboardPage() {
     return store.sales.filter((s) => s.agentId === agent.id && s.status === "approved");
   }, [store.sales, agent]);
 
+  const creditedSalesToday = approvedSalesToday.reduce((sum, sale) => sum + getValidatedSaleCredit(sale), 0);
+
   // Spin credits
   const credit = useMemo(() => {
     if (!agent) return null;
@@ -92,10 +96,10 @@ export default function AgentDashboardPage() {
 
   // Target progress
   const targetGoal = rule.agentDailyTarget;
-  const progressPercent = Math.min(100, Math.round((approvedSalesToday.length / targetGoal) * 100));
+  const progressPercent = Math.min(100, Math.round((creditedSalesToday / targetGoal) * 100));
 
   // Next milestone calculation
-  const salesToNextSpin = credit?.salesToNext ?? (rule.salesPerSpin - (approvedSalesToday.length % rule.salesPerSpin));
+  const salesToNextSpin = credit?.salesToNext ?? (rule.salesPerSpin - (creditedSalesToday % rule.salesPerSpin));
 
   return (
     <div className="space-y-6">
@@ -167,7 +171,7 @@ export default function AgentDashboardPage() {
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="font-heading text-4xl font-black text-white">
-            <AnimatedCounter value={dbAgent ? dbAgent.validated_sales : approvedSalesToday.length} />
+            <AnimatedCounter value={dbAgent ? dbAgent.validated_sales : creditedSalesToday} />
           </div>
           <span className="text-[11px] font-mono text-emerald-400 block mt-1">
             Target: {targetGoal} sales

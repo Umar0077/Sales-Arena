@@ -1,3 +1,4 @@
+import { creditClosers } from "@/backend/sales/credited-metrics";
 import { NextRequest, NextResponse } from "next/server";
 import { getSafeQuoteClient } from "@/backend/safequote/client";
 import { mapClosersToCloserRows } from "@/backend/safequote/mapper";
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const response = await client.getClosers({ from, to }, bypass);
-    const mappedRows = mapClosersToCloserRows(response.closers);
+    const mappedRows = mapClosersToCloserRows(await creditClosers(response.closers, { from, to }));
 
     return NextResponse.json({
       ok: true,

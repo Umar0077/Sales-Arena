@@ -67,13 +67,13 @@ export function mapCloserToAgent(closer: SafeQuoteCloserItem): Agent {
 /**
  * Map Safe Quote closers list into CloserRow domain objects for leaderboards
  */
-export function mapClosersToCloserRows(closers: SafeQuoteCloserItem[]): CloserRow[] {
+export function mapClosersToCloserRows(closers: (SafeQuoteCloserItem & { rawValidated?: number })[]): CloserRow[] {
   return closers.map((c, index) => {
     const agent = mapCloserToAgent(c);
     const counts: LeadCounts = {
       submitted: c.submitted,
       validated: c.validated,
-      pending: Math.max(0, c.submitted - c.validated - c.returned - c.rejected),
+      pending: Math.max(0, c.submitted - (c.rawValidated ?? c.validated) - c.returned - c.rejected),
       rejected: c.rejected,
       duplicate: c.returned,
     };

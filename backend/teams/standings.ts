@@ -1,3 +1,4 @@
+import { creditClosers } from "@/backend/sales/credited-metrics";
 import type { Pool } from "pg";
 import { getSafeQuoteClient } from "../safequote/client";
 import { calendarFrom, readArenaConfig } from "../settings/arena-config";
@@ -7,13 +8,13 @@ import { closeRateOf, leaderOf, rankTeams, topPerformers, type Designation, type
 /**
  * Teams Arena standings for Today / This Week / This Month (read-only).
  *
- * Figures: Safe Quote's per-closer submitted leads, validated sales and close rate for the period: the same
+ * Figures: Safe Quote submitted leads plus PostgreSQL credited sales and recomputed close rate: the same
  * numbers as the Daily / Weekly / Monthly screens (one request per date range, cached by the client).
  * Membership: PostgreSQL team_memberships, by business DAY. Each day's figures count for the team the agent
  * belonged to on that day: an agent who transferred inside the period gets their figures fetched separately
  * for the days before and after the transfer, so past results never move when someone changes team.
  * Every member is listed, including members with no leads and no sales (zeros). A bounded number of queries:
- * one membership query, one designation query, one Safe Quote request per distinct date range.
+ * one membership query, one designation query, and shared credited metrics per distinct date range.
  */
 
 export const PERIODS: Record<string, RewardPeriod> = { day: "day", week: "week", month: "month" };
@@ -51,7 +52,7 @@ type CloserFetcher = (from: string, to: string) => Promise<Map<string, { submitt
 export const safeQuoteClosers: CloserFetcher = async (from, to) => {
   const res = await getSafeQuoteClient().getClosers({ from, to });
   const m = new Map<string, { submitted: number; validated: number; closeRate: number }>();
-  for (const c of res.closers) {
+  for (const c of await creditClosers(res.closers, { from, to })) {
     const code = String(c.userCode || "").trim().toUpperCase();
     if (!code) continue;
     const prev = m.get(code);
@@ -117,7 +118,7 @@ export async function computeStandings(pool: Pool, period: RewardPeriod, opts: {
       designation: designationOf.get(s.userCode) ?? null,
       submitted,
       validated,
-      // Safe Quote's own close rate when the figures are the whole period's; otherwise recomputed.
+      // The credited close rate for whole-period figures; recompute after combining transfer segments.
       closeRate: whole && st && st.submitted > 0 ? Math.round(st.closeRate * 10) / 10 : closeRateOf(validated, submitted),
       // Left this team inside the period (and not back in it): listed for the days they counted.
       former: !segs.some((x) => x.userCode === s.userCode && x.teamId === s.teamId && x.open),
@@ -140,7 +141,7 @@ export async function computeStandings(pool: Pool, period: RewardPeriod, opts: {
     teams,
     top: topPerformers(teams, 3),
     leaderTeamId: leaderOf(teams),
-    attribution: "Each business day's figures count for the team the agent belonged to on that day (Safe Quote submitted leads, validated sales and close rate).",
+    attribution: "Each business day's figures count for the team the agent belonged to on that day (submitted leads, credited sales and credited close rate).",
     generatedAt: new Date().toISOString(),
   };
 }

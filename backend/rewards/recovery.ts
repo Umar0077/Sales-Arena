@@ -1,3 +1,4 @@
+import { sqlCarrierWeight } from "@/shared/sales/weighting";
 import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import { arenaBroadcaster } from "../events/broadcaster";
@@ -288,7 +289,7 @@ export async function scanRecovery(db: Db, input: { from?: unknown; to?: unknown
         seen.add(win.key);
         const ck = `${g.kind}|${win.key}`;
         if (!periodCounts.has(ck)) {
-          const rows = (await db.query(`SELECT user_code, COUNT(*)::int AS n FROM validated_sales WHERE status = 'validated' AND validated_at >= $1 AND validated_at < $2 GROUP BY user_code`, [win.start, win.end])).rows;
+          const rows = (await db.query(`SELECT user_code, COALESCE(SUM(${sqlCarrierWeight("carrier")}), 0)::float AS n FROM validated_sales WHERE status = 'validated' AND validated_at >= $1 AND validated_at < $2 GROUP BY user_code`, [win.start, win.end])).rows;
           periodCounts.set(ck, new Map(rows.map((r) => [r.user_code, r.n])));
         }
         if ((periodCounts.get(ck)!.get(userCode) ?? 0) < minTier) continue; // cannot reach any tier

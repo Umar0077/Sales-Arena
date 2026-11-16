@@ -1,5 +1,7 @@
 "use client";
 
+import { getValidatedSaleCredit } from "@/shared/sales/weighting";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BadgeCheck, Send, Users, Target, TrendingUp, Flame, RefreshCw, AlertTriangle, Trophy, Clock } from "lucide-react";
@@ -79,7 +81,7 @@ async function loadPeriod(period: TargetPeriod, timezone: string, weekStartDay: 
   let trendNote: string | null = null;
   if (period === "day") {
     const counts = new Array(24).fill(0);
-    for (const s of validatedSales) counts[hourIn(s.approvedAt ?? s.createdAt, timezone)]++;
+    for (const s of validatedSales) counts[hourIn(s.approvedAt ?? s.createdAt, timezone)] += getValidatedSaleCredit(s);
     const now = hourIn(new Date().toISOString(), timezone);
     trend = counts.slice(0, now + 1).map((n, h) => ({ label: `${String(h).padStart(2, "0")}:00`, sales: n }));
     if (sales.length >= RECENT_LIMIT) trendNote = `Based on the ${RECENT_LIMIT} most recent sales Safe Quote returns; earlier sales today are not included in this chart.`;

@@ -152,7 +152,7 @@ export function hourlySales(data: ArenaData, now: Date = new Date()): Array<{ ho
   for (const s of data.sales) {
     const h = new Date(s.approvedAt ?? s.createdAt).getHours();
     const b = buckets.get(h) ?? { sales: 0, pending: 0 };
-    if (s.status === "approved") b.sales++;
+    if (s.status === "approved") b.sales = addCredits(b.sales, getCompanySaleWeight(s.carrier, s.product));
     else if (s.status === "pending") b.pending++;
     buckets.set(h, b);
   }

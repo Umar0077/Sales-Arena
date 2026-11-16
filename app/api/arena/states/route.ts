@@ -1,3 +1,4 @@
+import { creditedMetrics, withCredits } from "@/backend/sales/credited-metrics";
 import { NextRequest, NextResponse } from "next/server";
 import { getSafeQuoteClient } from "@/backend/safequote/client";
 import { SafeQuoteApiError } from "@/backend/safequote/errors";
@@ -22,10 +23,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const response = await client.getStates({ from, to }, bypass);
+    const totals = await creditedMetrics({ from, to }, "state");
     return NextResponse.json({
       ok: true,
       mode: "production",
-      states: response.states,
+      states: response.states.map((s) => withCredits(s, totals.get(s.state.trim().toUpperCase()))),
     });
   } catch (err: unknown) {
     if (err instanceof SafeQuoteApiError) {

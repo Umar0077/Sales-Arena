@@ -1,3 +1,4 @@
+import { sqlCarrierWeight } from "@/shared/sales/weighting";
 import type { Pool } from "pg";
 import { writeAudit } from "../auth/guard";
 import { todayBusiness } from "../teams/repo";
@@ -29,7 +30,7 @@ export async function previewAudience(pool: Pool) {
   // Agents with recent sales, by their designation today.
   const agents = (
     await pool.query(
-      `SELECT a.user_code, a.name, d.designation, COUNT(s.id)::int AS sales30
+      `SELECT a.user_code, a.name, d.designation, COALESCE(SUM(${sqlCarrierWeight("s.carrier")}) FILTER (WHERE s.id IS NOT NULL), 0)::float AS sales30
          FROM agents a
          LEFT JOIN agent_designations d ON d.user_code = a.user_code AND d.effective_from <= $1::date AND (d.effective_to IS NULL OR d.effective_to > $1::date)
          LEFT JOIN validated_sales s ON s.user_code = a.user_code AND s.status = 'validated' AND s.validated_at > NOW() - INTERVAL '30 days'

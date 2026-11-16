@@ -1,3 +1,4 @@
+import { thresholdsToGrant } from "@/backend/spins/rules";
 import { describe, it, expect } from "vitest";
 import {
   getCompanySaleWeight,
@@ -146,6 +147,23 @@ describe("Company-based 0.5 Sales Weighting Rule", () => {
       archivedAt: null,
       status: "active",
       updatedAt: "2026-01-01T00:00:00Z",
+    });
+
+    it("Mansoor's 1.5 credits cannot unlock a two-sale bonus or spin, or reduce a paid award", () => {
+      const sales: TierSale[] = ["Aetna", "Corebridge Financial"].map((carrier, i) => ({
+        id: String(i), caseId: String(i), carrier, source: "sse", approved: false,
+        validatedAt: new Date("2026-11-16T12:00:00Z"),
+      }));
+      const win = { key: "D:2026-11-16", start: new Date("2026-11-16T00:00:00Z"), end: new Date("2026-11-17T00:00:00Z") };
+      const achieved = achievedTiers([makeProgram(2, 2000, "two")], sales, win, null);
+      expect(achieved).toEqual([]);
+      expect(thresholdsToGrant(1.5, 2, 0)).toEqual([]);
+      const paid = Object.freeze({ id: "paid", programId: "two", programName: "Two sales", salesRequired: 2, amount: 2000, status: "paid", payableAmount: 2000, supersededBy: null, source: "automatic" });
+      expect(planTierAward(achieved, [paid], "MANSOOR", win.key, () => false)).toBeNull();
+      expect(paid).toMatchObject({ status: "paid", amount: 2000, payableAmount: 2000 });
+      sales.push({ ...sales[0], id: "gerber", caseId: "gerber", carrier: "Gerber" });
+      expect(achievedTiers([makeProgram(2, 2000, "two")], sales, win, null)[0].credits).toBe(2);
+      expect(thresholdsToGrant(2, 2, 0)).toEqual([1]);
     });
 
     it("highest-tier bonus engine qualifies Arsam Idrees using 11 credits, not 14 raw sales", () => {

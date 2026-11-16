@@ -1,3 +1,4 @@
+import { sqlCarrierWeight } from "@/shared/sales/weighting";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin, jsonError, requestIp, requestUserAgent, writeAudit } from "@/backend/auth/guard";
 import { errorResponse, likePattern, readJson } from "@/backend/spins/http";
@@ -15,8 +16,8 @@ export async function GET(req: NextRequest) {
       `SELECT a.user_code, a.name, a.spin_eligible, a.active,
               COALESCE(c.available, 0) AS available, COALESCE(c.auto_earned, 0) AS auto_earned,
               COALESCE(c.manual_earned, 0) AS manual_earned, COALESCE(c.consumed, 0) AS consumed, c.last_spin_at,
-              (SELECT COUNT(*)::int FROM validated_sales s WHERE s.user_code = a.user_code AND s.status = 'validated') AS validated_sales,
-              (SELECT COUNT(*)::int FROM validated_sales s WHERE s.user_code = a.user_code AND s.reward_eligible AND s.status = 'validated') AS eligible_sales
+              (SELECT COALESCE(SUM(${sqlCarrierWeight("s.carrier")}), 0)::float FROM validated_sales s WHERE s.user_code = a.user_code AND s.status = 'validated') AS validated_sales,
+              (SELECT COALESCE(SUM(${sqlCarrierWeight("s.carrier")}), 0)::float FROM validated_sales s WHERE s.user_code = a.user_code AND s.reward_eligible AND s.status = 'validated') AS eligible_sales
          FROM agents a LEFT JOIN spin_credits c ON c.user_code = a.user_code
         WHERE $1 = '' OR a.name ILIKE $2 OR a.user_code ILIKE $2
         ORDER BY a.name ASC

@@ -1,3 +1,4 @@
+import { creditedMetrics, withCredits } from "@/backend/sales/credited-metrics";
 import { NextRequest, NextResponse } from "next/server";
 import { getSafeQuoteClient } from "@/backend/safequote/client";
 import { SafeQuoteApiError } from "@/backend/safequote/errors";
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       mode: "production",
-      data: summary,
+      data: withCredits(summary, (await creditedMetrics({ from, to })).get("all")),
       isFilteredRange: Boolean(summary.range?.from && summary.range?.to),
     });
   } catch (err: unknown) {

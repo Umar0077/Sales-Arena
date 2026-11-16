@@ -24,7 +24,7 @@ export function useWeeklyTopMotion(): WeeklyTopMotion {
  * only), transform / opacity animations only; reduced motion shows the still composition.
  */
 export function WeeklyTopCelebration({ event, motion }: { event: CelebrationEvent; motion: WeeklyTopMotion }) {
-  const sales = Math.max(0, Math.round(event.value ?? 0));
+  const sales = Math.max(0, event.value ?? 0);
   const dur = WEEKLY_TOP_MS[motion];
   return (
     <div

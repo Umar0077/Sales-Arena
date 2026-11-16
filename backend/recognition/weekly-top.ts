@@ -1,3 +1,4 @@
+import { creditClosers } from "@/backend/sales/credited-metrics";
 import type { Pool } from "pg";
 import { writeAudit } from "../auth/guard";
 import { arenaBroadcaster } from "../events/broadcaster";
@@ -9,7 +10,7 @@ import type { CloserRow } from "@/shared/sales/leads";
 
 /**
  * Weekly Top Performer recognition (Admin → Celebrations). A MANUAL, presentation-only celebration:
- *  - the #1 agent is exactly the #1 row of the Weekly leaderboard (Safe Quote's per-closer figures for this business
+ *  - the #1 agent is exactly the #1 row of the Weekly leaderboard (PostgreSQL credits with Safe Quote submitted leads for this business
  *    week, the same mapping and the same campaign filter the Weekly screen uses);
  *  - an Admin triggers it; at most ONE celebration per business week (checked under a row lock, so two clicks or
  *    two Admins can never broadcast twice), audited;
@@ -52,7 +53,7 @@ export class RecognitionError extends Error {
 }
 
 type ClosersFetcher = (from: string, to: string, fresh: boolean) => Promise<CloserRow[]>;
-const safeQuoteRows: ClosersFetcher = async (from, to, fresh) => mapClosersToCloserRows((await getSafeQuoteClient().getClosers({ from, to }, fresh)).closers);
+const safeQuoteRows: ClosersFetcher = async (from, to, fresh) => mapClosersToCloserRows(await creditClosers((await getSafeQuoteClient().getClosers({ from, to }, fresh)).closers, { from, to }));
 
 /** This business week and its #1 (read-only). */
 export async function weeklyTopPerformer(pool: Pool, opts: { now?: Date; fresh?: boolean; closers?: ClosersFetcher } = {}): Promise<WeeklyTopState> {
