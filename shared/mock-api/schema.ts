@@ -15,6 +15,8 @@ export interface PeriodMetrics {
     range: { from: string | null; to: string | null };
     submitted: number;
     validated: number;
+    /** Unique validated transactions, independent of carrier credits. */
+    rawValidated?: number;
     closeRate: number;
     returned: number;
     rejected: number;
@@ -72,6 +74,8 @@ export interface ArenaData {
     range: { from: string | null; to: string | null };
     submitted: number;
     validated: number;
+    /** Unique validated transactions, independent of carrier credits. */
+    rawValidated?: number;
     closeRate: number;
     returned: number;
     rejected: number;

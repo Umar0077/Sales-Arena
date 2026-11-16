@@ -41,6 +41,8 @@ export interface TeamInput {
 }
 
 export interface RankedTeam extends Omit<TeamInput, "members"> {
+  /** Unique validated transactions attributed by membership on the sale date. */
+  rawValidated?: number;
   rank: number;
   tied: boolean;
   validated: number;

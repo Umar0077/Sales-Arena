@@ -18,11 +18,13 @@ import {
 /** `showSpinCredits` = false (Daily Arena) leaves out ONLY the Spin Credits card; spin data and Spin & Win are untouched. */
 export const KpiBar = memo(function KpiBar({ stats, showSpinCredits = true }: { stats: ArenaStatistics; showSpinCredits?: boolean }) {
   const summary = useArenaStore((s) => s.periodMetrics?.day?.summary ?? s.safeQuoteSummary);
+  const sales = useArenaStore((s) => s.sales);
   const serverSpinBalance = useArenaStore((s) => s.serverSpinBalance);
 
   const liveMode = useArenaStore((s) => s.liveMode);
   // Live mode: every number comes from Safe Quote / PostgreSQL. Without a source it shows "—", never an estimate.
   const approvedCount = summary ? summary.validated : liveMode ? null : stats.approvedToday;
+  const actualCount = summary ? summary.rawValidated ?? null : liveMode ? null : new Set(sales.filter((s) => s.status === "approved").map((s) => s.id)).size;
   const volumeStr = summary
     ? typeof summary.premium?.total === "number"
       ? `+$${Math.round(summary.premium.total).toLocaleString()} total premium`
@@ -48,7 +50,7 @@ export const KpiBar = memo(function KpiBar({ stats, showSpinCredits = true }: { 
     <div className={showSpinCredits ? "grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3" : "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"} data-testid="kpi-bar" data-cards={showSpinCredits ? 6 : 5}>
       {/* 1. Total Approved Sales */}
       <Card accent="#36E0B5" label="APPROVED SALES" icon={<CheckCircle2 className="h-4 w-4" />}>
-        <div className="font-heading font-black text-white kpi-number">{approvedCount === null ? dash : <AnimatedCounter value={approvedCount} formatter={(v) => Math.round(v).toLocaleString()} />}</div>
+        <div className="font-heading font-black text-white kpi-number">{actualCount === null ? dash : <AnimatedCounter value={actualCount} />}</div>
         <div className="ac-kpi__sub font-mono text-emerald-300">{volumeStr}</div>
       </Card>
 

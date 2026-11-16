@@ -145,7 +145,7 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
 
         <StatGrid
           stats={[
-            { label: `Validated ${cfg.word}`, value: view.validated, icon: BadgeCheck, accent: "#36E0B5", testId: "period-validated", format: (v) => Math.round(v).toLocaleString("en-US") },
+            { label: `Validated ${cfg.word}`, value: periodMetrics?.summary?.rawValidated ?? 0, icon: BadgeCheck, accent: "#36E0B5", testId: "period-validated", format: periodMetrics?.summary?.rawValidated == null ? () => "—" : undefined },
             {
               label: `Target ${cfg.word}`,
               value: targetProgress(view.validated, floorTarget).target ?? 0,

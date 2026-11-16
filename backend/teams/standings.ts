@@ -132,7 +132,23 @@ export async function computeStandings(pool: Pool, period: RewardPeriod, opts: {
     displayOrder: Number(t.display_order), leaderUserCode: t.leader_user_code,
     members: list.filter((m) => m.teamId === t.id).map((m) => ({ userCode: m.userCode, name: m.name, designation: m.designation, submitted: m.submitted, validated: m.validated, closeRate: m.closeRate, former: m.former })),
   }));
-  const teams = rankTeams(inputs);
+  // Count transactions independently of credited rankings and upstream closer rows.
+  // EXISTS attributes a case once per team, even if membership rows overlap.
+  const actual = await pool.query(
+    `SELECT t.id, COUNT(DISTINCT s.case_id)::int AS raw
+       FROM teams t JOIN validated_sales s ON s.status = 'validated'
+        AND s.validated_at >= ($1::date::timestamp AT TIME ZONE $3)
+        AND s.validated_at < (($2::date + 1)::timestamp AT TIME ZONE $3)
+        AND EXISTS (
+          SELECT 1 FROM team_memberships m WHERE m.team_id = t.id AND m.user_code = s.user_code
+           AND m.effective_from <= (s.validated_at AT TIME ZONE $3)::date
+           AND (m.effective_to IS NULL OR m.effective_to > (s.validated_at AT TIME ZONE $3)::date)
+        )
+      WHERE t.slug IS NOT NULL AND t.active GROUP BY t.id`,
+    [range.from, range.to, clock.timezone],
+  );
+  const rawByTeam = new Map(actual.rows.map((r) => [r.id, Number(r.raw)]));
+  const teams = rankTeams(inputs).map((t) => ({ ...t, rawValidated: rawByTeam.get(t.id) ?? 0 }));
   return {
     period,
     from: range.from,

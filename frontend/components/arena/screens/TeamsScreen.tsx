@@ -450,7 +450,7 @@ function TeamCard({
   const word = spotlight ? "ONLY ACTIVE TEAM" : neutral ? "LEVEL ON SALES" : (m?.word ?? `PLACE ${team.rank}`);
   const metrics = (
     <div className={cn("relative grid grid-cols-3", hero ? "mt-3 gap-2.5 min-[1800px]:mt-4 min-[1800px]:gap-3" : "mt-3 gap-2")}>
-      <Metric icon={BadgeCheck} label="Validated" accent={accent} primary testId="team-validated" value={team.validated} hero={hero} />
+      <Metric icon={BadgeCheck} label="Validated" accent={accent} primary testId="team-validated" value={team.rawValidated} text="—" hero={hero} />
       <Metric icon={Send} label="Submitted" accent={accent} testId="team-submitted" value={team.submitted} hero={hero} />
       <Metric icon={Percent} label="Close rate" accent={accent} testId="team-rate" text={rate(team.closeRate)} hero={hero} />
     </div>
@@ -570,7 +570,7 @@ function Metric({ icon: Icon, label, value, text, accent, primary, testId, hero 
         data-testid={testId}
         data-value={value}
       >
-        {value !== undefined ? <AnimatedCounter value={value} formatter={primary ? (v) => Math.round(v).toLocaleString() : undefined} /> : text}
+        {value !== undefined ? <AnimatedCounter value={value} /> : text}
       </p>
     </div>
   );
