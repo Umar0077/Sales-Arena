@@ -23,6 +23,7 @@ export const MIGRATIONS = [
   { version: "008_bonus_award_recovery", file: "008_bonus_award_recovery.sql" },
   { version: "009_highest_tier_rewards", file: "009_highest_tier_rewards.sql" },
   { version: "010_teams_arena", file: "010_teams_arena.sql" },
+  { version: "011_agent_emojis", file: "011_agent_emojis.sql" },
 ];
 
 // Arbitrary constant: "sales_arena_migrate".

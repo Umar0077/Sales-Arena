@@ -1,0 +1,45 @@
+
+> sales-arena@1.0.0 test
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/aliah/OneDrive/Desktop/Dialer spinner Animation
+
+ ✓ tests/unit/cub-director.test.ts (16 tests) 63ms
+ ✓ tests/unit/celebration-queue.test.ts (9 tests) 103ms
+ ✓ tests/unit/spin-rules.test.ts (11 tests) 52ms
+ ✓ tests/unit/store.test.ts (4 tests) 88ms
+ ✓ tests/unit/leads.test.ts (9 tests) 67ms
+ ✓ tests/unit/celebration-sounds.test.ts (10 tests) 426ms
+   ✓ original sounds restored (exact) > Team Sigma / Team Panthers / other teams = the original stingers, sample for sample  332ms
+ ✓ tests/unit/cub-machine.test.ts (25 tests) 113ms
+ ✓ tests/unit/team-celebration.test.ts (18 tests) 404ms
+   ✓ stingers > one original stinger per theme, short  385ms
+ ✓ tests/unit/teams.test.ts (15 tests) 49ms
+ ✓ tests/unit/sse-parser.test.ts (6 tests) 67ms
+ ✓ tests/unit/safety-review.test.ts (12 tests) 21ms
+ ✓ tests/unit/sales-scheduler.test.ts (5 tests) 31ms
+ ✓ tests/unit/spin-flow.test.ts (8 tests) 35ms
+ ✓ tests/unit/rewards.test.ts (15 tests) 36ms
+ ✓ tests/unit/safequote-mapper.test.ts (9 tests) 17ms
+ ✓ tests/unit/weighting.test.ts (12 tests) 18ms
+ ✓ tests/unit/eligibility.test.ts (3 tests) 19ms
+ ✓ tests/unit/selector-validation.test.ts (4 tests) 13ms
+ ✓ tests/unit/ip-security.test.ts (8 tests) 20ms
+ ✓ tests/unit/safequote-client.test.ts (5 tests) 16ms
+ ✓ tests/unit/broadcaster.test.ts (1 test) 8ms
+ ✓ tests/unit/display-sync.test.ts (4 tests) 9ms
+ ✓ tests/unit/background-sync.test.ts (16 tests) 47ms
+ ✓ tests/unit/agent-emojis.test.tsx (25 tests) 1016ms
+ ✓ tests/unit/targets.test.ts (5 tests) 11ms
+ ✓ tests/unit/wheel-math.test.ts (5 tests) 8ms
+ ✓ tests/unit/credited-arena.test.tsx (7 tests) 423ms
+ ✓ tests/unit/config-sync.test.ts (9 tests) 20ms
+ ✓ tests/unit/bonus-tiers.test.ts (1 test) 7ms
+ ✓ tests/unit/emoji-preview.test.tsx (1 test) 150ms
+
+ Test Files  30 passed (30)
+      Tests  278 passed (278)
+   Start at  21:28:33
+   Duration  11.56s (transform 8.55s, setup 0ms, collect 31.35s, tests 3.36s, environment 6.41s, prepare 12.09s)
+

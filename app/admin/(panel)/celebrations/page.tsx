@@ -1,5 +1,6 @@
 "use client";
 
+import { AgentEmojiSettings } from "@/frontend/components/admin/celebrations/AgentEmojiSettings";
 import { saveSettings } from "@/frontend/admin/global-settings";
 import { useSettingsStore, fillTemplate } from "@/frontend/stores/settings-store";
 import { Section, Toggle, Range, Choice, TextField } from "@/frontend/components/admin/ui";
@@ -70,6 +71,7 @@ export default function CelebrationSettingsPage() {
         <Toggle label="Confetti & particles" checked={s.particles} onChange={(v) => update({ particles: v })} />
       </Section>
 
+      <AgentEmojiSettings />
       <WeeklyTopPerformerSettings />
 
       <TeamCelebrationSettings />

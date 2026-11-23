@@ -1,0 +1,84 @@
+
+> sales-arena@1.0.0 lint
+> eslint .
+
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\app\admin\(panel)\integrations\page.tsx
+   8:3   warning  'Webhook' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   9:3   warning  'CheckCircle2' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  13:3   warning  'Clock' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  17:3   warning  'AlertTriangle' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  19:10  warning  'formatDateTime' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\app\admin\(panel)\leaderboard\page.tsx
+  8:15  warning  'LeaderboardPeriod' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\app\admin\(panel)\performance\page.tsx
+  15:3  warning  'TrendingUp' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  17:3  warning  'History' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  22:3  warning  'Calendar' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\app\admin\(panel)\spins\page.tsx
+   7:3  warning  'Disc3' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  11:3  warning  'Clock' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  12:3  warning  'CheckCircle2' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\app\api\arena\spin\totals\route.ts
+  24:12  warning  '_err' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\app\pair\page.tsx
+  29:26  warning  Do not use `window.location.assign()` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination  @next/next/no-location-assign-relative-destination
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\backend\safequote\mapper.ts
+  6:3  warning  'SafeQuoteSummary' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\emoji.playwright.config.ts
+  2:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\audio\celebration-sounds.ts
+  58:5  warning  'everRunning' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\admin\SpinnerPreview.tsx
+  44:9  warning  The 'rewards' logical expression could make the dependencies of useMemo Hook (at line 46) change on every render. To fix this, wrap the initialization of 'rewards' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\admin\admin-api.ts
+  44:5  warning  Do not use `window.location.href` to navigate to internal Next.js pages. Use `redirect()` in the render phase, or `useRouter().push()` in Client Components' event handlers instead. See: https://nextjs.org/docs/messages/no-location-assign-relative-destination  @next/next/no-location-assign-relative-destination
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\admin\celebrations\AgentEmojiSettings.tsx
+   95:125  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+   97:16   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  107:141  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\arena\ArenaLeaderboard.tsx
+  4:49  warning  'Minus' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\arena\LiveApiSync.tsx
+  51:10  warning  'retryingIn' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\arena\screens\PeriodScreen.tsx
+  108:9  warning  The 'periodSales' logical expression could make the dependencies of useMemo Hook (at line 133) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'periodSales' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\frontend\components\performance\DiagnosticsPanel.tsx
+   8:10  warning  'QUALITY_PRESETS' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   9:23  warning  'Gauge' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   9:30  warning  'Layers' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   9:38  warning  'RefreshCcw' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  10:15  warning  'QualitySetting' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\shared\sales\leads.ts
+  1:28  warning  'SaleStatus' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\tests\unit\safety-review.test.ts
+   4:3   warning  'getValidatedSaleCredit' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   8:3   warning  'addCredits' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   9:3   warning  'roundCredit' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  10:3   warning  'formatSalesCount' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  15:29  warning  'rankClosers' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  15:47  warning  'CloserRow' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  17:21  warning  'Agent' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+
+C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\tests\unit\weighting.test.ts
+  7:3  warning  'roundCredit' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 39 problems (0 errors, 39 warnings)
+

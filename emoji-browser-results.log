@@ -1,0 +1,1279 @@
+[WebServer] (node:2176) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:7936) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6064) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:25916) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⨯ ./backend/auth/session.ts:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts
+[WebServer] ⚠ Your version of Next.js is affected by a known security vulnerability. This command is continuing after the upgrade reminder.
+[WebServer] Reference: https://registry.npmjs.org/-/npm/v1/security/advisories/bulk
+[WebServer] ⚠ ./node_modules/pg/lib/native/client.js
+[WebServer] Module not found: Can't resolve 'pg-native' in 'C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\node_modules\pg\lib\native'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/native/client.js
+[WebServer] ./node_modules/pg/lib/native/index.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+
+Running 4 tests using 1 worker
+
+(node:6092) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⚠ ./node_modules/pg/lib/native/client.js
+[WebServer] Module not found: Can't resolve 'pg-native' in 'C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\node_modules\pg\lib\native'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/native/client.js
+[WebServer] ./node_modules/pg/lib/native/index.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ⚠ ./node_modules/pg/lib/native/client.js
+[WebServer] Module not found: Can't resolve 'pg-native' in 'C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\node_modules\pg\lib\native'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/native/client.js
+[WebServer] ./node_modules/pg/lib/native/index.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ⚠ ./node_modules/pg/lib/native/client.js
+[WebServer] Module not found: Can't resolve 'pg-native' in 'C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\node_modules\pg\lib\native'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/native/client.js
+[WebServer] ./node_modules/pg/lib/native/index.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ⚠ ./node_modules/pg/lib/native/client.js
+[WebServer] Module not found: Can't resolve 'pg-native' in 'C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\node_modules\pg\lib\native'
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/native/client.js
+[WebServer] ./node_modules/pg/lib/native/index.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] [browser] ./backend/auth/session.ts:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg-connection-string/index.js:88:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   86 |
+[WebServer]   87 |   // Only try to load fs if we expect to read from the disk
+[WebServer] > 88 |   const fs = config.sslcert || config.sslkey || config.sslrootcert ? require('fs') : null
+[WebServer]      | ^
+[WebServer]   89 |
+[WebServer]   90 |   if (config.sslcert) {
+[WebServer]   91 |     config.ssl.cert = fs.readFileSync(config.sslcert).toString()
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection-parameters.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , Stream = require('stream').Stream
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:4:1
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , Stream = require('stream').Stream
+[WebServer]     | ^
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer]   7 |   , defaultPort = 5432
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , fs = require('fs')
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:4:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , fs = require('fs')
+[WebServer]     | ^
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer]   7 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/split2/index.js:19:21
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   17 | 'use strict'
+[WebServer]   18 |
+[WebServer] > 19 | const { Transform } = require('stream')
+[WebServer]      |                     ^
+[WebServer]   20 | const { StringDecoder } = require('string_decoder')
+[WebServer]   21 | const kLast = Symbol('last')
+[WebServer]   22 | const kDecoder = Symbol('decoder')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/helper.js
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection-parameters.js:3:1
+[WebServer] Module not found: Can't resolve 'dns'
+[WebServer]   1 | 'use strict'
+[WebServer]   2 |
+[WebServer] > 3 | const dns = require('dns')
+[WebServer]     | ^
+[WebServer]   4 |
+[WebServer]   5 | const defaults = require('./defaults')
+[WebServer]   6 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection.js:122:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   120 |
+[WebServer]   121 |     // SNI must not be set to an IP address (RFC 6066 section 3)
+[WebServer] > 122 |     const net = require('net')
+[WebServer]       | ^
+[WebServer]   123 |     if (net.isIP && net.isIP(host) === 0) {
+[WebServer]   124 |       options.servername = host
+[WebServer]   125 |     }
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/crypto/utils.js:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | const nodeCrypto = require('crypto')
+[WebServer]     | ^
+[WebServer]   2 |
+[WebServer]   3 | module.exports = {
+[WebServer]   4 |   postgresMd5PasswordHash,
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:22:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   20 | function getNodejsStreamFuncs() {
+[WebServer]   21 |   function getStream(ssl) {
+[WebServer] > 22 |     const net = require('net')
+[WebServer]      | ^
+[WebServer]   23 |     return new net.Socket()
+[WebServer]   24 |   }
+[WebServer]   25 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:27:1
+[WebServer] Module not found: Can't resolve 'tls'
+[WebServer]   25 |
+[WebServer]   26 |   function getSecureStream(options) {
+[WebServer] > 27 |     const tls = require('tls')
+[WebServer]      | ^
+[WebServer]   28 |     return tls.connect(options)
+[WebServer]   29 |   }
+[WebServer]   30 |   return {
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/utils.js:6:18
+[WebServer] Module not found: Can't resolve 'util/types'
+[WebServer]   4 | const nodeUtils = require('util')
+[WebServer]   5 |
+[WebServer] > 6 | const { isDate } = require('util/types')
+[WebServer]     |                  ^
+[WebServer]   7 |
+[WebServer]   8 | const invalidDateDeprecationNotice = nodeUtils.deprecate(
+[WebServer]   9 |   () => {},
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] node:crypto
+[WebServer] Module build failed: UnhandledSchemeError: Reading from "node:crypto" is not handled by plugins (Unhandled scheme).
+[WebServer] Webpack supports "data:" and "file:" URIs by default.
+[WebServer] You may need an additional plugin to handle "node:" URIs. 
+[WebServer] [browser] Uncaught Error: Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+  x  1 tests\e2e\agent-emojis.ui.spec.ts:6:9 › daily displays original emoji through the existing real sale renderer (2.0m)
+(node:22608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [browser] Uncaught Error: Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer] [browser] ./backend/auth/session.ts:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg-connection-string/index.js:88:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   86 |
+[WebServer]   87 |   // Only try to load fs if we expect to read from the disk
+[WebServer] > 88 |   const fs = config.sslcert || config.sslkey || config.sslrootcert ? require('fs') : null
+[WebServer]      | ^
+[WebServer]   89 |
+[WebServer]   90 |   if (config.sslcert) {
+[WebServer]   91 |     config.ssl.cert = fs.readFileSync(config.sslcert).toString()
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection-parameters.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , Stream = require('stream').Stream
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:4:1
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , Stream = require('stream').Stream
+[WebServer]     | ^
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer]   7 |   , defaultPort = 5432
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , fs = require('fs')
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:4:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , fs = require('fs')
+[WebServer]     | ^
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer]   7 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/split2/index.js:19:21
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   17 | 'use strict'
+[WebServer]   18 |
+[WebServer] > 19 | const { Transform } = require('stream')
+[WebServer]      |                     ^
+[WebServer]   20 | const { StringDecoder } = require('string_decoder')
+[WebServer]   21 | const kLast = Symbol('last')
+[WebServer]   22 | const kDecoder = Symbol('decoder')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/helper.js
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection-parameters.js:3:1
+[WebServer] Module not found: Can't resolve 'dns'
+[WebServer]   1 | 'use strict'
+[WebServer]   2 |
+[WebServer] > 3 | const dns = require('dns')
+[WebServer]     | ^
+[WebServer]   4 |
+[WebServer]   5 | const defaults = require('./defaults')
+[WebServer]   6 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection.js:122:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   120 |
+[WebServer]   121 |     // SNI must not be set to an IP address (RFC 6066 section 3)
+[WebServer] > 122 |     const net = require('net')
+[WebServer]       | ^
+[WebServer]   123 |     if (net.isIP && net.isIP(host) === 0) {
+[WebServer]   124 |       options.servername = host
+[WebServer]   125 |     }
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/crypto/utils.js:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | const nodeCrypto = require('crypto')
+[WebServer]     | ^
+[WebServer]   2 |
+[WebServer]   3 | module.exports = {
+[WebServer]   4 |   postgresMd5PasswordHash,
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:22:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   20 | function getNodejsStreamFuncs() {
+[WebServer]   21 |   function getStream(ssl) {
+[WebServer] > 22 |     const net = require('net')
+[WebServer]      | ^
+[WebServer]   23 |     return new net.Socket()
+[WebServer]   24 |   }
+[WebServer]   25 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:27:1
+[WebServer] Module not found: Can't resolve 'tls'
+[WebServer]   25 |
+[WebServer]   26 |   function getSecureStream(options) {
+[WebServer] > 27 |     const tls = require('tls')
+[WebServer]      | ^
+[WebServer]   28 |     return tls.connect(options)
+[WebServer]   29 |   }
+[WebServer]   30 |   return {
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/utils.js:6:18
+[WebServer] Module not found: Can't resolve 'util/types'
+[WebServer]   4 | const nodeUtils = require('util')
+[WebServer]   5 |
+[WebServer] > 6 | const { isDate } = require('util/types')
+[WebServer]     |                  ^
+[WebServer]   7 |
+[WebServer]   8 | const invalidDateDeprecationNotice = nodeUtils.deprecate(
+[WebServer]   9 |   () => {},
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] node:crypto
+[WebServer] Module build failed: UnhandledSchemeError: Reading from "node:crypto" is not handled by plugins (Unhandled scheme).
+[WebServer] Webpack supports "data:" and "file:" URIs by default.
+[WebServer] You may need an additional plugin to handle "node:" URIs. 
+  x  2 tests\e2e\agent-emojis.ui.spec.ts:6:9 › weekly displays original emoji through the existing real sale renderer (2.0m)
+(node:3108) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [browser] Uncaught Error: Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer] [browser] ./backend/auth/session.ts:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg-connection-string/index.js:88:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   86 |
+[WebServer]   87 |   // Only try to load fs if we expect to read from the disk
+[WebServer] > 88 |   const fs = config.sslcert || config.sslkey || config.sslrootcert ? require('fs') : null
+[WebServer]      | ^
+[WebServer]   89 |
+[WebServer]   90 |   if (config.sslcert) {
+[WebServer]   91 |     config.ssl.cert = fs.readFileSync(config.sslcert).toString()
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection-parameters.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , Stream = require('stream').Stream
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:4:1
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , Stream = require('stream').Stream
+[WebServer]     | ^
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer]   7 |   , defaultPort = 5432
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , fs = require('fs')
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:4:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , fs = require('fs')
+[WebServer]     | ^
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer]   7 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/split2/index.js:19:21
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   17 | 'use strict'
+[WebServer]   18 |
+[WebServer] > 19 | const { Transform } = require('stream')
+[WebServer]      |                     ^
+[WebServer]   20 | const { StringDecoder } = require('string_decoder')
+[WebServer]   21 | const kLast = Symbol('last')
+[WebServer]   22 | const kDecoder = Symbol('decoder')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/helper.js
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection-parameters.js:3:1
+[WebServer] Module not found: Can't resolve 'dns'
+[WebServer]   1 | 'use strict'
+[WebServer]   2 |
+[WebServer] > 3 | const dns = require('dns')
+[WebServer]     | ^
+[WebServer]   4 |
+[WebServer]   5 | const defaults = require('./defaults')
+[WebServer]   6 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection.js:122:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   120 |
+[WebServer]   121 |     // SNI must not be set to an IP address (RFC 6066 section 3)
+[WebServer] > 122 |     const net = require('net')
+[WebServer]       | ^
+[WebServer]   123 |     if (net.isIP && net.isIP(host) === 0) {
+[WebServer]   124 |       options.servername = host
+[WebServer]   125 |     }
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/crypto/utils.js:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | const nodeCrypto = require('crypto')
+[WebServer]     | ^
+[WebServer]   2 |
+[WebServer]   3 | module.exports = {
+[WebServer]   4 |   postgresMd5PasswordHash,
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:22:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   20 | function getNodejsStreamFuncs() {
+[WebServer]   21 |   function getStream(ssl) {
+[WebServer] > 22 |     const net = require('net')
+[WebServer]      | ^
+[WebServer]   23 |     return new net.Socket()
+[WebServer]   24 |   }
+[WebServer]   25 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:27:1
+[WebServer] Module not found: Can't resolve 'tls'
+[WebServer]   25 |
+[WebServer]   26 |   function getSecureStream(options) {
+[WebServer] > 27 |     const tls = require('tls')
+[WebServer]      | ^
+[WebServer]   28 |     return tls.connect(options)
+[WebServer]   29 |   }
+[WebServer]   30 |   return {
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/utils.js:6:18
+[WebServer] Module not found: Can't resolve 'util/types'
+[WebServer]   4 | const nodeUtils = require('util')
+[WebServer]   5 |
+[WebServer] > 6 | const { isDate } = require('util/types')
+[WebServer]     |                  ^
+[WebServer]   7 |
+[WebServer]   8 | const invalidDateDeprecationNotice = nodeUtils.deprecate(
+[WebServer]   9 |   () => {},
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] node:crypto
+[WebServer] Module build failed: UnhandledSchemeError: Reading from "node:crypto" is not handled by plugins (Unhandled scheme).
+[WebServer] Webpack supports "data:" and "file:" URIs by default.
+[WebServer] You may need an additional plugin to handle "node:" URIs. 
+  x  3 tests\e2e\agent-emojis.ui.spec.ts:6:9 › monthly displays original emoji through the existing real sale renderer (2.0m)
+(node:20928) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [browser] Uncaught Error: Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer]     at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+[WebServer] [browser] ./backend/auth/session.ts:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | import { createHash, randomBytes, timingSafeEqual } from "crypto";
+[WebServer]     | ^
+[WebServer]   2 | import type { PoolClient } from "pg";
+[WebServer]   3 | import { getDbPool } from "@/database/client";
+[WebServer]   4 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./backend/auth/guard.ts
+[WebServer] ./backend/spins/ledger.ts
+[WebServer] ./backend/sales/ingest.ts
+[WebServer] ./backend/sales/sync.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg-connection-string/index.js:88:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   86 |
+[WebServer]   87 |   // Only try to load fs if we expect to read from the disk
+[WebServer] > 88 |   const fs = config.sslcert || config.sslkey || config.sslrootcert ? require('fs') : null
+[WebServer]      | ^
+[WebServer]   89 |
+[WebServer]   90 |   if (config.sslcert) {
+[WebServer]   91 |     config.ssl.cert = fs.readFileSync(config.sslcert).toString()
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection-parameters.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , Stream = require('stream').Stream
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/helper.js:4:1
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , Stream = require('stream').Stream
+[WebServer]     | ^
+[WebServer]   5 |   , split = require('split2')
+[WebServer]   6 |   , util = require('util')
+[WebServer]   7 |   , defaultPort = 5432
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:3:1
+[WebServer] Module not found: Can't resolve 'path'
+[WebServer]   1 | 'use strict';
+[WebServer]   2 |
+[WebServer] > 3 | var path = require('path')
+[WebServer]     | ^
+[WebServer]   4 |   , fs = require('fs')
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pgpass/lib/index.js:4:1
+[WebServer] Module not found: Can't resolve 'fs'
+[WebServer]   2 |
+[WebServer]   3 | var path = require('path')
+[WebServer] > 4 |   , fs = require('fs')
+[WebServer]     | ^
+[WebServer]   5 |   , helper = require('./helper.js')
+[WebServer]   6 | ;
+[WebServer]   7 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/split2/index.js:19:21
+[WebServer] Module not found: Can't resolve 'stream'
+[WebServer]   17 | 'use strict'
+[WebServer]   18 |
+[WebServer] > 19 | const { Transform } = require('stream')
+[WebServer]      |                     ^
+[WebServer]   20 | const { StringDecoder } = require('string_decoder')
+[WebServer]   21 | const kLast = Symbol('last')
+[WebServer]   22 | const kDecoder = Symbol('decoder')
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pgpass/lib/helper.js
+[WebServer] ./node_modules/pgpass/lib/index.js
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection-parameters.js:3:1
+[WebServer] Module not found: Can't resolve 'dns'
+[WebServer]   1 | 'use strict'
+[WebServer]   2 |
+[WebServer] > 3 | const dns = require('dns')
+[WebServer]     | ^
+[WebServer]   4 |
+[WebServer]   5 | const defaults = require('./defaults')
+[WebServer]   6 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/connection.js:122:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   120 |
+[WebServer]   121 |     // SNI must not be set to an IP address (RFC 6066 section 3)
+[WebServer] > 122 |     const net = require('net')
+[WebServer]       | ^
+[WebServer]   123 |     if (net.isIP && net.isIP(host) === 0) {
+[WebServer]   124 |       options.servername = host
+[WebServer]   125 |     }
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/crypto/utils.js:1:1
+[WebServer] Module not found: Can't resolve 'crypto'
+[WebServer] > 1 | const nodeCrypto = require('crypto')
+[WebServer]     | ^
+[WebServer]   2 |
+[WebServer]   3 | module.exports = {
+[WebServer]   4 |   postgresMd5PasswordHash,
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/client.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:22:1
+[WebServer] Module not found: Can't resolve 'net'
+[WebServer]   20 | function getNodejsStreamFuncs() {
+[WebServer]   21 |   function getStream(ssl) {
+[WebServer] > 22 |     const net = require('net')
+[WebServer]      | ^
+[WebServer]   23 |     return new net.Socket()
+[WebServer]   24 |   }
+[WebServer]   25 |
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/stream.js:27:1
+[WebServer] Module not found: Can't resolve 'tls'
+[WebServer]   25 |
+[WebServer]   26 |   function getSecureStream(options) {
+[WebServer] > 27 |     const tls = require('tls')
+[WebServer]      | ^
+[WebServer]   28 |     return tls.connect(options)
+[WebServer]   29 |   }
+[WebServer]   30 |   return {
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/connection.js
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] ./node_modules/pg/lib/utils.js:6:18
+[WebServer] Module not found: Can't resolve 'util/types'
+[WebServer]   4 | const nodeUtils = require('util')
+[WebServer]   5 |
+[WebServer] > 6 | const { isDate } = require('util/types')
+[WebServer]     |                  ^
+[WebServer]   7 |
+[WebServer]   8 | const invalidDateDeprecationNotice = nodeUtils.deprecate(
+[WebServer]   9 |   () => {},
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] Import trace for requested module:
+[WebServer] ./node_modules/pg/lib/index.js
+[WebServer] ./node_modules/pg/esm/index.mjs
+[WebServer] ./database/client.ts
+[WebServer] ./backend/sales/scheduler.ts
+[WebServer] ./instrumentation.ts 
+[WebServer] [browser] node:crypto
+[WebServer] Module build failed: UnhandledSchemeError: Reading from "node:crypto" is not handled by plugins (Unhandled scheme).
+[WebServer] Webpack supports "data:" and "file:" URIs by default.
+[WebServer] You may need an additional plugin to handle "node:" URIs. 
+  x  4 tests\e2e\agent-emojis.ui.spec.ts:6:9 › teams displays original emoji through the existing real sale renderer (2.0m)
+
+
+  1) tests\e2e\agent-emojis.ui.spec.ts:6:9 › daily displays original emoji through the existing real sale renderer 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-arena-mode="daily"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-arena-mode="daily"]') with timeout 120000ms
+      - waiting for locator('[data-arena-mode="daily"]')
+      - Test timeout of 120000ms exceeded.
+
+
+      11 |             await route.fulfill({ contentType: "image/png", body: readFileSync("assets/Emojis of Agents/Mansoor Arshad-Photoroom.png") }); });
+      12 |         await page.goto("/?screen=" + mode);
+    > 13 |         await expect(page.locator('[data-arena-mode="' + mode + '"]')).toBeVisible({ timeout: 120000 });
+         |                                                                        ^
+      14 |         await page.waitForTimeout(1200);
+      15 |         const now = Date.now(), at = new Date(now - 1000).toISOString();
+      16 |         d.stream(sse("sale.validated", { caseId: "emoji-" + mode + now, userCode: "UI-SIGMA-0", closerName: "Mansoor Arshad", validatedAt: at, source: "sse", firstSeenAt: at, storedAt: at, broadcastAt: at, team: { id: "team_sigma", slug: "sigma", name: "Team Sigma", active: true, logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", accentSecondary: null, businessDate: at.slice(0, 10) } }), 2);
+        at C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\tests\e2e\agent-emojis.ui.spec.ts:13:72
+
+    Error Context: test-results\agent-emojis.ui-daily-disp-2fb4f-existing-real-sale-renderer\error-context.md
+
+  2) tests\e2e\agent-emojis.ui.spec.ts:6:9 › weekly displays original emoji through the existing real sale renderer 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-arena-mode="weekly"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-arena-mode="weekly"]') with timeout 120000ms
+      - waiting for locator('[data-arena-mode="weekly"]')
+      - Test timeout of 120000ms exceeded.
+
+
+      11 |             await route.fulfill({ contentType: "image/png", body: readFileSync("assets/Emojis of Agents/Mansoor Arshad-Photoroom.png") }); });
+      12 |         await page.goto("/?screen=" + mode);
+    > 13 |         await expect(page.locator('[data-arena-mode="' + mode + '"]')).toBeVisible({ timeout: 120000 });
+         |                                                                        ^
+      14 |         await page.waitForTimeout(1200);
+      15 |         const now = Date.now(), at = new Date(now - 1000).toISOString();
+      16 |         d.stream(sse("sale.validated", { caseId: "emoji-" + mode + now, userCode: "UI-SIGMA-0", closerName: "Mansoor Arshad", validatedAt: at, source: "sse", firstSeenAt: at, storedAt: at, broadcastAt: at, team: { id: "team_sigma", slug: "sigma", name: "Team Sigma", active: true, logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", accentSecondary: null, businessDate: at.slice(0, 10) } }), 2);
+        at C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\tests\e2e\agent-emojis.ui.spec.ts:13:72
+
+    Error Context: test-results\agent-emojis.ui-weekly-dis-debaa-existing-real-sale-renderer\error-context.md
+
+  3) tests\e2e\agent-emojis.ui.spec.ts:6:9 › monthly displays original emoji through the existing real sale renderer 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-arena-mode="monthly"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-arena-mode="monthly"]') with timeout 120000ms
+      - waiting for locator('[data-arena-mode="monthly"]')
+      - Test timeout of 120000ms exceeded.
+
+
+      11 |             await route.fulfill({ contentType: "image/png", body: readFileSync("assets/Emojis of Agents/Mansoor Arshad-Photoroom.png") }); });
+      12 |         await page.goto("/?screen=" + mode);
+    > 13 |         await expect(page.locator('[data-arena-mode="' + mode + '"]')).toBeVisible({ timeout: 120000 });
+         |                                                                        ^
+      14 |         await page.waitForTimeout(1200);
+      15 |         const now = Date.now(), at = new Date(now - 1000).toISOString();
+      16 |         d.stream(sse("sale.validated", { caseId: "emoji-" + mode + now, userCode: "UI-SIGMA-0", closerName: "Mansoor Arshad", validatedAt: at, source: "sse", firstSeenAt: at, storedAt: at, broadcastAt: at, team: { id: "team_sigma", slug: "sigma", name: "Team Sigma", active: true, logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", accentSecondary: null, businessDate: at.slice(0, 10) } }), 2);
+        at C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\tests\e2e\agent-emojis.ui.spec.ts:13:72
+
+    Error Context: test-results\agent-emojis.ui-monthly-di-da26a-existing-real-sale-renderer\error-context.md
+
+  4) tests\e2e\agent-emojis.ui.spec.ts:6:9 › teams displays original emoji through the existing real sale renderer 
+
+    Test timeout of 120000ms exceeded.
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-arena-mode="teams"]')
+    Expected: visible
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-arena-mode="teams"]') with timeout 120000ms
+      - waiting for locator('[data-arena-mode="teams"]')
+      - Test timeout of 120000ms exceeded.
+
+
+      11 |             await route.fulfill({ contentType: "image/png", body: readFileSync("assets/Emojis of Agents/Mansoor Arshad-Photoroom.png") }); });
+      12 |         await page.goto("/?screen=" + mode);
+    > 13 |         await expect(page.locator('[data-arena-mode="' + mode + '"]')).toBeVisible({ timeout: 120000 });
+         |                                                                        ^
+      14 |         await page.waitForTimeout(1200);
+      15 |         const now = Date.now(), at = new Date(now - 1000).toISOString();
+      16 |         d.stream(sse("sale.validated", { caseId: "emoji-" + mode + now, userCode: "UI-SIGMA-0", closerName: "Mansoor Arshad", validatedAt: at, source: "sse", firstSeenAt: at, storedAt: at, broadcastAt: at, team: { id: "team_sigma", slug: "sigma", name: "Team Sigma", active: true, logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", accentSecondary: null, businessDate: at.slice(0, 10) } }), 2);
+        at C:\Users\aliah\OneDrive\Desktop\Dialer spinner Animation\tests\e2e\agent-emojis.ui.spec.ts:13:72
+
+    Error Context: test-results\agent-emojis.ui-teams-disp-9f735-existing-real-sale-renderer\error-context.md
+
+  4 failed
+    tests\e2e\agent-emojis.ui.spec.ts:6:9 › daily displays original emoji through the existing real sale renderer 
+    tests\e2e\agent-emojis.ui.spec.ts:6:9 › weekly displays original emoji through the existing real sale renderer 
+    tests\e2e\agent-emojis.ui.spec.ts:6:9 › monthly displays original emoji through the existing real sale renderer 
+    tests\e2e\agent-emojis.ui.spec.ts:6:9 › teams displays original emoji through the existing real sale renderer 

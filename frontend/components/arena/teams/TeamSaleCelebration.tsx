@@ -1,4 +1,5 @@
 "use client";
+import { AgentEmoji } from "@/frontend/components/celebrations/AgentEmoji";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -149,8 +150,8 @@ export function TeamSaleCelebrationView({ item, name, logoUrl, color, accent, to
               </div>
             </>
           )}
+          <AgentEmoji key={item.event.id} agentId={item.event.agentId} name={agent} />
         </div>
-
         {/* Announcement */}
         <h2 className="tc-headline relative font-heading font-extrabold uppercase" data-testid="team-celebration-headline" data-headline={headline}>
           <span className="tc-headline-text" style={{ backgroundImage: pal.text }}>

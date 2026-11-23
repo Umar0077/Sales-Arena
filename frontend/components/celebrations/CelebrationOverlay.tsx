@@ -1,5 +1,6 @@
 "use client";
 
+import { AgentEmoji } from "./AgentEmoji";
 import { useEffect } from "react";
 import { noteShown } from "@/frontend/live/latency";
 import { motion, AnimatePresence } from "motion/react";
@@ -26,8 +27,9 @@ import {
   SkipForward 
 } from "lucide-react";
 
-export function CelebrationOverlay() {
-  const { current, queue, paused, advance, finishCurrent, skip, pause, resume } = useCelebrationStore();
+export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/shared/types").CelebrationEvent } = {}) {
+  const { current: liveCurrent, queue, paused, advance, finishCurrent, skip, pause, resume } = useCelebrationStore();
+  const current = previewEvent ?? liveCurrent;
   const settings = useSettingsStore();
   // Teams Arena only: a team sale celebration on screen goes first (never two sale overlays at once). On every
   // other screen the team layer is not mounted, so this is always false there.
@@ -40,6 +42,7 @@ export function CelebrationOverlay() {
 
   // Advance queue when current is null and queue has items
   useEffect(() => {
+    if (previewEvent) return;
     if (queue[0]?.tier === "weekly-top" && (spinStage !== "idle" || bonusBusy)) return;
     if (!current && queue.length > 0 && !paused && !teamBusy) {
       const next = advance();
@@ -50,20 +53,22 @@ export function CelebrationOverlay() {
         else audioEngine.play(meta.sound);
       }
     }
-  }, [current, queue, paused, advance, teamBusy, spinStage, bonusBusy]);
+  }, [current, queue, paused, advance, teamBusy, spinStage, bonusBusy, previewEvent]);
 
   // A pause belongs to an open bonus popup or spin journey. If neither is open any more (an owner unmounted
   // before resuming), the pause is stale: release it so sale popups never wait for minutes.
   useEffect(() => {
+    if (previewEvent) return;
     if (!paused) return;
     const id = setInterval(() => {
       if (!useBonusFlowStore.getState().active && useSpinFlowStore.getState().stage === "idle") resume();
     }, 5000);
     return () => clearInterval(id);
-  }, [paused, resume]);
+  }, [paused, resume, previewEvent]);
 
   // Auto-finish after tier duration
   useEffect(() => {
+    if (previewEvent) return;
     if (!current || paused) return;
     if (current.id.startsWith("celeb_sale_")) noteShown("sale", current.id.slice("celeb_sale_".length)); // delivery timeline
 
@@ -133,23 +138,23 @@ export function CelebrationOverlay() {
             />
 
             {/* Controls Bar */}
-            <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+            <div hidden={!!previewEvent} className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
               <button
-                onClick={paused ? resume : pause}
+                onClick={previewEvent ? undefined : paused ? resume : pause}
                 title={paused ? "Resume celebration" : "Pause celebration"}
                 className="p-1.5 rounded-lg bg-surface hover:bg-surface-hover text-muted hover:text-white transition-colors"
               >
                 {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
               </button>
               <button
-                onClick={skip}
+                onClick={previewEvent ? undefined : skip}
                 title="Skip this celebration"
                 className="p-1.5 rounded-lg bg-surface hover:bg-surface-hover text-muted hover:text-white transition-colors"
               >
                 <SkipForward className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={finishCurrent}
+                onClick={previewEvent ? undefined : finishCurrent}
                 title="Dismiss"
                 className="p-1.5 rounded-lg bg-surface hover:bg-surface-hover text-muted hover:text-white transition-colors"
               >
@@ -158,25 +163,49 @@ export function CelebrationOverlay() {
             </div>
 
             {/* Content Area */}
-            <div className={`relative z-10 flex ${isFullScreen ? "flex-col items-center" : "items-start gap-4"}`}>
-              {/* Icon badge */}
-              <div
-                className={`flex items-center justify-center rounded-xl shadow-lg ${
-                  isFullScreen ? "w-20 h-20 mb-4" : "w-12 h-12 shrink-0"
-                }`}
-                style={{
-                  backgroundColor: `${meta.color}20`,
-                  border: `1px solid ${meta.color}60`,
-                  color: meta.color,
-                }}
-              >
-                {current.tier === "top-performer" && <Crown className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
-                {current.tier === "milestone" && <Flame className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
-                {current.tier === "spin-unlocked" && <Gift className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
-                {current.tier === "team-target" && <Trophy className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
-                {current.tier === "special" && <Sparkles className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
-                {current.tier === "sale" && <CheckCircle2 className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
-              </div>
+            <div className={`relative z-10 flex ${isFullScreen ? "flex-col items-center" : "items-center gap-4"}`}>
+              {/* Badge or Agent Emoji */}
+              {current.tier === "sale" ? (
+                <div className="shrink-0 flex items-center justify-center">
+                  <AgentEmoji
+                    key={current.id}
+                    agentId={current.agentId}
+                    name={current.agentName ?? "Agent"}
+                    className="h-20 w-20 sm:h-24 sm:w-24 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]"
+                    fallback={
+                      <div
+                        className={`flex items-center justify-center rounded-xl shadow-lg ${
+                          isFullScreen ? "w-20 h-20 mb-4" : "w-12 h-12 shrink-0"
+                        }`}
+                        style={{
+                          backgroundColor: `${meta.color}20`,
+                          border: `1px solid ${meta.color}60`,
+                          color: meta.color,
+                        }}
+                      >
+                        <CheckCircle2 className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />
+                      </div>
+                    }
+                  />
+                </div>
+              ) : (
+                <div
+                  className={`flex items-center justify-center rounded-xl shadow-lg ${
+                    isFullScreen ? "w-20 h-20 mb-4" : "w-12 h-12 shrink-0"
+                  }`}
+                  style={{
+                    backgroundColor: `${meta.color}20`,
+                    border: `1px solid ${meta.color}60`,
+                    color: meta.color,
+                  }}
+                >
+                  {current.tier === "top-performer" && <Crown className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
+                  {current.tier === "milestone" && <Flame className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
+                  {current.tier === "spin-unlocked" && <Gift className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
+                  {current.tier === "team-target" && <Trophy className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
+                  {current.tier === "special" && <Sparkles className={isFullScreen ? "w-10 h-10" : "w-6 h-6"} />}
+                </div>
+              )}
 
               {/* Text */}
               <div className="flex-1">

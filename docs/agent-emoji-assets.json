@@ -1,0 +1,178 @@
+{
+  "assetCount": 19,
+  "assigned": 0,
+  "note": "No production or local database import executed. Run the protected Admin import after migration review; exact database matches only.",
+  "assets": [
+    {
+      "filename": "Ali Sikandar-Photoroom.png",
+      "name": "Ali Sikandar",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "8b1c048b70547f528210c9c690ddfb397aeea2351eca648dfdbed9a4d5eefd56",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Alishba Imran-Photoroom.png",
+      "name": "Alishba Imran",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "fe5f4c65339e9f50f90331f7b70c379bbfe37993f89538adfb3b45f80dc51e91",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Arsam Idrees-Photoroom.png",
+      "name": "Arsam Idrees",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "954d83449ea96eae3d47e4844deae7c52a28849f80a2dc9e3c5a7272ee0e8ea1",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Hamna Nasir-Photoroom.png",
+      "name": "Hamna Nasir",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "b55776b40ea2d14043cc6b95eaf500d20d202484d05c933e5a259e8f988c0a1f",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Haris Malik-Photoroom.png",
+      "name": "Haris Malik",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "6809feb0720db4427d05440e491dea1f93c56dc874af3fba99a3706a204b4768",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Jonathan Joseph-Photoroom.png",
+      "name": "Jonathan Joseph",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "c73bf48419929e86ef853d7d1f044b9012d5cf77795488883f7963fe5f6be957",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Kanwal Farooq-Photoroom.png",
+      "name": "Kanwal Farooq",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "7496fe1abfba167941e6fec2fc11eb884013bc56d5279b43fb41c2841fc8b3a4",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Mansoor Arshad-Photoroom.png",
+      "name": "Mansoor Arshad",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "84329a9dcb72ac6a5b22cd36b65a82398d2b6f5b43a1d8d945a36f4a72a76738",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Muhammad Adeel Afzal-Photoroom.png",
+      "name": "Muhammad Adeel Afzal",
+      "width": 1122,
+      "height": 1402,
+      "transparent": true,
+      "sha256": "79bf6639ce4b5ef678b7a42130fb61d55e33b4d90d23bf54de6bded458490d00",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Muhammad Balaj-Photoroom.png",
+      "name": "Muhammad Balaj",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "a68d92d603a76d5fba6204559fb5beb65483aa621051872a0a28d4aa26667301",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Qurat Ul Ain-Photoroom.png",
+      "name": "Qurat Ul Ain",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "d0ddd274f335040942740b0528ce9905b60b4f34956688bd8ab361d5fde43d38",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Rayyan Mughal-Photoroom.png",
+      "name": "Rayyan Mughal",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "6e8b14938d699152b261467ff261a440fa8ce05c387db7d2cf37bb7e2d7e95cf",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Rehan Ali-Photoroom.png",
+      "name": "Rehan Ali",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "5d5efd86dfdae907116225efadd49e3be5f552faaf2fdf2e6b7e9730012e408e",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Roger Robinson-Photoroom.png",
+      "name": "Roger Robinson",
+      "width": 1254,
+      "height": 1254,
+      "transparent": true,
+      "sha256": "2632d25c1eb9f8c8847d029b8a96176971a4ac87bc839d94f78e9547092f8459",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Sahibzada Hassan Mehboob-Photoroom.png",
+      "name": "Sahibzada Hassan Mehboob",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "5b7b2e5d7b2328c11be1c39d6157d52153131b0c6f230387c6308d10c00b779f",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Syed Ali Asghar Zaidi-Photoroom.png",
+      "name": "Syed Ali Asghar Zaidi",
+      "width": 1122,
+      "height": 1402,
+      "transparent": true,
+      "sha256": "1fef7aa6f3f94ad1ad7ea0a4ed0da41d2e6282bb6739f0bd8782484f5544793c",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Syed Noroz Ali Kazmi-Photoroom.png",
+      "name": "Syed Noroz Ali Kazmi",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "76865d78286bdb148f976fc54bb0a6eace929f487f0a9a30136ac40cfd3557bc",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Urwah Malik-Photoroom.png",
+      "name": "Urwah Malik",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "b351975e15fa479b67389135f8b4b3907a3247edf3c07f7e07af5c7558db61e3",
+      "status": "validated locally; database import and identity matching pending"
+    },
+    {
+      "filename": "Uswa E Husna-Photoroom.png",
+      "name": "Uswa E Husna",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "sha256": "b4cec955d672d6e8d0a3ec6eaeb446285babb9482a85ceedac7b96ac081618fb",
+      "status": "validated locally; database import and identity matching pending"
+    }
+  ]
+}
