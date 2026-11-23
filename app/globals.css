@@ -451,7 +451,7 @@ button, input, select, textarea { font-family: inherit; }
     radial-gradient(ellipse 60% 50% at 50% 100%, color-mix(in srgb, var(--tc-b) 18%, transparent), transparent 70%),
     radial-gradient(ellipse 120% 90% at 50% 45%, rgba(6, 9, 22, 0.82) 30%, rgba(4, 6, 16, 0.93) 100%);
 }
-.tc-stage { margin-bottom: 1vh; }
+.tc-stage { margin-bottom: 1vh; gap: calc(var(--tc-w) * 0.08); }
 .tc-emblem { perspective: 1400px; }
 .tc-emblem-plate {
   position: relative; width: var(--tc-w); aspect-ratio: 16 / 9; border-radius: clamp(14px, 1.6vw, 28px); overflow: hidden;
@@ -538,6 +538,13 @@ button, input, select, textarea { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .tc-root, .tc-root * { animation: none !important; }
 }
+
+/* Admin 16:9 TV Preview Monitor: scales live celebration components proportionally to the preview container */
+[data-preview-stage="true"] .tc-root { --tc-w: min(50cqw, 62cqh, 960px); }
+[data-preview-stage="true"] .tc-agent-emoji { height: clamp(110px, 36cqh, 380px); max-width: 32cqw; }
+[data-preview-stage="true"] .tc-headline { margin-top: 2cqh; font-size: clamp(20px, min(4.2cqw, 6.8cqh), 72px); }
+[data-preview-stage="true"] .sale-celeb-card { padding-top: clamp(14px, 3.2cqh, 28px); padding-bottom: clamp(14px, 3.2cqh, 28px); }
+[data-preview-stage="true"] .sale-celeb-emoji { height: clamp(120px, 34cqh, 280px); }
 
 /* ---------- Weekly Top Performer ceremony (frontend/components/celebrations/WeeklyTopCelebration.tsx) ----------
    wtp-full (rays, beams, sweep, ring pulses), wtp-lite (entrances only), wtp-static (reduced motion: opacity only).

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard, MonitorPlay, Users, Shield, BarChart3, Target, Gift, Trophy, PartyPopper, History,
-  Palette, Webhook, ExternalLink, Menu, X, Award, Disc3, Activity, UserCog, LogOut, ShieldCheck,
+  Palette, Webhook, ExternalLink, Menu, X, Award, Disc3, Activity, UserCog, LogOut, ShieldCheck, Scale,
 } from "lucide-react";
 import { adminApi, setCsrfToken } from "./admin-api";
 import { AdminLiveSync, SaveStatusPill } from "./AdminLiveSync";
@@ -25,6 +25,7 @@ const ADMIN_NAV: Array<{ href: string; label: string; icon: typeof Shield; exact
   { href: "/admin/agents", label: "Agent Management", icon: Users },
   { href: "/admin/teams", label: "Team Management", icon: Shield },
   { href: "/admin/performance", label: "Sales & Performance", icon: BarChart3 },
+  { href: "/admin/carriers", label: "Carrier Sales Weighting", icon: Scale },
   { href: "/admin/targets", label: "Target Management", icon: Target },
   { href: "/admin/rewards", label: "Spin & Rewards", icon: Gift },
   { href: "/admin/leaderboard", label: "Leaderboard Settings", icon: Trophy },

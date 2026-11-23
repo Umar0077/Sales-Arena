@@ -30,10 +30,20 @@ describe("agent emoji originals and upload boundary", () => {
     });
     it("rejects anonymous mutation", async () => { expect((await POST(new NextRequest("http://arena.test/api/admin/agent-emojis", { method: "POST" }))).status).toBe(401); });
     it("missing emoji renders nothing, retaining the existing parent fallback", () => { expect(renderToStaticMarkup(<AgentEmoji agentId={null} name="Agent"/>)).toBe(""); });
-    it("local preview renders the real renderer without changing the production queue", () => {
+    it("renders enlarged Teams Arena emoji class with object-contain when url is provided", () => {
+        const html = renderToStaticMarkup(<AgentEmoji agentId="A1" name="Mansoor Arshad" url="/api/arena/agent-emojis/test" />);
+        expect(html).toContain("tc-agent-emoji");
+        expect(html).toContain("h-[clamp(145px,36vh,400px)]");
+        expect(html).toContain("object-contain");
+    });
+    it("local preview renders the centered bonus-style sale popup without changing the production queue", () => {
         const before = useCelebrationStore.getState();
         const html = renderToStaticMarkup(<CelebrationOverlay previewEvent={{ id: "preview", tier: "sale", headline: "NEW SALE APPROVED!", subline: "Preview", agentId: "M", agentName: "Mansoor Arshad", teamName: null, teamColor: null, value: null, createdAt: "", preview: true }}/>);
         expect(html).toContain("Mansoor Arshad");
+        expect(html).toContain("NEW SALE APPROVED!");
+        expect(html).toContain("Just made a sale!");
+        expect(html).toContain('data-testid="sale-celebration-popup"');
+        expect(html).toContain('data-testid="sale-celebration-fallback"');
         expect(useCelebrationStore.getState()).toBe(before);
     });
 });

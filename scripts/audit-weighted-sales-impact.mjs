@@ -21,15 +21,33 @@
 
 import pg from "pg";
 
+function normalizeCarrierName(str) {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .replace(/[-_()/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isCorebridgeSwil(str) {
+  if (!str) return false;
+  const norm = normalizeCarrierName(str);
+  return norm.includes("corebridge") && /(?:^|\s)swil(?:\s|$)/.test(norm);
+}
+
 function isGerberCompany(str) {
   return Boolean(str && String(str).toLowerCase().includes("gerber"));
 }
 
 function isCorebridgeCompany(str) {
-  return Boolean(str && String(str).toLowerCase().includes("corebridge"));
+  if (!str) return false;
+  if (isCorebridgeSwil(str)) return false;
+  return String(str).toLowerCase().includes("corebridge");
 }
 
 function getWeight(carrier = "") {
+  if (isCorebridgeSwil(carrier)) return 1.0;
   if (isGerberCompany(carrier)) return 0.5;
   if (isCorebridgeCompany(carrier)) return 0.5;
   return 1.0;
@@ -67,6 +85,7 @@ async function runAudit() {
           COUNT(*)::int AS raw_count,
           SUM(
             CASE 
+              WHEN LOWER(TRIM(COALESCE(carrier, ''))) LIKE '%corebridge%' AND REGEXP_REPLACE(LOWER(TRIM(COALESCE(carrier, ''))), '[-_()/[:space:]]+', ' ', 'g') ~ '(^| )swil( |$)' THEN 1.0
               WHEN LOWER(TRIM(COALESCE(carrier, ''))) LIKE '%gerber%' THEN 0.5
               WHEN LOWER(TRIM(COALESCE(carrier, ''))) LIKE '%corebridge%' THEN 0.5
               ELSE 1.0
@@ -88,6 +107,41 @@ async function runAudit() {
         }))
       );
 
+      // 1b. Historical Corebridge Financial-SWIL Sales Audit
+      const swilRes = await client.query(`
+        SELECT
+          s.case_id,
+          s.user_code,
+          COALESCE(a.name, s.closer_name, s.user_code) AS agent_name,
+          s.carrier,
+          s.validated_at
+        FROM validated_sales s
+        LEFT JOIN agents a ON a.user_code = s.user_code
+        WHERE s.status = 'validated'
+          AND LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%corebridge%'
+          AND REGEXP_REPLACE(LOWER(TRIM(COALESCE(s.carrier, ''))), '[-_()/[:space:]]+', ' ', 'g') ~ '(^| )swil( |$)'
+        ORDER BY s.validated_at DESC;
+      `);
+
+      console.log("\n--- 1B. HISTORICAL COREBRIDGE FINANCIAL-SWIL AUDIT ---");
+      if (swilRes.rows.length === 0) {
+        console.log("No historical Corebridge Financial-SWIL rows found in validated_sales.");
+      } else {
+        console.log(`Found ${swilRes.rows.length} historical Corebridge Financial-SWIL sales (+${(swilRes.rows.length * 0.5).toFixed(1)} total credit difference vs legacy 0.5 rule):`);
+        console.table(
+          swilRes.rows.map((r) => ({
+            "Case ID": r.case_id,
+            "User Code": r.user_code,
+            Agent: r.agent_name,
+            Carrier: r.carrier,
+            "Validated At": new Date(r.validated_at).toISOString(),
+            "Legacy Credit": 0.5,
+            "Corrected Credit": 1.0,
+            "Delta": "+0.5",
+          }))
+        );
+      }
+
       // 2. Agents with 0.5 weighted sales
       const agentRes = await client.query(`
         SELECT 
@@ -96,13 +150,21 @@ async function runAudit() {
           COUNT(*)::int AS raw_total,
           SUM(
             CASE 
+              WHEN LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%corebridge%' AND REGEXP_REPLACE(LOWER(TRIM(COALESCE(s.carrier, ''))), '[-_()/[:space:]]+', ' ', 'g') ~ '(^| )swil( |$)' THEN 1.0
               WHEN LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%gerber%' THEN 0.5
               WHEN LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%corebridge%' THEN 0.5
               ELSE 1.0
             END
           )::numeric AS credited_total,
           COUNT(*) FILTER (WHERE LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%gerber%')::int AS gerber_count,
-          COUNT(*) FILTER (WHERE LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%corebridge%')::int AS corebridge_count
+          COUNT(*) FILTER (
+            WHERE LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%corebridge%'
+              AND NOT (REGEXP_REPLACE(LOWER(TRIM(COALESCE(s.carrier, ''))), '[-_()/[:space:]]+', ' ', 'g') ~ '(^| )swil( |$)')
+          )::int AS corebridge_count,
+          COUNT(*) FILTER (
+            WHERE LOWER(TRIM(COALESCE(s.carrier, ''))) LIKE '%corebridge%'
+              AND REGEXP_REPLACE(LOWER(TRIM(COALESCE(s.carrier, ''))), '[-_()/[:space:]]+', ' ', 'g') ~ '(^| )swil( |$)'
+          )::int AS swil_count
         FROM validated_sales s
         LEFT JOIN agents a ON a.user_code = s.user_code
         WHERE s.status = 'validated'

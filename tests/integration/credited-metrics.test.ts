@@ -20,8 +20,23 @@ describe("credited PostgreSQL metrics and unmodified sale delivery", () => {
     await resetDatabase();
     await setSetting("arena.config", { values: { businessTimezone: "Asia/Karachi" } });
   });
-  it("SQL and JavaScript agree for all carrier variants, including null and unknown", async () => {
-    const carriers = ["Aetna", "Gerber", " GERBER LIFE ", "Corebridge Financial", "AIG / corebridge", "Other", "", null];
+  it("SQL and JavaScript agree for all carrier variants, including SWIL, null and unknown", async () => {
+    const carriers = [
+      "Aetna",
+      "Americo Financial",
+      "Corebridge Financial-SWIL",
+      "corebridge financial-swil",
+      "COREBRIDGE FINANCIAL-SWIL",
+      "Corebridge Financial - SWIL",
+      "Corebridge Financial SWIL",
+      "Gerber",
+      " GERBER LIFE ",
+      "Corebridge Financial",
+      "AIG / corebridge",
+      "Other",
+      "",
+      null,
+    ];
     const result = await pool().query("SELECT carrier, " + sqlCarrierWeight("carrier") + " AS credit FROM unnest($1::text[]) AS t(carrier)", [carriers]);
     expect(result.rows.map((r) => Number(r.credit))).toEqual(carriers.map((c) => getCompanySaleWeight(c)));
   });

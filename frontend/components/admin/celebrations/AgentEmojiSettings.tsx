@@ -210,8 +210,8 @@ export function AgentEmojiSettings() {
     setActivePreview(event);
 
     if (previewSound) {
-      if (previewMode === "teams" && (teamOverride || selectedAgent.team)) {
-        playPreviewSound(teamOverride || themeFor(selectedAgent.team!));
+      if (previewMode === "teams") {
+        playPreviewSound(teamOverride || (selectedAgent.team ? themeFor(selectedAgent.team) : "crest"));
       } else {
         audioEngine.unlock();
         audioEngine.play("sale");
@@ -510,18 +510,19 @@ export function AgentEmojiSettings() {
 
               {/* 16:9 TV Monitor Preview Frame */}
               <div
-                className="relative aspect-video w-full overflow-hidden rounded-xl border border-purple-500/30 bg-[#070B16] shadow-2xl"
+                data-preview-stage="true"
+                className="relative aspect-video w-full overflow-hidden rounded-xl border border-purple-500/30 bg-[#070B16] shadow-2xl [container-type:size]"
                 style={{ transform: "translateZ(0)" }}
                 aria-label="Local celebration preview"
               >
                 {/* Subtle TV glass glow and branding tag */}
-                <div className="absolute top-3 left-4 z-20 flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-text-muted">
+                <div className="absolute top-3 left-4 z-[60] flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-text-muted pointer-events-none">
                   <span className="w-2 h-2 rounded-full bg-secondary animate-pulse" />
                   <span>PREVIEW STAGE · {previewMode.toUpperCase()} ARENA</span>
                 </div>
 
                 {activePreview ? (
-                  previewMode === "teams" && (teamOverride || selectedAgent.team) ? (
+                  previewMode === "teams" ? (
                     <TeamSaleCelebrationView
                       key={activePreview.id}
                       item={teamPreviewItem}

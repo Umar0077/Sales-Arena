@@ -138,17 +138,17 @@ export function TeamSaleCelebrationView({ item, name, logoUrl, color, accent, to
       >
         <div className="tc-stage relative flex items-center justify-center">
           {theme === "crest" ? (
-            <div className="tc-crest-hero relative" data-testid="team-crest-hero">
+            <div className="tc-crest-hero relative shrink-0" data-testid="team-crest-hero">
               <Crest src={logoUrl} name={name} color={color} className="tc-crest-hero-size drop-shadow-[0_24px_30px_rgba(0,0,0,0.7)]" />
             </div>
           ) : (
-            <>
+            <div className="relative flex shrink-0 items-center justify-center">
               <Emblem theme={theme} name={name} />
               {/* the official crest stays the team's identity, docked on the plate */}
               <div className="tc-crest absolute">
                 <Crest src={logoUrl} name={name} color={color} className="tc-crest-size drop-shadow-[0_14px_20px_rgba(0,0,0,0.8)]" />
               </div>
-            </>
+            </div>
           )}
           <AgentEmoji key={item.event.id} agentId={item.event.agentId} name={agent} />
         </div>

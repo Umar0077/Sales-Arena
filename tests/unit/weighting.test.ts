@@ -3,6 +3,11 @@ import { describe, it, expect } from "vitest";
 import {
   getCompanySaleWeight,
   getValidatedSaleCredit,
+  isCorebridgeSwil,
+  isCorebridgeCompany,
+  isGerberCompany,
+  normalizeCarrierName,
+  classifyCarrierWeight,
   addCredits,
   roundCredit,
   formatSalesCount,
@@ -13,8 +18,35 @@ import { achievedTiers, planTierAward, type TierSale } from "@/backend/rewards/e
 import type { RewardProgram } from "@/backend/rewards/programs";
 import type { Sale, Agent } from "@/shared/types";
 
-describe("Company-based 0.5 Sales Weighting Rule", () => {
-  describe("getCompanySaleWeight", () => {
+describe("Company-based Sales Weighting Rule (including Corebridge Financial-SWIL 1.0 Exception)", () => {
+  describe("getCompanySaleWeight & Corebridge Financial-SWIL Precedence", () => {
+    it("assigns 1.0 to Corebridge Financial-SWIL and all supported case, hyphen and spacing variations", () => {
+      expect(getCompanySaleWeight("Corebridge Financial-SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight("corebridge financial-swil")).toBe(1.0);
+      expect(getCompanySaleWeight("COREBRIDGE FINANCIAL-SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight("Corebridge Financial - SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight("Corebridge Financial SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight("  Corebridge   Financial - SWIL  ")).toBe(1.0);
+      expect(getCompanySaleWeight("Corebridge-SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight("Corebridge SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight("Corebridge Financial (SWIL)")).toBe(1.0);
+      expect(getCompanySaleWeight("Corebridge Financial", "SWIL")).toBe(1.0);
+      expect(getCompanySaleWeight(undefined, "Corebridge Financial-SWIL")).toBe(1.0);
+
+      expect(isCorebridgeSwil("Corebridge Financial-SWIL")).toBe(true);
+      expect(isCorebridgeSwil("Corebridge Financial - SWIL")).toBe(true);
+      expect(isCorebridgeSwil("Corebridge Financial SWIL")).toBe(true);
+      expect(isCorebridgeSwil("Corebridge Financial")).toBe(false);
+      // Do not treat arbitrary carrier names containing 'SWIL' without Corebridge as Corebridge Financial-SWIL
+      expect(isCorebridgeSwil("SWIL Insurance")).toBe(false);
+      expect(isCorebridgeSwil("Swilson Mutual")).toBe(false);
+      expect(isCorebridgeSwil("Corebridge Swilson")).toBe(false);
+      // And Corebridge Financial-SWIL is never classified as 0.5-credit normal Corebridge
+      expect(isCorebridgeCompany("Corebridge Financial-SWIL")).toBe(false);
+      expect(isCorebridgeCompany("Corebridge Financial - SWIL")).toBe(false);
+      expect(isCorebridgeCompany("Corebridge Financial SWIL")).toBe(false);
+    });
+
     it("assigns 0.5 to Gerber and its naming variations (case-insensitive)", () => {
       expect(getCompanySaleWeight("Gerber")).toBe(0.5);
       expect(getCompanySaleWeight("gerber")).toBe(0.5);
@@ -22,25 +54,60 @@ describe("Company-based 0.5 Sales Weighting Rule", () => {
       expect(getCompanySaleWeight("Gerber Life")).toBe(0.5);
       expect(getCompanySaleWeight("Gerber Life Insurance Company")).toBe(0.5);
       expect(getCompanySaleWeight(undefined, "Gerber Whole Life")).toBe(0.5);
+      expect(isGerberCompany("Gerber Life")).toBe(true);
     });
 
-    it("assigns 0.5 to Corebridge Financial and its naming variations (case-insensitive)", () => {
+    it("assigns 0.5 to normal Corebridge Financial and its naming variations (case-insensitive)", () => {
       expect(getCompanySaleWeight("Corebridge")).toBe(0.5);
       expect(getCompanySaleWeight("corebridge")).toBe(0.5);
       expect(getCompanySaleWeight("Corebridge Financial")).toBe(0.5);
+      expect(getCompanySaleWeight("corebridge financial")).toBe(0.5);
       expect(getCompanySaleWeight("COREBRIDGE FINANCIAL")).toBe(0.5);
       expect(getCompanySaleWeight("AIG / Corebridge")).toBe(0.5);
       expect(getCompanySaleWeight(undefined, "Corebridge Term")).toBe(0.5);
     });
 
-    it("assigns 1.0 to any other insurance carrier", () => {
+    it("assigns 1.0 to any other genuinely validated insurance carrier", () => {
       expect(getCompanySaleWeight("Americo")).toBe(1.0);
+      expect(getCompanySaleWeight("Americo Financial")).toBe(1.0);
       expect(getCompanySaleWeight("Mutual of Omaha")).toBe(1.0);
       expect(getCompanySaleWeight("Aetna")).toBe(1.0);
       expect(getCompanySaleWeight("Transamerica")).toBe(1.0);
       expect(getCompanySaleWeight("American Amicable")).toBe(1.0);
       expect(getCompanySaleWeight("")).toBe(1.0);
       expect(getCompanySaleWeight(null, null)).toBe(1.0);
+    });
+
+    it("normalizes carrier strings and explains precedence accurately via classifyCarrierWeight", () => {
+      expect(normalizeCarrierName("Corebridge Financial - SWIL")).toBe("corebridge financial swil");
+      expect(classifyCarrierWeight("Corebridge Financial-SWIL")).toMatchObject({
+        credit: 1.0,
+        category: "Full Credit",
+        ruleType: "Explicit Override",
+        matchedRuleId: "corebridge-financial-swil",
+        precedence: 1,
+      });
+      expect(classifyCarrierWeight("Gerber Life")).toMatchObject({
+        credit: 0.5,
+        category: "Half Credit",
+        ruleType: "Explicit Override",
+        matchedRuleId: "gerber-life",
+        precedence: 2,
+      });
+      expect(classifyCarrierWeight("Corebridge Financial")).toMatchObject({
+        credit: 0.5,
+        category: "Half Credit",
+        ruleType: "Explicit Override",
+        matchedRuleId: "corebridge-financial",
+        precedence: 3,
+      });
+      expect(classifyCarrierWeight("Americo Financial")).toMatchObject({
+        credit: 1.0,
+        category: "Full Credit",
+        ruleType: "Default Rule",
+        matchedRuleId: "default-full-credit",
+        precedence: 4,
+      });
     });
   });
 
@@ -55,10 +122,54 @@ describe("Company-based 0.5 Sales Weighting Rule", () => {
 
     it("returns company weight for approved/validated sales", () => {
       expect(getValidatedSaleCredit({ status: "approved", carrier: "Americo" })).toBe(1.0);
+      expect(getValidatedSaleCredit({ status: "approved", carrier: "Corebridge Financial-SWIL" })).toBe(1.0);
+      expect(getValidatedSaleCredit({ status: "validated", carrier: "Corebridge Financial - SWIL" })).toBe(1.0);
+      expect(getValidatedSaleCredit({ status: "validated", carrier: "Corebridge Financial SWIL" })).toBe(1.0);
       expect(getValidatedSaleCredit({ status: "approved", carrier: "Gerber" })).toBe(0.5);
       expect(getValidatedSaleCredit({ status: "approved", carrier: "Corebridge Financial" })).toBe(0.5);
       expect(getValidatedSaleCredit({ status: "validated", carrier: "Gerber" })).toBe(0.5);
       expect(getValidatedSaleCredit({ status: "validated", carrier: "Corebridge" })).toBe(0.5);
+    });
+  });
+
+  describe("Actual Validated Sales Totals vs Credited Sales Examples", () => {
+    const makeSale = (id: string, carrier: string): Sale => ({
+      id,
+      agentId: "agt_1",
+      teamId: "t_sigma",
+      campaignId: "cmp_fe",
+      status: "approved",
+      product: carrier,
+      value: 100,
+      createdAt: "2026-11-24T10:00:00Z",
+      approvedAt: "2026-11-24T10:00:00Z",
+      source: "safequote-api",
+      carrier,
+    });
+
+    it("counts 2 Corebridge Financial-SWIL sales as 2 actual validated sales and 2.0 credited sales", () => {
+      const sales = [makeSale("s1", "Corebridge Financial-SWIL"), makeSale("s2", "Corebridge Financial - SWIL")];
+      const counts = leadCountsByAgent(sales).get("agt_1")!;
+      expect(sales.filter((s) => s.status === "approved").length).toBe(2); // actual transactions
+      expect(counts.validated).toBe(2.0); // credited sales
+    });
+
+    it("counts 2 normal Corebridge Financial sales as 2 actual validated sales and 1.0 credited sale", () => {
+      const sales = [makeSale("s1", "Corebridge Financial"), makeSale("s2", "Corebridge Financial")];
+      const counts = leadCountsByAgent(sales).get("agt_1")!;
+      expect(sales.filter((s) => s.status === "approved").length).toBe(2);
+      expect(counts.validated).toBe(1.0);
+    });
+
+    it("counts 1 Corebridge Financial, 1 Corebridge Financial-SWIL, and 1 Gerber as 3 actual sales and 2.0 credits", () => {
+      const sales = [
+        makeSale("s1", "Corebridge Financial"),
+        makeSale("s2", "Corebridge Financial-SWIL"),
+        makeSale("s3", "Gerber"),
+      ];
+      const counts = leadCountsByAgent(sales).get("agt_1")!;
+      expect(sales.filter((s) => s.status === "approved").length).toBe(3);
+      expect(counts.validated).toBe(2.0);
     });
   });
 

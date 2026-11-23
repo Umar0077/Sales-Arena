@@ -61,6 +61,15 @@ describe("FINAL SAFETY REVIEW — Company-Based 0.5 Sales Weighting", () => {
   describe("1. Parity Between JS Matching and SQL Pattern Matching", () => {
     // Verified Safe Quote carrier strings and boundary variants
     const testCases: Array<{ carrier?: string | null; product?: string | null; expectedWeight: number }> = [
+      // Corebridge Financial-SWIL exception (must strictly evaluate to 1.0 before general Corebridge 0.5 rule)
+      { carrier: "Corebridge Financial-SWIL", expectedWeight: 1.0 },
+      { carrier: "corebridge financial-swil", expectedWeight: 1.0 },
+      { carrier: "COREBRIDGE FINANCIAL-SWIL", expectedWeight: 1.0 },
+      { carrier: "Corebridge Financial - SWIL", expectedWeight: 1.0 },
+      { carrier: "Corebridge Financial SWIL", expectedWeight: 1.0 },
+      { carrier: "Corebridge-SWIL", expectedWeight: 1.0 },
+      { carrier: "  Corebridge Financial - SWIL  ", expectedWeight: 1.0 },
+
       // Standard exact names
       { carrier: "Gerber", expectedWeight: 0.5 },
       { carrier: "gerber", expectedWeight: 0.5 },
@@ -119,10 +128,17 @@ describe("FINAL SAFETY REVIEW — Company-Based 0.5 Sales Weighting", () => {
     });
 
     it("simulates SQL CASE expression evaluation on the exact same test inputs and confirms 100% parity", () => {
-      // Replicate the exact PostgreSQL semantics: LOWER(TRIM(COALESCE(carrier, ''))) LIKE '%gerber%'
+      // Replicate the exact PostgreSQL semantics of sqlCarrierWeight("carrier"):
+      // 1. Corebridge Financial-SWIL -> 1.0
+      // 2. Gerber -> 0.5
+      // 3. Corebridge Financial -> 0.5
+      // 4. Else -> 1.0
       const evalSqlCase = (carrierStr?: string | null, productStr?: string | null): number => {
         const normCarrier = (carrierStr ?? "").trim().toLowerCase();
         const normProduct = (productStr ?? "").trim().toLowerCase();
+        const sqlSwil = (s: string) =>
+          s.includes("corebridge") && /(^| )swil( |$)/.test(s.replace(/[-_()/ \t\r\n]+/g, " "));
+        if (sqlSwil(normCarrier) || sqlSwil(normProduct)) return 1.0;
         if (normCarrier.includes("gerber") || normProduct.includes("gerber")) return 0.5;
         if (normCarrier.includes("corebridge") || normProduct.includes("corebridge")) return 0.5;
         return 1.0;
