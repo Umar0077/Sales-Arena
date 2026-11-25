@@ -10,9 +10,11 @@ import { DemoSpinButton } from "@/frontend/components/arena/DemoSpinButton";
 import { ArenaModeSelector } from "@/frontend/components/layout/ArenaModeSelector";
 import { RefreshButton } from "@/frontend/components/layout/RefreshButton";
 import { SafeQuoteStatus } from "@/frontend/components/layout/SafeQuoteStatus";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 
 /** Public Live Arena header: branding plus display utilities only — no admin links. */
 export function ArenaHeader() {
+  const { isChristmas } = useArenaTheme();
   const soundEnabled = useSettingsStore((s) => s.soundEnabled);
   const tvMode = useSettingsStore((s) => s.tvMode);
   const online = useSettingsStore((s) => s.arenaEnabled);
@@ -80,6 +82,15 @@ export function ArenaHeader() {
           )}
         </div>
         <SafeQuoteStatus />
+        {isChristmas && (
+          <span
+            data-testid="christmas-edition-badge"
+            className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-[#D8AF58]/60 bg-gradient-to-r from-[#A61F32]/45 via-[#761B29]/55 to-[#173D32]/55 px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-[#FFF8EE] shadow-[0_0_22px_-6px_rgba(216,175,88,0.65)]"
+          >
+            <span aria-hidden="true">🎄</span>
+            <span>CHRISTMAS EDITION</span>
+          </span>
+        )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">

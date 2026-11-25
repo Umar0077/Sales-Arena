@@ -33,7 +33,7 @@ describe("agent emoji originals and upload boundary", () => {
     it("renders enlarged Teams Arena emoji class with object-contain when url is provided", () => {
         const html = renderToStaticMarkup(<AgentEmoji agentId="A1" name="Mansoor Arshad" url="/api/arena/agent-emojis/test" />);
         expect(html).toContain("tc-agent-emoji");
-        expect(html).toContain("h-[clamp(145px,36vh,400px)]");
+        expect(html).toContain("h-[clamp(170px,40vh,440px)]");
         expect(html).toContain("object-contain");
     });
     it("local preview renders the centered bonus-style sale popup without changing the production queue", () => {

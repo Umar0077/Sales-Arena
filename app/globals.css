@@ -444,14 +444,14 @@ button, input, select, textarea { font-family: inherit; }
    tc-static (reduced motion: the final composition, opacity only). Transform / opacity only, every animation
    plays once, and everything unmounts when the celebration ends. The artwork is never edited: visibility on the
    navy arena comes from a backlight behind the transparent emblems, light and the glowing edge. */
-.tc-root { --tc-w: min(60vw, 72vh, 960px); }
+.tc-root { --tc-w: min(40vw, 48vh, 620px); }
 .tc-backdrop {
   background:
     radial-gradient(ellipse 50% 42% at 50% 38%, color-mix(in srgb, var(--tc-a) 20%, transparent), transparent 72%),
     radial-gradient(ellipse 60% 50% at 50% 100%, color-mix(in srgb, var(--tc-b) 18%, transparent), transparent 70%),
     radial-gradient(ellipse 120% 90% at 50% 45%, rgba(6, 9, 22, 0.82) 30%, rgba(4, 6, 16, 0.93) 100%);
 }
-.tc-stage { margin-bottom: 1vh; gap: calc(var(--tc-w) * 0.08); }
+.tc-stage { margin-bottom: 1vh; gap: clamp(16px, 3vw, 48px); }
 .tc-emblem { perspective: 1400px; }
 .tc-emblem-plate {
   position: relative; width: var(--tc-w); aspect-ratio: 16 / 9; border-radius: clamp(14px, 1.6vw, 28px); overflow: hidden;
@@ -489,7 +489,7 @@ button, input, select, textarea { font-family: inherit; }
 }
 .tc-crest { right: calc(var(--tc-w) * -0.05); bottom: calc(var(--tc-w) * -0.06); z-index: 3; }
 .tc-crest-size { width: calc(var(--tc-w) * 0.2); height: auto; display: block; }
-.tc-crest-hero-size { width: min(36vh, 44vw, 380px); height: auto; display: block; }
+.tc-crest-hero-size { width: min(25vh, 30vw, 260px); height: auto; display: block; }
 .tc-headline { margin-top: 3.2vh; font-size: clamp(26px, min(4.5vw, 7.2vh), 86px); line-height: 1.08; letter-spacing: 0.055em; text-wrap: balance; max-width: 94vw; overflow-wrap: anywhere; filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.8)); }
 .tc-headline-text { color: transparent; -webkit-background-clip: text; background-clip: text; }
 .tc-rule { width: min(420px, 50vw); height: 2px; margin: 1.4vh auto 1.4vh; background: linear-gradient(90deg, transparent, var(--tc-a), transparent); }
@@ -540,8 +540,8 @@ button, input, select, textarea { font-family: inherit; }
 }
 
 /* Admin 16:9 TV Preview Monitor: scales live celebration components proportionally to the preview container */
-[data-preview-stage="true"] .tc-root { --tc-w: min(50cqw, 62cqh, 960px); }
-[data-preview-stage="true"] .tc-agent-emoji { height: clamp(110px, 36cqh, 380px); max-width: 32cqw; }
+[data-preview-stage="true"] .tc-root { --tc-w: min(36cqw, 44cqh, 620px); }
+[data-preview-stage="true"] .tc-agent-emoji { height: clamp(135px, 42cqh, 440px); max-width: 42cqw; }
 [data-preview-stage="true"] .tc-headline { margin-top: 2cqh; font-size: clamp(20px, min(4.2cqw, 6.8cqh), 72px); }
 [data-preview-stage="true"] .sale-celeb-card { padding-top: clamp(14px, 3.2cqh, 28px); padding-bottom: clamp(14px, 3.2cqh, 28px); }
 [data-preview-stage="true"] .sale-celeb-emoji { height: clamp(120px, 34cqh, 280px); }
@@ -690,3 +690,163 @@ button, input, select, textarea { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .ac-champ-sheen::after, .ac-radar span { animation: none; opacity: 0; }
 }
+
+/* ===================================================================================================
+   CHRISTMAS EDITION — Scoped Holiday Broadcast Theme ([data-arena-theme="christmas"])
+   Applies ONLY to Arena broadcast screens and isolated Admin previews. Normal Arena is 100% untouched.
+   Palette:
+     Primary Christmas Red: #A61F32
+     Deep Burgundy:         #761B29 / #23070D
+     Evergreen Green:       #173D32 / #0E261F
+     Snow White:            #FFF8EE
+     Champagne Gold:        #D8AF58 / #F5D07A
+   =================================================================================================== */
+[data-arena-theme="christmas"] {
+  --xmas-red: #A61F32;
+  --xmas-burgundy: #761B29;
+  --xmas-evergreen: #173D32;
+  --xmas-snow: #FFF8EE;
+  --xmas-gold: #D8AF58;
+  --xmas-gold-bright: #F5D07A;
+  --xmas-panel-bg: linear-gradient(180deg, rgba(46, 11, 19, 0.94) 0%, rgba(19, 38, 32, 0.92) 55%, rgba(18, 7, 12, 0.96) 100%);
+  --xmas-panel-border: rgba(216, 175, 88, 0.38);
+  --xmas-frost-edge: inset 0 1px 0 rgba(255, 248, 238, 0.22);
+}
+
+/* 1. Christmas Broadcast Stadium Backdrop */
+[data-arena-theme="christmas"] .arena-backdrop {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(118, 27, 41, 0.78) 0%, transparent 58%),
+    radial-gradient(ellipse 95% 75% at 100% 100%, rgba(23, 61, 50, 0.72) 0%, transparent 58%),
+    radial-gradient(ellipse 75% 55% at 0% 85%, rgba(166, 31, 50, 0.42) 0%, transparent 60%),
+    linear-gradient(180deg, #1E070D 0%, #120910 48%, #091512 100%);
+}
+[data-arena-theme="christmas"] .arena-backdrop__aurora--violet {
+  background: radial-gradient(circle, rgba(166, 31, 50, 0.72), transparent 65%);
+}
+[data-arena-theme="christmas"] .arena-backdrop__aurora--cyan {
+  background: radial-gradient(circle, rgba(23, 61, 50, 0.75), transparent 65%);
+}
+[data-arena-theme="christmas"] .arena-backdrop__aurora--gold {
+  background: radial-gradient(circle, rgba(216, 175, 88, 0.52), transparent 65%);
+}
+[data-arena-theme="christmas"] .arena-backdrop__floor::before {
+  background-image:
+    linear-gradient(to right, rgba(216, 175, 88, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(166, 31, 50, 0.22) 1px, transparent 1px);
+}
+
+/* 2. Animated Snowfall System */
+.xmas-flake {
+  position: absolute;
+  top: -12px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #FFF8EE 0%, rgba(255, 248, 238, 0.75) 65%, transparent 100%);
+  box-shadow: 0 0 6px rgba(255, 248, 238, 0.45);
+  will-change: transform;
+  animation: xmasSnowFall var(--flake-dur, 14s) linear var(--flake-delay, 0s) infinite;
+}
+.xmas-flake--gold {
+  background: radial-gradient(circle, #FFF8EE 0%, #F5D07A 60%, transparent 100%);
+  box-shadow: 0 0 8px rgba(216, 175, 88, 0.65);
+}
+@keyframes xmasSnowFall {
+  0% {
+    transform: translate3d(0, -2vh, 0) scale(0.9);
+  }
+  50% {
+    transform: translate3d(var(--flake-drift, 14px), 50vh, 0) scale(1.05);
+  }
+  100% {
+    transform: translate3d(calc(var(--flake-drift, 14px) * -0.4), 104vh, 0) scale(0.92);
+  }
+}
+[data-perf-mode="performance"] .xmas-flake {
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .xmas-flake {
+    animation: none !important;
+  }
+}
+
+/* 3. Christmas Broadcast Header & Ribbons */
+[data-arena-theme="christmas"] header.sticky {
+  background: linear-gradient(90deg, rgba(35, 8, 14, 0.88) 0%, rgba(18, 42, 34, 0.88) 50%, rgba(35, 8, 14, 0.88) 100%);
+  border-bottom: 1px solid rgba(216, 175, 88, 0.38);
+  box-shadow: 0 10px 32px -14px rgba(166, 31, 50, 0.55), inset 0 -1px 0 rgba(255, 248, 238, 0.14);
+}
+[data-arena-theme="christmas"] [data-testid="live-arena-badge"] {
+  border-color: rgba(216, 175, 88, 0.55);
+  background: linear-gradient(135deg, rgba(166, 31, 50, 0.42), rgba(23, 61, 50, 0.45));
+  box-shadow: 0 0 24px -6px rgba(216, 175, 88, 0.55);
+}
+
+/* 4. Christmas KPI Cards, Panels, Hero & Podiums (Daily, Weekly, Monthly) */
+[data-arena-theme="christmas"] .ac-kpi {
+  border-color: rgba(216, 175, 88, 0.36);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(216, 175, 88, 0.16), transparent 60%),
+    linear-gradient(180deg, rgba(52, 13, 22, 0.92) 0%, rgba(17, 38, 31, 0.9) 100%);
+  box-shadow: var(--xmas-frost-edge), 0 18px 40px -26px rgba(166, 31, 50, 0.65);
+}
+[data-arena-theme="christmas"] .ac-kpi::before {
+  background: linear-gradient(90deg, transparent, #D8AF58, #FFF8EE, #D8AF58, transparent);
+  opacity: 0.95;
+}
+[data-arena-theme="christmas"] .ac-panel {
+  border-color: rgba(216, 175, 88, 0.32);
+  background: linear-gradient(180deg, rgba(44, 11, 19, 0.94), rgba(14, 31, 26, 0.94));
+  box-shadow: var(--xmas-frost-edge), 0 24px 60px -40px rgba(166, 31, 50, 0.65);
+}
+[data-arena-theme="christmas"] [data-testid="top3-weekly"],
+[data-arena-theme="christmas"] [data-testid="top3-monthly"] {
+  border-color: rgba(216, 175, 88, 0.45);
+  background:
+    radial-gradient(75% 65% at 50% 0%, rgba(216, 175, 88, 0.2), transparent 70%),
+    linear-gradient(180deg, rgba(58, 14, 24, 0.94) 0%, rgba(16, 39, 32, 0.93) 65%, rgba(18, 8, 13, 0.96) 100%);
+  box-shadow: var(--xmas-frost-edge), 0 24px 60px -30px rgba(166, 31, 50, 0.6);
+}
+
+/* 5. Christmas Leaderboard */
+[data-arena-theme="christmas"] section[aria-label="Leaderboard"] {
+  border-color: rgba(216, 175, 88, 0.38);
+  background: linear-gradient(180deg, rgba(38, 9, 16, 0.92) 0%, rgba(14, 33, 27, 0.92) 100%);
+  box-shadow: var(--xmas-frost-edge), 0 30px 80px -30px rgba(166, 31, 50, 0.55);
+}
+[data-arena-theme="christmas"] section[aria-label="Leaderboard"] > header {
+  background: linear-gradient(90deg, #761B29 0%, #A61F32 48%, #173D32 100%);
+  border-bottom: 1px solid rgba(216, 175, 88, 0.45);
+}
+
+/* 6. Christmas Teams Arena */
+[data-arena-theme="christmas"] [data-testid="team-card"] > div {
+  background: linear-gradient(165deg, #240810 0%, #102620 58%, #15070C 100%);
+  box-shadow: var(--xmas-frost-edge);
+}
+[data-arena-theme="christmas"] [data-testid="team-board"] {
+  background: linear-gradient(180deg, rgba(36, 9, 16, 0.94) 0%, rgba(14, 33, 27, 0.94) 100%);
+  border-color: rgba(216, 175, 88, 0.36) !important;
+}
+[data-arena-theme="christmas"] [data-testid="teams-top3"] {
+  border-color: rgba(216, 175, 88, 0.45);
+  background: linear-gradient(180deg, rgba(44, 10, 18, 0.94) 0%, rgba(15, 36, 29, 0.94) 100%);
+}
+[data-arena-theme="christmas"] [data-testid="versus"] .teams-vs {
+  background: radial-gradient(circle at 50% 35%, rgba(255, 248, 238, 0.18), rgba(118, 27, 41, 0.95) 68%) !important;
+  box-shadow: 0 0 0 1.5px rgba(216, 175, 88, 0.7), 0 0 38px -6px rgba(166, 31, 50, 0.85) !important;
+}
+
+/* 7. Christmas Spin & Win Stage */
+[data-arena-theme="christmas"] .spin-stage-bg {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 45%, rgba(166, 31, 50, 0.38), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 15% 85%, rgba(23, 61, 50, 0.38), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 80%, rgba(216, 175, 88, 0.25), transparent 70%),
+    linear-gradient(180deg, #21070E 0%, #0C1F1A 100%);
+}
+[data-arena-theme="christmas"] .spin-cta {
+  background: linear-gradient(90deg, #A61F32 0%, #D8AF58 50%, #173D32 100%) !important;
+  box-shadow: 0 14px 44px -10px rgba(216, 175, 88, 0.75) !important;
+}
+

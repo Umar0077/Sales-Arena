@@ -11,12 +11,15 @@ import { RewardRuntime } from "@/frontend/components/rewards/RewardRuntime";
 import { ArenaCub } from "@/frontend/components/cub/ArenaCub";
 import { LiveApiSync } from "@/frontend/components/arena/LiveApiSync";
 import { LiveDataGate, ArenaSkeleton } from "@/frontend/components/arena/LiveDataGate";
+import { ArenaThemeScope } from "@/frontend/theme/arena-theme";
+import { ChristmasSnowfall } from "@/frontend/components/theme/ChristmasSnowfall";
 
 /** Public Live Arena shell (TV display). No admin navigation here. */
 export default function ArenaLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <ArenaThemeScope className="min-h-screen flex flex-col">
       <ArenaBackdrop />
+      <ChristmasSnowfall />
       <ArenaHeader />
       <main className="flex-1 flex flex-col pb-24">
         <HydrationGate fallback={<ArenaSkeleton />}>
@@ -37,6 +40,6 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
       {/* Data + settings sync keeps running while offline, so an admin can switch the arena back on remotely. */}
       <LiveApiSync />
       <PoweredBy size="lg" />
-    </div>
+    </ArenaThemeScope>
   );
 }

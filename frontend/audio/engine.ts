@@ -2,7 +2,8 @@
 
 import { Howl, Howler } from "howler";
 import type { SoundCategory } from "@/shared/types";
-import { GENERATORS, encodeWav } from "./synth";
+import { GENERATORS, CHRISTMAS_GENERATORS, encodeWav } from "./synth";
+import { isChristmasAudioActive } from "@/frontend/theme/arena-theme";
 
 /** Minimum time between two plays of the same category (prevents sound chaos). */
 const MIN_INTERVAL: Record<SoundCategory, number> = {
@@ -49,6 +50,7 @@ if (typeof window !== "undefined") Howler.autoSuspend = false;
 
 class AudioEngine {
   private howls: Partial<Record<SoundCategory, Howl>> = {};
+  private christmasHowls: Partial<Record<SoundCategory, Howl>> = {};
   private urls: string[] = [];
   private lastPlayed: Partial<Record<SoundCategory, number>> = {};
   private loopId: number | null = null;
@@ -90,6 +92,29 @@ class AudioEngine {
       this.diag.initError = String(err);
       console.warn("[audio] initialisation failed — continuing silently", err);
     }
+  }
+
+  private getChristmasHowl(cat: SoundCategory): Howl | undefined {
+    const gen = CHRISTMAS_GENERATORS[cat];
+    if (!gen || typeof window === "undefined") return this.howls[cat];
+    if (!this.christmasHowls[cat]) {
+      try {
+        const wav = encodeWav(gen());
+        const url = URL.createObjectURL(new Blob([wav], { type: "audio/wav" }));
+        this.urls.push(url);
+        this.christmasHowls[cat] = new Howl({
+          src: [url],
+          format: ["wav"],
+          loop: false,
+          volume: BASE_VOLUME[cat],
+          pool: 3,
+          preload: true,
+        });
+      } catch {
+        return this.howls[cat];
+      }
+    }
+    return this.christmasHowls[cat] ?? this.howls[cat];
   }
 
   private watchCtx(): void {
@@ -194,7 +219,7 @@ class AudioEngine {
     // Avoid stacking minor sounds over big cinematic cues.
     if (!LOUD.includes(cat) && cat !== "tick" && cat !== "ui" && now < this.duckUntil) return;
     this.lastPlayed[cat] = now;
-    const howl = this.howls[cat];
+    const howl = isChristmasAudioActive() ? this.getChristmasHowl(cat) : this.howls[cat];
     if (!howl) return;
     if (state === "resumable") void this.whenRunning(); // Howler also resumes on play; this records it
     const id = howl.play();
@@ -202,6 +227,73 @@ class AudioEngine {
     if (opts.rate) howl.rate(opts.rate, id);
     if (LOUD.includes(cat)) this.duckUntil = now + 900;
     this.diag.plays++;
+  }
+
+  /**
+   * Plays a sound category and resolves once that specific playback instance finishes (or falls back safely
+   * within a bounded duration if muted, locked, errored, or stalled).
+   */
+  playWithCompletion(cat: SoundCategory, opts: { rate?: number; volume?: number; maxWaitMs?: number } = {}): Promise<"played" | "skipped"> {
+    if (!this.ready && this.activated()) this.init();
+    if (!this.allowed(cat)) {
+      if (this.ready) this.diag.skippedMuted++;
+      return Promise.resolve("skipped");
+    }
+    const state = this.readiness();
+    if (state === "locked" || state === "unavailable") {
+      this.diag.skippedLocked++;
+      return Promise.resolve("skipped");
+    }
+    const now = performance.now();
+    if (now - (this.lastPlayed[cat] ?? 0) < MIN_INTERVAL[cat]) return Promise.resolve("skipped");
+    if (!LOUD.includes(cat) && cat !== "tick" && cat !== "ui" && now < this.duckUntil) return Promise.resolve("skipped");
+    this.lastPlayed[cat] = now;
+    const howl = isChristmasAudioActive() ? this.getChristmasHowl(cat) : this.howls[cat];
+    if (!howl) return Promise.resolve("skipped");
+    if (state === "resumable") void this.whenRunning();
+
+    const id = howl.play();
+    howl.volume(BASE_VOLUME[cat] * (opts.volume ?? 1), id);
+    if (opts.rate) howl.rate(opts.rate, id);
+    if (LOUD.includes(cat)) this.duckUntil = now + 900;
+    this.diag.plays++;
+
+    const rawDur = typeof howl.duration === "function" ? howl.duration(id) : 0;
+    const expectedMs = Number.isFinite(rawDur) && rawDur > 0 ? Math.ceil((rawDur * 1000) / (opts.rate || 1)) + 160 : 1800;
+    const maxWaitMs = Math.min(opts.maxWaitMs ?? 3500, Math.max(400, expectedMs));
+
+    return new Promise<"played" | "skipped">((resolve) => {
+      let settled = false;
+      const done = (result: "played" | "skipped") => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (typeof howl.off === "function") {
+          howl.off("end", onEnd, id);
+          howl.off("playerror", onErr, id);
+          howl.off("stop", onStop, id);
+        }
+        resolve(result);
+      };
+      const onEnd = () => done("played");
+      const onStop = () => done("played");
+      const onErr = () => done("skipped");
+      const timer = setTimeout(() => done("played"), maxWaitMs);
+      if (typeof howl.once === "function") {
+        howl.once("end", onEnd, id);
+        howl.once("stop", onStop, id);
+        howl.once("playerror", onErr, id);
+      }
+    });
+  }
+
+  /** Local Admin preview: plays the Normal or Christmas sound variant directly on click without mutating live queues. */
+  playThemePreview(cat: SoundCategory, theme: "normal" | "christmas" = "christmas"): void {
+    this.unlock();
+    const howl = theme === "christmas" ? this.getChristmasHowl(cat) : this.howls[cat];
+    if (!howl) return;
+    const id = howl.play();
+    howl.volume(BASE_VOLUME[cat], id);
   }
 
   /** Loaded state of the engine's own sounds (diagnostics). */

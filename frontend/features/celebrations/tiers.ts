@@ -27,4 +27,15 @@ export const TIERS: Record<CelebrationTier, TierMeta> = {
   "weekly-top": { tier: "weekly-top", label: "Top Performer of the Week", priority: 7, color: "#FFC857", durationFactor: 1.9, particles: 1, sound: "special", fullscreen: true },
 };
 
+/** Minimum total on-screen duration for a standard validated-sale celebration (~8s). */
+export const NORMAL_SALE_CELEBRATION_MS = 8000;
+/** Hard upper bound when extending for speech completion so a stalled TTS engine never hangs the queue. */
+export const SALE_CELEBRATION_MAX_MS = 10500;
+
+/** Central duration resolver for standard validated-sale celebrations (other tiers keep their own durations). */
+export function saleCelebrationDurationMs(configuredSeconds: number): number {
+  const configuredMs = Math.round(configuredSeconds * TIERS.sale.durationFactor * 1000);
+  return Math.max(NORMAL_SALE_CELEBRATION_MS, configuredMs);
+}
+
 export const TIER_ORDER: CelebrationTier[] = ["sale", "spin-unlocked", "milestone", "top-performer", "team-target", "special"];

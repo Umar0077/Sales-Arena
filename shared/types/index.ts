@@ -215,6 +215,8 @@ export type QualitySetting = "auto" | "high" | "performance" | "ultra" | "balanc
 export type VisualIntensity = "calm" | "standard" | "epic";
 export type MotionPreference = "system" | "reduced" | "full";
 export type AccentTheme = "violet" | "cyan" | "emerald" | "gold";
+export type ArenaThemeId = "normal" | "christmas";
+export type SnowfallIntensity = "off" | "light" | "medium";
 
 export type SoundCategory =
   | "sale"
@@ -255,6 +257,16 @@ export interface DisplaySettings {
   spinnerFallback2D?: boolean;
   motion: MotionPreference;
   accent: AccentTheme;
+  /** Global broadcast theme: "normal" (default) or "christmas" (seasonal Christmas Edition). */
+  arenaTheme: ArenaThemeId;
+  /** Snowfall density when Christmas Edition is active ("off" | "light" | "medium"). */
+  christmasSnowfall: SnowfallIntensity;
+  /** Play festive seasonal sound profile when Christmas Edition is active. */
+  christmasSounds: boolean;
+  /** Dress Arena Cub in Santa costume when Christmas Edition is active. */
+  christmasSantaCub: boolean;
+  /** Festive visual effects intensity when Christmas Edition is active. */
+  christmasEffectsIntensity: VisualIntensity;
   diagnostics: boolean;
   tvMode: boolean;
   /** Use a deterministic seed for the simulated reward selector. */
@@ -353,6 +365,16 @@ export interface DisplaySettings {
   announceManualSpins: boolean;
   /** Master switch for reward / spin celebration popups on the Live Arena. */
   celebrationPopups: boolean;
+  /** Friendly voice announcer after validated sale sound effects. */
+  voiceAnnouncerEnabled: boolean;
+  /** Preferred browser SpeechSynthesis voice name (empty = auto-select best English female voice). */
+  voiceAnnouncerVoice: string;
+  /** Voice announcer volume (0..1). */
+  voiceAnnouncerVolume: number;
+  /** Voice announcer speech rate (0.7..1.4). */
+  voiceAnnouncerRate: number;
+  /** Announcement template, e.g. "{Agent Name} got a sale!". */
+  voiceAnnouncerTemplate: string;
   /** Arena Cub mascot (global, admin_settings "arena.config"). */
   arenaCub: import("@/shared/cub/config").ArenaCubConfig;
 }

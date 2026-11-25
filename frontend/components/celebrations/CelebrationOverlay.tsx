@@ -11,11 +11,13 @@ import { teamCelebrationBusy, useTeamCelebrationStore } from "@/frontend/stores/
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { useLiteDisplay } from "@/frontend/performance/lite";
 import { useReducedMotion } from "@/frontend/performance/reduced-motion";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 import { audioEngine } from "@/frontend/audio/engine";
+import { announceSaleVoice, cancelVoiceAnnouncement } from "@/frontend/audio/voice-announcer";
 import { ConfettiCanvas } from "./ConfettiCanvas";
 import { WEEKLY_TOP_MS, WeeklyTopCelebration, useWeeklyTopMotion } from "./WeeklyTopCelebration";
 import { celebrationSoundAllowed, playCelebrationSound } from "@/frontend/audio/celebration-sounds";
-import { TIERS } from "@/frontend/features/celebrations/tiers";
+import { TIERS, SALE_CELEBRATION_MAX_MS, saleCelebrationDurationMs } from "@/frontend/features/celebrations/tiers";
 import { 
   Sparkles, 
   Trophy, 
@@ -43,6 +45,7 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
   const weeklyTopMotion = useWeeklyTopMotion();
   const lite = useLiteDisplay();
   const reducedMotion = useReducedMotion();
+  const { isChristmas } = useArenaTheme();
 
   // Advance queue when current is null and queue has items
   useEffect(() => {
@@ -52,9 +55,9 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
       const next = advance();
       if (next) {
         const meta = TIERS[next.tier] || TIERS.sale;
-        // Play sound corresponding to the tier (the ceremony plays the Owner's trumpet celebration, once)
+        // Play sound corresponding to the tier; standard sales sequence sound -> voice announcement in the active effect below.
         if (next.tier === "weekly-top") playCelebrationSound("bonus", { allowed: celebrationSoundAllowed(meta.sound), key: next.id });
-        else audioEngine.play(meta.sound);
+        else if (next.tier !== "sale") audioEngine.play(meta.sound);
       }
     }
   }, [current, queue, paused, advance, teamBusy, spinStage, bonusBusy, previewEvent]);
@@ -70,20 +73,51 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
     return () => clearInterval(id);
   }, [paused, resume, previewEvent]);
 
-  // Auto-finish after tier duration
+  // Auto-finish after tier duration (and for standard sales: sequence existing sale sound -> friendly female voice)
   useEffect(() => {
     if (previewEvent) return;
     if (!current || paused) return;
     if (current.id.startsWith("celeb_sale_")) noteShown("sale", current.id.slice("celeb_sale_".length)); // delivery timeline
 
     const meta = TIERS[current.tier] || TIERS.sale;
-    const duration = current.tier === "weekly-top" ? WEEKLY_TOP_MS[weeklyTopMotion] : settings.celebrationDuration * meta.durationFactor * 1000;
+    const isStandardSale = current.tier === "sale";
+    const baseDurationMs = isStandardSale
+      ? saleCelebrationDurationMs(settings.celebrationDuration)
+      : settings.celebrationDuration * meta.durationFactor * 1000;
 
-    const timer = setTimeout(() => {
-      finishCurrent();
-    }, duration);
+    if (!isStandardSale) {
+      const timer = setTimeout(() => {
+        finishCurrent();
+      }, baseDurationMs);
+      return () => clearTimeout(timer);
+    }
 
-    return () => clearTimeout(timer);
+    let alive = true;
+    const ownerToken = `celeb_${current.id}`;
+    const minHoldPromise = new Promise<void>((r) => setTimeout(r, baseDurationMs));
+    const maxCapPromise = new Promise<void>((r) => setTimeout(r, Math.max(baseDurationMs, SALE_CELEBRATION_MAX_MS)));
+
+    const audioAndVoice = audioEngine
+      .playWithCompletion("sale")
+      .catch(() => "skipped" as const)
+      .then(() => {
+        if (!alive) return;
+        return announceSaleVoice({
+          eventId: current.id,
+          agentName: current.agentName,
+          ownerToken,
+        });
+      })
+      .catch(() => undefined);
+
+    void Promise.race([Promise.all([minHoldPromise, audioAndVoice]), maxCapPromise]).then(() => {
+      if (alive) finishCurrent();
+    });
+
+    return () => {
+      alive = false;
+      cancelVoiceAnnouncement(ownerToken);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the ceremony length is fixed when it starts
   }, [current, paused, settings.celebrationDuration, finishCurrent]);
 
@@ -94,15 +128,21 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
   const isSale = current.tier === "sale";
   const isFullScreen = isSale || meta.fullscreen;
   const banner = !isFullScreen && settings.saleCelebrationStyle === "banner";
+  const defaultSaleHeading = isChristmas ? "CHRISTMAS SALE APPROVED!" : "NEW SALE APPROVED!";
   const saleTopHeading =
     current.headline &&
     current.headline !== "SALE VALIDATED!" &&
-    current.headline !== "Approved Sale"
+    current.headline !== "Approved Sale" &&
+    !(isChristmas && current.headline === "NEW SALE APPROVED!")
       ? current.headline
-      : "NEW SALE APPROVED!";
+      : defaultSaleHeading;
   const salePillText =
-    current.headline && current.headline.toUpperCase() !== "NEW SALE APPROVED!"
+    current.headline &&
+    current.headline.toUpperCase() !== "NEW SALE APPROVED!" &&
+    current.headline.toUpperCase() !== "CHRISTMAS SALE APPROVED!"
       ? current.headline
+      : isChristmas
+      ? "Holiday Approved Sale"
       : meta.label;
 
   return (
@@ -166,10 +206,16 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: -16 }}
               transition={{ type: "spring", stiffness: 250, damping: 22 }}
-              className="sale-celeb-card relative w-full max-w-2xl overflow-hidden rounded-[28px] border border-[#FFC857]/45 bg-gradient-to-b from-[#16123A] via-[#0E1430] to-[#0A0F22] px-6 pb-7 pt-7 text-center shadow-2xl sm:px-10"
+              className={`sale-celeb-card relative w-full max-w-2xl overflow-hidden rounded-[28px] border px-6 pb-7 pt-7 text-center shadow-2xl sm:px-10 ${
+                isChristmas
+                  ? "border-[#D8AF58]/60 bg-gradient-to-b from-[#3A0C18] via-[#143329] to-[#12060B]"
+                  : "border-[#FFC857]/45 bg-gradient-to-b from-[#16123A] via-[#0E1430] to-[#0A0F22]"
+              }`}
               style={{
                 boxShadow: lite
                   ? "0 24px 60px -15px rgba(0, 0, 0, 0.85)"
+                  : isChristmas
+                  ? "0 0 95px -12px rgba(216, 175, 88, 0.55), 0 0 50px -10px rgba(166, 31, 50, 0.5), inset 0 1px 0 rgba(255, 248, 238, 0.25)"
                   : "0 0 90px -12px rgba(255, 200, 87, 0.45), 0 0 45px -10px rgba(117, 104, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12)",
               }}
             >
@@ -282,6 +328,14 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
                 >
                   Just made a sale!
                 </p>
+                {isChristmas && (
+                  <p
+                    data-testid="sale-celebration-christmas-sub"
+                    className="mt-1 font-heading text-sm font-semibold text-[#FFF8EE]/90 sm:text-base"
+                  >
+                    🎄 Another win this holiday season!
+                  </p>
+                )}
                 {current.subline && current.subline !== "Just made a sale!" && (
                   <p className="mt-1 text-xs font-medium text-secondary sm:text-sm">
                     {current.subline}
@@ -323,7 +377,7 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
                   initial={{ scaleX: 1 }}
                   animate={{ scaleX: 0 }}
                   transition={{
-                    duration: settings.celebrationDuration * meta.durationFactor,
+                    duration: saleCelebrationDurationMs(settings.celebrationDuration) / 1000,
                     ease: "linear",
                   }}
                 />

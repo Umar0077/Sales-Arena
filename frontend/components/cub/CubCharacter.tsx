@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 
 /**
  * Arena Cub: one rigged vector character (layered SVG). Every state animates the SAME parts with CSS
@@ -15,14 +16,16 @@ export const CUB_ASPECT = 310 / 280;
 
 const FUR_STRIPE = "#2A1A12";
 
-export function CubCharacter({ logo = "/brand/logo-mark.webp" }: { logo?: string }) {
+export function CubCharacter({ logo = "/brand/logo-mark.webp", santa }: { logo?: string; santa?: boolean }) {
+  const { isChristmas, christmasSantaCub } = useArenaTheme();
+  const isSanta = santa ?? (isChristmas && christmasSantaCub);
   const raw = useId();
   const uid = raw.replace(/[^a-zA-Z0-9]/g, "");
   const id = (n: string) => `cub-${n}-${uid}`;
   const url = (n: string) => `url(#${id(n)})`;
 
   return (
-    <svg viewBox={CUB_VIEWBOX} className="cub-svg" aria-hidden="true" focusable="false">
+    <svg viewBox={CUB_VIEWBOX} className="cub-svg" data-santa={isSanta ? "true" : undefined} aria-hidden="true" focusable="false">
       <defs>
         <radialGradient id={id("fur")} cx="45%" cy="32%" r="75%">
           <stop offset="0%" stopColor="#FFC06A" />
@@ -51,17 +54,27 @@ export function CubCharacter({ logo = "/brand/logo-mark.webp" }: { logo?: string
           <stop offset="100%" stopColor="#120904" />
         </radialGradient>
         <linearGradient id={id("hoodie")} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#1E2550" />
-          <stop offset="100%" stopColor="#0A0F25" />
+          <stop offset="0%" stopColor={isSanta ? "#C81E32" : "#1E2550"} />
+          <stop offset="100%" stopColor={isSanta ? "#7A1120" : "#0A0F25"} />
         </linearGradient>
         <linearGradient id={id("sleeve")} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#2B3470" />
-          <stop offset="100%" stopColor="#151B42" />
+          <stop offset="0%" stopColor={isSanta ? "#B91C2E" : "#2B3470"} />
+          <stop offset="100%" stopColor={isSanta ? "#761220" : "#151B42"} />
         </linearGradient>
         <linearGradient id={id("panel")} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#8B5CF6" />
-          <stop offset="100%" stopColor="#5B21B6" />
+          <stop offset="0%" stopColor={isSanta ? "#1E5A46" : "#8B5CF6"} />
+          <stop offset="100%" stopColor={isSanta ? "#0F3126" : "#5B21B6"} />
         </linearGradient>
+        <linearGradient id={id("santaCap")} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#DC2638" />
+          <stop offset="55%" stopColor="#A61B2B" />
+          <stop offset="100%" stopColor="#6E0F1C" />
+        </linearGradient>
+        <radialGradient id={id("santaFur")} cx="45%" cy="35%" r="75%">
+          <stop offset="0%" stopColor="#FFFFFF" />
+          <stop offset="70%" stopColor="#FFF6E8" />
+          <stop offset="100%" stopColor="#E5D5BE" />
+        </radialGradient>
         <radialGradient id={id("gold")} cx="38%" cy="32%" r="70%">
           <stop offset="0%" stopColor="#FFF6C4" />
           <stop offset="45%" stopColor="#FFCB45" />
@@ -130,26 +143,43 @@ export function CubCharacter({ logo = "/brand/logo-mark.webp" }: { logo?: string
             <path d="M80 242 C 71 206, 78 174, 100 161 L140 161 C 162 174, 169 206, 160 242 Z" fill={url("hoodie")} />
             <path d="M80 242 C 73 210, 77 183, 92 167 C 88 190, 88 216, 95 242 Z" fill={url("panel")} opacity="0.7" />
             <path d="M160 242 C 167 210, 163 183, 148 167 C 152 190, 152 216, 145 242 Z" fill={url("panel")} opacity="0.7" />
-            <path d="M92 167 C 88 190, 88 216, 95 242" fill="none" stroke="#22D3EE" strokeWidth="3.5" opacity="0.25" />
-            <path d="M92 167 C 88 190, 88 216, 95 242" fill="none" stroke="#67E8F9" strokeWidth="1.3" />
-            <path d="M148 167 C 152 190, 152 216, 145 242" fill="none" stroke="#A78BFA" strokeWidth="3.5" opacity="0.3" />
-            <path d="M148 167 C 152 190, 152 216, 145 242" fill="none" stroke="#C4B5FD" strokeWidth="1.3" />
+            <path d="M92 167 C 88 190, 88 216, 95 242" fill="none" stroke={isSanta ? "#D8AF58" : "#22D3EE"} strokeWidth="3.5" opacity="0.25" />
+            <path d="M92 167 C 88 190, 88 216, 95 242" fill="none" stroke={isSanta ? "#F5D68E" : "#67E8F9"} strokeWidth="1.3" />
+            <path d="M148 167 C 152 190, 152 216, 145 242" fill="none" stroke={isSanta ? "#D8AF58" : "#A78BFA"} strokeWidth="3.5" opacity="0.3" />
+            <path d="M148 167 C 152 190, 152 216, 145 242" fill="none" stroke={isSanta ? "#F5D68E" : "#C4B5FD"} strokeWidth="1.3" />
             {/* kangaroo pocket */}
-            <path d="M98 216 Q120 210 142 216 L146 238 L94 238 Z" fill="#141A3D" stroke="#8B5CF6" strokeWidth="1.2" />
-            <path d="M100 219 Q120 214 140 219" fill="none" stroke="#22D3EE" strokeWidth="0.8" opacity="0.7" />
+            <path d="M98 216 Q120 210 142 216 L146 238 L94 238 Z" fill={isSanta ? "#5E0D19" : "#141A3D"} stroke={isSanta ? "#D8AF58" : "#8B5CF6"} strokeWidth="1.2" />
+            <path d="M100 219 Q120 214 140 219" fill="none" stroke={isSanta ? "#F5D68E" : "#22D3EE"} strokeWidth="0.8" opacity="0.7" />
+            {isSanta && (
+              <g className="cub-santa-suit" data-testid="cub-santa-suit">
+                {/* vertical snow-white plush fur center placket */}
+                <rect x="115.5" y="170" width="9" height="71" rx="4.5" fill={url("santaFur")} opacity="0.92" />
+                {/* bottom snow-white plush fur hem */}
+                <path d="M79 235 Q120 231 161 235 L162 243 Q120 240 78 243 Z" fill={url("santaFur")} stroke="#E5D5BE" strokeWidth="0.8" />
+                {/* Santa belt + champagne gold buckle */}
+                <path d="M77 221 Q120 218 163 221 L162 229 Q120 226 78 229 Z" fill="#181216" stroke="#3F2E21" strokeWidth="0.8" />
+                <rect x="112" y="218.5" width="16" height="12" rx="2.5" fill="none" stroke="#D8AF58" strokeWidth="2.6" />
+                <rect x="115.5" y="221" width="9" height="7" rx="1" fill="#2A1810" />
+              </g>
+            )}
             {/* chest emblem: the official FE Sales Arena logo */}
-            <circle cx="120" cy="192" r="14.5" fill="#070B1C" stroke="#22D3EE" strokeWidth="1.4" />
-            <circle cx="120" cy="192" r="16.5" fill="none" stroke="#8B5CF6" strokeWidth="0.9" opacity="0.8" />
+            <circle cx="120" cy="192" r="14.5" fill="#070B1C" stroke={isSanta ? "#D8AF58" : "#22D3EE"} strokeWidth="1.4" />
+            <circle cx="120" cy="192" r="16.5" fill="none" stroke={isSanta ? "#FFF8EE" : "#8B5CF6"} strokeWidth="0.9" opacity="0.8" />
             <image href={logo} x="108.5" y="180.5" width="23" height="23" clipPath={url("emblem")} preserveAspectRatio="xMidYMid meet" />
-            {/* hood around the neck */}
-            <path d="M77 170 C 72 151, 92 141, 120 143 C 148 141, 168 151, 163 170 C 150 179, 90 179, 77 170 Z" fill={url("hoodie")} stroke="#8B5CF6" strokeWidth="1.5" />
-            <path d="M88 167 C 93 157, 147 157, 152 167 C 140 172, 100 172, 88 167 Z" fill="#4C1D95" />
-            <path d="M80 171 C 95 180, 145 180, 160 171" fill="none" stroke="#22D3EE" strokeWidth="1" opacity="0.8" />
-            {/* drawstrings */}
-            <path d="M110 174 L107 190" stroke="#E5E7EB" strokeWidth="1.6" strokeLinecap="round" />
-            <path d="M130 174 L133 190" stroke="#E5E7EB" strokeWidth="1.6" strokeLinecap="round" />
-            <circle cx="107" cy="191" r="1.9" fill="#22D3EE" />
-            <circle cx="133" cy="191" r="1.9" fill="#A78BFA" />
+            {/* hood / Santa fur collar around the neck */}
+            <path
+              d="M77 170 C 72 151, 92 141, 120 143 C 148 141, 168 151, 163 170 C 150 179, 90 179, 77 170 Z"
+              fill={isSanta ? url("santaFur") : url("hoodie")}
+              stroke={isSanta ? "#D8AF58" : "#8B5CF6"}
+              strokeWidth="1.5"
+            />
+            <path d="M88 167 C 93 157, 147 157, 152 167 C 140 172, 100 172, 88 167 Z" fill={isSanta ? "#8F1524" : "#4C1D95"} />
+            <path d="M80 171 C 95 180, 145 180, 160 171" fill="none" stroke={isSanta ? "#D8AF58" : "#22D3EE"} strokeWidth="1" opacity="0.8" />
+            {/* drawstrings / festive gold bell ties */}
+            <path d="M110 174 L107 190" stroke={isSanta ? "#F5D68E" : "#E5E7EB"} strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M130 174 L133 190" stroke={isSanta ? "#F5D68E" : "#E5E7EB"} strokeWidth="1.6" strokeLinecap="round" />
+            <circle cx="107" cy="191" r={isSanta ? "2.6" : "1.9"} fill={isSanta ? "#D8AF58" : "#22D3EE"} />
+            <circle cx="133" cy="191" r={isSanta ? "2.6" : "1.9"} fill={isSanta ? "#D8AF58" : "#A78BFA"} />
           </g>
 
           {/* legs: thigh + foot, pivoting at the hip (sitting: soles forward with pink pads; running: they cycle) */}
@@ -260,6 +290,33 @@ export function CubCharacter({ logo = "/brand/logo-mark.webp" }: { logo?: string
             <path className="cub-tear cub-tear-l" d="M92 108 C 89 114, 88 117, 92 119 C 96 117, 95 114, 92 108 Z" fill="#7DD3FC" />
             <path className="cub-tear cub-tear-r" d="M148 108 C 145 114, 144 117, 148 119 C 152 117, 151 114, 148 108 Z" fill="#7DD3FC" />
             <path className="cub-anger" d="M162 50 Q168 50 168 44 M172 44 Q172 50 178 50 M178 54 Q172 54 172 60 M168 60 Q168 54 162 54" fill="none" stroke="#EF4444" strokeWidth="3.2" strokeLinecap="round" />
+            {isSanta && (
+              <g className="cub-santa-hat" data-testid="cub-santa-hat">
+                {/* Fitted Santa cap tucked cleanly between the ears above the brow line (y <= 54) so eyes and expressions stay 100% clear */}
+                <path
+                  d="M78 46 C 84 12, 136 4, 178 24 C 194 31, 200 44, 194 54 C 181 44, 165 39, 152 43 Z"
+                  fill={url("santaCap")}
+                  stroke="#5E0C17"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                />
+                {/* Soft fold highlight on the Santa cap */}
+                <path d="M92 38 C 108 20, 144 16, 174 28" fill="none" stroke="#FF8A98" strokeWidth="1.8" strokeLinecap="round" opacity="0.45" />
+                {/* Plush snow-white fur brim across the crown */}
+                <path
+                  d="M74 47 C 88 37, 152 37, 166 47 C 170 51, 167 57, 160 57 C 136 51, 104 51, 80 57 C 73 57, 70 51, 74 47 Z"
+                  fill={url("santaFur")}
+                  stroke="#D8C7AE"
+                  strokeWidth="1.1"
+                />
+                {/* Gold holiday holly pin on the hat brim */}
+                <circle cx="94" cy="49" r="2.8" fill="#D8AF58" />
+                <circle cx="98.5" cy="50.5" r="2.2" fill="#B91C2E" />
+                {/* Fluffy snow-white pom-pom on the right tip */}
+                <circle cx="195" cy="56" r="10.5" fill={url("santaFur")} stroke="#D8C7AE" strokeWidth="1.1" />
+                <circle cx="192" cy="53" r="3.2" fill="#FFFFFF" opacity="0.85" />
+              </g>
+            )}
             <g className="cub-zzz" fill="#DDD6FE" stroke="#4C1D95" strokeWidth="1" paintOrder="stroke" fontFamily="var(--font-heading), sans-serif" fontWeight="800">
               <text x="170" y="46" fontSize="18">z</text>
               <text x="184" y="30" fontSize="23">z</text>
@@ -278,18 +335,18 @@ export function CubCharacter({ logo = "/brand/logo-mark.webp" }: { logo?: string
 
           {/* arms (in front of the body; raised paws stay in front of the head) */}
           <g className="cub-arm cub-arm-l">
-            <path d="M84 168 C 76 182, 74 198, 78 212 L95 212 C 97 198, 99 184, 99 172 Z" fill={url("sleeve")} stroke="#5B6BD0" strokeWidth="1.4" strokeLinejoin="round" />
-            <path d="M77 207 L96 207 L96 214 L77 214 Z" fill="#7C3AED" />
-            <path d="M77 207.5 L96 207.5" stroke="#67E8F9" strokeWidth="1.1" />
+            <path d="M84 168 C 76 182, 74 198, 78 212 L95 212 C 97 198, 99 184, 99 172 Z" fill={url("sleeve")} stroke={isSanta ? "#D8AF58" : "#5B6BD0"} strokeWidth="1.4" strokeLinejoin="round" />
+            <path d="M77 207 L96 207 L96 214 L77 214 Z" fill={isSanta ? url("santaFur") : "#7C3AED"} />
+            <path d="M77 207.5 L96 207.5" stroke={isSanta ? "#D8AF58" : "#67E8F9"} strokeWidth="1.1" />
             <ellipse cx="86.5" cy="220" rx="11" ry="10" fill={url("furLimb")} />
             <ellipse cx="86.5" cy="222" rx="7.5" ry="5.6" fill={url("cream")} />
             <ellipse cx="86.5" cy="223.5" rx="3.6" ry="2.6" fill={url("pink")} />
             <path d="M80 214 l2 3 M86.5 213 l0 3 M93 214 l-2 3" stroke={FUR_STRIPE} strokeWidth="1.3" strokeLinecap="round" />
           </g>
           <g className="cub-arm cub-arm-r">
-            <path d="M156 168 C 164 182, 166 198, 162 212 L145 212 C 143 198, 141 184, 141 172 Z" fill={url("sleeve")} stroke="#5B6BD0" strokeWidth="1.4" strokeLinejoin="round" />
-            <path d="M163 207 L144 207 L144 214 L163 214 Z" fill="#7C3AED" />
-            <path d="M163 207.5 L144 207.5" stroke="#C4B5FD" strokeWidth="1.1" />
+            <path d="M156 168 C 164 182, 166 198, 162 212 L145 212 C 143 198, 141 184, 141 172 Z" fill={url("sleeve")} stroke={isSanta ? "#D8AF58" : "#5B6BD0"} strokeWidth="1.4" strokeLinejoin="round" />
+            <path d="M163 207 L144 207 L144 214 L163 214 Z" fill={isSanta ? url("santaFur") : "#7C3AED"} />
+            <path d="M163 207.5 L144 207.5" stroke={isSanta ? "#D8AF58" : "#C4B5FD"} strokeWidth="1.1" />
             <ellipse cx="153.5" cy="220" rx="11" ry="10" fill={url("furLimb")} />
             <ellipse cx="153.5" cy="222" rx="7.5" ry="5.6" fill={url("cream")} />
             <ellipse cx="153.5" cy="223.5" rx="3.6" ry="2.6" fill={url("pink")} />

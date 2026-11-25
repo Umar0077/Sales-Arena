@@ -1,5 +1,6 @@
 "use client";
 import { AgentEmoji } from "@/frontend/components/celebrations/AgentEmoji";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -12,7 +13,8 @@ import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { useReducedMotion } from "@/frontend/performance/reduced-motion";
 import { noteShown } from "@/frontend/live/latency";
 import { audioEngine } from "@/frontend/audio/engine";
-import { playTeamStinger, stopTeamStinger } from "@/frontend/audio/team-stingers";
+import { playTeamStinger, playTeamStingerWithCompletion, stopTeamStinger } from "@/frontend/audio/team-stingers";
+import { announceSaleVoice, cancelVoiceAnnouncement } from "@/frontend/audio/voice-announcer";
 import { computeFrameStats, type FrameStats } from "@/frontend/performance/frame-monitor";
 import { useLiteDisplay } from "@/frontend/performance/lite";
 import { whenExitStalled } from "@/frontend/performance/exit-recovery";
@@ -102,9 +104,11 @@ export interface CelebrationViewProps {
 
 /** The celebration itself (pure presentation; also used by the Admin preview). */
 export function TeamSaleCelebrationView({ item, name, logoUrl, color, accent, total, motionLevel }: CelebrationViewProps) {
+  const { isChristmas, theme: arenaTheme } = useArenaTheme();
   const theme = themeFor(item.team);
   const pal = theme === "crest" ? { ...PALETTE.crest, a: color, b: accent ?? PALETTE.crest.b } : PALETTE[theme];
   const headline = headlineFor(name);
+  const christmasHeadline = `${name.trim().toUpperCase()} — CHRISTMAS SALE!`;
   const agent = item.event.agentName || item.event.agentId || "";
   const still = motionLevel === "static";
 
@@ -115,6 +119,7 @@ export function TeamSaleCelebrationView({ item, name, logoUrl, color, accent, to
       aria-live="assertive"
       aria-label={`${headline} ${agent ? `Closed by ${agent}.` : ""}`}
       data-testid="team-celebration"
+      data-arena-theme={arenaTheme}
       data-theme={theme}
       data-team-id={item.team.id}
       data-case={item.event.id}
@@ -152,6 +157,16 @@ export function TeamSaleCelebrationView({ item, name, logoUrl, color, accent, to
           )}
           <AgentEmoji key={item.event.id} agentId={item.event.agentId} name={agent} />
         </div>
+        {isChristmas && (
+          <div
+            data-testid="team-christmas-sale-banner"
+            className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#D8AF58]/60 bg-gradient-to-r from-[#5A1120]/90 via-[#173D32]/90 to-[#5A1120]/90 px-5 py-1.5 font-heading text-[clamp(11px,1.55vh,16px)] font-extrabold uppercase tracking-[0.26em] text-[#F5D68E] shadow-[0_0_32px_-6px_rgba(216,175,88,0.65)]"
+          >
+            <span aria-hidden>🎄</span>
+            <span>{christmasHeadline}</span>
+            <span aria-hidden>❄️</span>
+          </div>
+        )}
         {/* Announcement */}
         <h2 className="tc-headline relative font-heading font-extrabold uppercase" data-testid="team-celebration-headline" data-headline={headline}>
           <span className="tc-headline-text" style={{ backgroundImage: pal.text }}>
@@ -357,23 +372,40 @@ export function TeamSaleCelebrationLayer({ data }: { data: TeamStandings | null 
     return () => clearTimeout(t);
   }, [phase, queued, bonusBusy, spinStage, cardBusy, visible]);
 
-  // preparing → playing: artwork decoded (bounded), then the animation and its sound start together
+  // preparing → playing: artwork decoded (bounded), then the animation, team stinger, and voice announcement sequence
   useEffect(() => {
     if (phase !== "preparing" || !current) return;
     let alive = true;
     const theme = themeFor(current.team);
     const logo = useTeamCelebrationStore.getState().latest?.teams.find((t) => t.id === current.team.id)?.logoUrl ?? current.team.logoUrl;
+    const ownerToken = `team_${current.event.id}`;
     void within(Promise.all([preloadImage(theme === "crest" ? null : EMBLEM_ART[theme].src), preloadImage(logo)]), PREPARE_MS).then(() => {
       const st = useTeamCelebrationStore.getState();
       if (!alive || st.current !== current || st.phase !== "preparing") return;
       st.play();
       noteShown("sale", saleKey(current.event.id));
       const s = useSettingsStore.getState();
-      const result = playTeamStinger(theme, { soundEnabled: s.soundEnabled, saleCategory: s.soundCategories?.sale !== false, teamSaleSound: s.teamSaleSound !== false });
-      document.documentElement.dataset.teamStinger = result; // diagnostics: played / muted / locked (autoplay)
+      document.documentElement.dataset.teamStinger = s.soundEnabled && s.soundCategories?.sale !== false && s.teamSaleSound !== false ? "played" : "muted";
+      void playTeamStingerWithCompletion(theme, {
+        soundEnabled: s.soundEnabled,
+        saleCategory: s.soundCategories?.sale !== false,
+        teamSaleSound: s.teamSaleSound !== false,
+      })
+        .catch(() => "unavailable" as const)
+        .then((result) => {
+          document.documentElement.dataset.teamStinger = result;
+          if (!alive) return;
+          return announceSaleVoice({
+            eventId: current.event.id,
+            agentName: current.event.agentName,
+            ownerToken,
+          });
+        })
+        .catch(() => undefined);
     });
     return () => {
       alive = false;
+      cancelVoiceAnnouncement(ownerToken);
     };
   }, [phase, current]);
 

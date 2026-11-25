@@ -112,6 +112,11 @@ const SCHEMA: Record<string, { v: Validator; group: ArenaBroadcastEventType }> =
   announceManualSpins: { v: bool, group: "rewards.program.visibility.updated" },
   // celebrations
   celebrationPopups: { v: bool, group: "settings.celebration.updated" },
+  voiceAnnouncerEnabled: { v: bool, group: "settings.celebration.updated" },
+  voiceAnnouncerVoice: { v: str(120), group: "settings.celebration.updated" },
+  voiceAnnouncerVolume: { v: num(0, 1), group: "settings.celebration.updated" },
+  voiceAnnouncerRate: { v: num(0.7, 1.4), group: "settings.celebration.updated" },
+  voiceAnnouncerTemplate: { v: str(120, false), group: "settings.celebration.updated" },
   intensity: { v: oneOf("calm", "standard", "epic"), group: "settings.celebration.updated" },
   particles: { v: bool, group: "settings.celebration.updated" },
   celebrationDuration: { v: num(2, 30), group: "settings.celebration.updated" },
@@ -137,6 +142,11 @@ const SCHEMA: Record<string, { v: Validator; group: ArenaBroadcastEventType }> =
   // appearance
   motion: { v: oneOf("system", "full", "reduced"), group: "settings.appearance.updated" },
   accent: { v: oneOf("violet", "cyan", "emerald", "gold"), group: "settings.appearance.updated" },
+  arenaTheme: { v: oneOf("normal", "christmas"), group: "settings.appearance.updated" },
+  christmasSnowfall: { v: oneOf("off", "light", "medium"), group: "settings.appearance.updated" },
+  christmasSounds: { v: bool, group: "settings.appearance.updated" },
+  christmasSantaCub: { v: bool, group: "settings.appearance.updated" },
+  christmasEffectsIntensity: { v: oneOf("calm", "standard", "epic"), group: "settings.appearance.updated" },
   brandName: { v: str(40, false), group: "settings.appearance.updated" },
   brandTagline: { v: str(60), group: "settings.appearance.updated" },
   customLogo: { v: logo, group: "settings.appearance.updated" },

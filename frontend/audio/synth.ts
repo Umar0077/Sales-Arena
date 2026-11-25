@@ -295,3 +295,152 @@ export const TEAM_STINGERS: Record<TeamStinger, () => Float32Array> = {
     return m.space(0.25).finish(0.8);
   },
 };
+
+/**
+ * Helper: layer festive sleigh-bell jingles (metallic high-frequency bell bursts + filtered shimmer)
+ * onto a mixer at the given timestamps.
+ */
+function addSleighBells(m: Mixer, hits: number[], gain = 0.12): Mixer {
+  hits.forEach((t, idx) => {
+    m.noise(t, 0.095, { gain: gain * 0.7, from: 5200, to: 9200, highpass: true, attack: 0.003, seed: 401 + idx });
+    m.pluck(NOTE(31), t, 0.16, gain * 0.55, "bell", 16);
+    m.pluck(NOTE(36), t + 0.012, 0.14, gain * 0.45, "bell", 18);
+    m.pluck(NOTE(39), t + 0.022, 0.12, gain * 0.35, "bell", 20);
+  });
+  return m;
+}
+
+/**
+ * Helper: warm 3-syllable synthesized Santa "Ho! Ho! Ho!" baritone chuckle + sleigh bells.
+ */
+function renderSantaHoHoHo(): Float32Array {
+  const m = new Mixer(1.55);
+  // Three jovial baritone "Ho" syllables with vocal formants + bright bell sparkle
+  [0.04, 0.42, 0.8].forEach((t, idx) => {
+    const pitch = NOTE(-12 - idx); // A3 -> G#3 -> G3 warm chuckle cadence
+    // aspirated "H" breath onset
+    m.noise(t, 0.045, { gain: 0.09, from: 1400, to: 900, highpass: true, attack: 0.004, seed: 700 + idx });
+    // fundamental baritone chest resonance + O-vowel harmonic formants
+    m.tone(pitch, t + 0.02, 0.27, { wave: "brass", gain: 0.22, attack: 0.018, release: 0.16, glideTo: pitch * 0.88, vibrato: 0.012 });
+    m.tone(pitch * 2, t + 0.02, 0.25, { wave: "triangle", gain: 0.14, attack: 0.018, release: 0.15, glideTo: pitch * 1.76 });
+    m.tone(pitch * 3.1, t + 0.025, 0.2, { wave: "sine", gain: 0.07, attack: 0.015, release: 0.14 });
+    m.boom(t + 0.02, 0.18, 135, 78, 0.16);
+  });
+  addSleighBells(m, [0.06, 0.24, 0.44, 0.62, 0.82, 1.02, 1.18], 0.11);
+  // Festive holiday chime tail (C6 - E6 - G6 - C7)
+  [15, 19, 22, 27].forEach((n, i) => m.pluck(NOTE(n), 0.92 + i * 0.07, 0.55, 0.15, "bell", 5));
+  return m.space(0.24).finish(0.78);
+}
+
+/**
+ * Christmas Edition sound generators (used when arenaTheme === "christmas" && christmasSounds === true).
+ * Clean, joyful holiday bells, sleigh-bell shimmer, and warm brass chords.
+ */
+export const CHRISTMAS_GENERATORS: Partial<Record<SoundCategory, () => Float32Array>> = {
+  sale: () => {
+    const m = new Mixer(1.45);
+    addSleighBells(m, [0, 0.16, 0.32, 0.48], 0.14);
+    // Joyful holiday carol chime: C6 -> E6 -> G6 -> C7
+    [15, 19, 22, 27].forEach((n, i) => m.pluck(NOTE(n), i * 0.095, 1.05, 0.26, "bell", 4.2));
+    // Warm sub chime harmony
+    [3, 7, 10, 15].forEach((n, i) => m.pluck(NOTE(n), 0.04 + i * 0.095, 0.95, 0.14, "triangle", 4));
+    m.boom(0, 0.26, 150, 68, 0.2);
+    return m.space(0.26).finish(0.75);
+  },
+  target: () => {
+    const m = new Mixer(2.2);
+    addSleighBells(m, [0, 0.18, 0.36, 0.54, 0.72, 0.9], 0.13);
+    // Grand holiday fanfare + carol bells
+    [3, 7, 10, 15, 19, 22, 27].forEach((n, i) => m.pluck(NOTE(n), i * 0.075, 1.5, 0.22, "bell", 3.2));
+    [3, 7, 10, 15, 19].forEach((n) => m.tone(NOTE(n), 0.38, 1.55, { wave: "brass", gain: 0.065, attack: 0.07, release: 1.15, vibrato: 0.003 }));
+    m.boom(0.36, 0.6, 115, 44, 0.34);
+    return m.space(0.28).finish(0.82);
+  },
+  spinUnlocked: () => {
+    const m = new Mixer(1.5);
+    addSleighBells(m, [0, 0.14, 0.28, 0.42, 0.56], 0.13);
+    [3, 7, 10, 15, 19, 22, 27, 31].forEach((n, i) => m.pluck(NOTE(n), i * 0.055, 0.75, 0.18, "bell", 5.2));
+    return m.space(0.3).finish(0.74);
+  },
+  reveal: () => {
+    const m = new Mixer(2.8);
+    m.boom(0, 0.85, 128, 42, 0.5);
+    addSleighBells(m, [0.05, 0.22, 0.4, 0.58, 0.76, 0.94], 0.14);
+    [-17, -10, -5, -2, 3, 7].forEach((n, i) => m.tone(NOTE(n), 0.03 + i * 0.015, 2.2, { wave: "brass", gain: 0.08, attack: 0.04, release: 1.6, vibrato: 0.003 }));
+    [15, 19, 22, 27, 31].forEach((n, i) => m.pluck(NOTE(n), 0.22 + i * 0.075, 1.85, 0.16, "bell", 2.4));
+    return m.space(0.32).finish(0.85);
+  },
+  special: () => {
+    const m = new Mixer(2.6);
+    addSleighBells(m, [0, 0.18, 0.36, 0.54, 0.85, 1.05, 1.25], 0.13);
+    m.boom(0.82, 0.85, 120, 38, 0.5);
+    [-9, -5, -2, 3, 7].forEach((n) => m.tone(NOTE(n), 0.82, 1.6, { wave: "brass", gain: 0.075, attack: 0.03, release: 1.2 }));
+    [15, 19, 22, 27, 31, 34].forEach((n, i) => m.pluck(NOTE(n), 0.86 + i * 0.06, 1.5, 0.15, "bell", 2.6));
+    return m.space(0.32).finish(0.85);
+  },
+};
+
+export type ChristmasCubExtraSound = "hohoho" | "jingle" | "chime";
+export const CHRISTMAS_CUB_SOUNDS: Record<CubSound | ChristmasCubExtraSound, () => Float32Array> = {
+  intro: () => {
+    const m = new Mixer(0.95);
+    addSleighBells(m, [0, 0.16, 0.32], 0.13);
+    [15, 19, 22, 27].forEach((n, i) => m.pluck(NOTE(n), i * 0.075, 0.55, 0.2, "bell", 6));
+    return m.space(0.2).finish(0.65);
+  },
+  hungry: CUB_SOUNDS.hungry,
+  angry: CUB_SOUNDS.angry,
+  sad: CUB_SOUNDS.sad,
+  feeding: () => {
+    const m = new Mixer(1.2);
+    [0, 0.14, 0.28].forEach((t, i) => m.noise(t, 0.08, { gain: 0.2, from: 950, to: 420, attack: 0.002, seed: 31 + i }));
+    addSleighBells(m, [0.42, 0.58, 0.74], 0.12);
+    m.pluck(NOTE(19), 0.44, 0.65, 0.24, "bell", 5.5).pluck(NOTE(22), 0.52, 0.65, 0.22, "bell", 5.5).pluck(NOTE(27), 0.6, 0.7, 0.24, "bell", 5);
+    return m.space(0.22).finish(0.65);
+  },
+  bonus: renderSantaHoHoHo,
+  hohoho: renderSantaHoHoHo,
+  jingle: () => {
+    const m = new Mixer(1.25);
+    addSleighBells(m, [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9], 0.16);
+    // Jingle bell melody motif: E6 - E6 - E6 - G6 - C6 - D6 - E6
+    [19, 19, 19, 22, 15, 17, 19].forEach((n, i) => m.pluck(NOTE(n), i * 0.13, 0.45, 0.2, "bell", 6.5));
+    return m.space(0.22).finish(0.7);
+  },
+  chime: () => {
+    const m = new Mixer(1.1);
+    addSleighBells(m, [0, 0.18, 0.36], 0.12);
+    [15, 19, 22, 27].forEach((n, i) => m.pluck(NOTE(n), i * 0.085, 0.75, 0.22, "bell", 4.8));
+    return m.space(0.24).finish(0.68);
+  },
+};
+
+export const CHRISTMAS_TEAM_STINGERS: Record<TeamStinger, () => Float32Array> = {
+  royal: () => {
+    const m = new Mixer(2.4);
+    m.boom(0, 0.68, 120, 38, 0.48).boom(0.42, 0.58, 105, 36, 0.36);
+    addSleighBells(m, [0.04, 0.22, 0.44, 0.62, 0.8, 0.98], 0.14);
+    [-21, -14, -9, -5, -2].forEach((n, i) => m.tone(NOTE(n), 0.04 + i * 0.01, 0.55, { wave: "brass", gain: 0.072, attack: 0.03, release: 0.3 }));
+    [-17, -10, -5, -1, 2, 7].forEach((n) => m.tone(NOTE(n), 0.46, 1.7, { wave: "brass", gain: 0.068, attack: 0.05, release: 1.2, vibrato: 0.003 }));
+    [14, 19, 23, 26, 31].forEach((n, i) => m.pluck(NOTE(n), 0.48 + i * 0.06, 1.45, 0.15, "bell", 2.5));
+    return m.space(0.3).finish(0.85);
+  },
+  electric: () => {
+    const m = new Mixer(2.0);
+    addSleighBells(m, [0, 0.16, 0.38, 0.56, 0.74, 0.92], 0.14);
+    m.tone(NOTE(-12), 0, 0.36, { wave: "triangle", gain: 0.11, attack: 0.18, glideTo: NOTE(24) });
+    m.boom(0.38, 0.45, 148, 45, 0.48);
+    [-5, 0, 4, 7].forEach((n, i) => m.tone(NOTE(n), 0.4 + i * 0.075, 0.2, { wave: "brass", gain: 0.095, attack: 0.008, release: 0.12 }));
+    [-5, 0, 4, 7, 12].forEach((n) => m.tone(NOTE(n), 0.72, 0.95, { wave: "brass", gain: 0.06, attack: 0.02, release: 0.72 }));
+    [19, 24, 28, 31].forEach((n, i) => m.pluck(NOTE(n), 0.7 + i * 0.065, 1.1, 0.16, "bell", 3.2));
+    return m.space(0.26).finish(0.85);
+  },
+  neutral: () => {
+    const m = new Mixer(1.6);
+    m.boom(0, 0.45, 140, 50, 0.4);
+    addSleighBells(m, [0.02, 0.18, 0.36, 0.54], 0.13);
+    [3, 7, 10, 15, 19, 22].forEach((n, i) => m.pluck(NOTE(n), 0.05 + i * 0.06, 1.05, 0.18, "bell", 3.4));
+    [3, 7, 10].forEach((n) => m.tone(NOTE(n - 12), 0.08, 0.9, { wave: "brass", gain: 0.06, attack: 0.04, release: 0.7 }));
+    return m.space(0.26).finish(0.8);
+  },
+};

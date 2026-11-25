@@ -10,6 +10,7 @@ import { celebrationSoundAllowed, playCelebrationSound } from "@/frontend/audio/
 import { useLiteDisplay } from "@/frontend/performance/lite";
 import { fillTemplate } from "@/frontend/stores/settings-store";
 import { formatReward } from "@/frontend/rewards/engine";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 import type { BonusAward, BonusProgram } from "@/frontend/stores/rewards-store";
 import type { Agent, Team } from "@/shared/types";
 
@@ -32,6 +33,7 @@ interface Props {
 
 /** Full-screen bonus announcement used by the Daily, Weekly and Monthly programs. */
 export function BonusCelebration({ awards, program, agent, team, currency, reducedMotion, onDone }: Props) {
+  const { isChristmas, theme: arenaTheme } = useArenaTheme();
   const last = awards[awards.length - 1];
   const kind = last.kind;
   const meta = KIND_META[kind];
@@ -85,6 +87,7 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
       aria-modal="true"
       aria-labelledby="bonus-title"
       data-testid="bonus-popup"
+      data-arena-theme={arenaTheme}
       data-kind={kind}
       className="fixed inset-0 z-[75] grid place-items-center p-4"
       initial={{ opacity: 0 }}
@@ -101,8 +104,12 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 240, damping: 20 }}
-        className="relative w-full max-w-xl overflow-hidden rounded-[28px] border bg-gradient-to-b from-[#16123A] via-[#0E1430] to-[#0A0F22] px-6 pb-7 pt-8 text-center sm:px-10"
-        style={{ borderColor: `${accent}66`, boxShadow: `0 0 90px -12px ${accent}88` }}
+        className={`relative w-full max-w-xl overflow-hidden rounded-[28px] border px-6 pb-7 pt-8 text-center sm:px-10 ${
+          isChristmas
+            ? "bg-gradient-to-b from-[#3A0C18] via-[#132E25] to-[#12060B]"
+            : "bg-gradient-to-b from-[#16123A] via-[#0E1430] to-[#0A0F22]"
+        }`}
+        style={{ borderColor: isChristmas ? "#D8AF5899" : `${accent}66`, boxShadow: `0 0 90px -12px ${isChristmas ? "#D8AF5899" : `${accent}88`}` }}
       >
         <button onClick={onDone} aria-label="Close" className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl text-text-muted hover:bg-white/5 hover:text-white">
           <X className="h-5 w-5" />
@@ -121,6 +128,7 @@ export function BonusCelebration({ awards, program, agent, team, currency, reduc
           className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold tracking-[0.25em]"
           style={{ borderColor: `${accent}55`, color: accent, background: `${accent}14` }}
         >
+          {isChristmas && <span aria-hidden>🎄</span>}
           <Icon className="h-3.5 w-3.5" /> {meta.label}
         </span>
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Trophy, Sparkles, Disc3 } from "lucide-react";
 import { useSettingsStore, fillTemplate } from "@/frontend/stores/settings-store";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 import type { Agent, Team } from "@/shared/types";
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
 
 /** "Target completed → SPIN NOW" popup. Clearly bigger than a normal sale toast. */
 export function AchievementPopup({ agent, team, periodSales, available, reason, eyebrow, messageOverride, reducedMotion, onSpin, onLater }: Props) {
+  const { isChristmas, theme: arenaTheme } = useArenaTheme();
   const headlineT = useSettingsStore((s) => s.achievementHeadline);
   const messageT = useSettingsStore((s) => s.achievementMessage);
   const rewardT = useSettingsStore((s) => s.achievementReward);
@@ -53,6 +55,7 @@ export function AchievementPopup({ agent, team, periodSales, available, reason, 
       role="dialog"
       aria-modal="true"
       aria-labelledby="achievement-title"
+      data-arena-theme={arenaTheme}
       className="fixed inset-0 z-[70] grid place-items-center p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -64,7 +67,11 @@ export function AchievementPopup({ agent, team, periodSales, available, reason, 
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
-        className="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-gold/40 bg-gradient-to-b from-[#1A1338] via-[#0E1430] to-[#0A0F22] px-6 pb-8 pt-10 text-center shadow-[0_0_80px_-10px_rgba(255,200,87,0.45)] sm:px-10"
+        className={`relative w-full max-w-xl overflow-hidden rounded-[28px] border px-6 pb-8 pt-10 text-center shadow-[0_0_80px_-10px_rgba(255,200,87,0.45)] sm:px-10 ${
+          isChristmas
+            ? "border-[#D8AF58]/60 bg-gradient-to-b from-[#3A0C18] via-[#132E25] to-[#12060B]"
+            : "border-gold/40 bg-gradient-to-b from-[#1A1338] via-[#0E1430] to-[#0A0F22]"
+        }`}
       >
         {/* Light sweep + rays */}
         {!reducedMotion && <div className="achv-rays pointer-events-none absolute -top-1/2 left-1/2 h-[200%] w-[200%] -translate-x-1/2 opacity-40" />}

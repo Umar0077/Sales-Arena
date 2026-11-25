@@ -51,7 +51,7 @@ function EmojiImage({ agentId, name, url: previewUrl, className, fallback }: Age
       transition={{ type: "spring", stiffness: 350, damping: 25 }}
       className={
         className ??
-        "tc-agent-emoji relative mx-auto h-[clamp(145px,36vh,400px)] w-auto max-w-[26vw] sm:max-w-[35vw] shrink-0 object-contain drop-shadow-[0_16px_32px_rgba(0,0,0,0.7)]"
+        "tc-agent-emoji relative mx-auto h-[clamp(170px,40vh,440px)] w-auto max-w-[38vw] sm:max-w-[44vw] shrink-0 object-contain drop-shadow-[0_18px_36px_rgba(0,0,0,0.75)]"
       }
       draggable={false}
     />

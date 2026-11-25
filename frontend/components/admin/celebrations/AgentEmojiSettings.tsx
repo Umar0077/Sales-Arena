@@ -4,8 +4,11 @@ import { useEffect, useState, useId } from "react";
 import { adminApi } from "../admin-api";
 import { Section, Field, Toggle, PrimaryButton, GhostButton, inputClass } from "../ui";
 import { CelebrationOverlay } from "@/frontend/components/celebrations/CelebrationOverlay";
-import { TeamSaleCelebrationView, previewItem, playPreviewSound, useMotionLevel } from "@/frontend/components/arena/teams/TeamSaleCelebration";
+import { TeamSaleCelebrationView, previewItem, useMotionLevel } from "@/frontend/components/arena/teams/TeamSaleCelebration";
 import { audioEngine } from "@/frontend/audio/engine";
+import { playTeamStingerWithCompletion } from "@/frontend/audio/team-stingers";
+import { announceSaleVoice, cancelVoiceAnnouncement } from "@/frontend/audio/voice-announcer";
+import { saleCelebrationDurationMs } from "@/frontend/features/celebrations/tiers";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { themeFor, type SaleTeamInfo } from "@/shared/teams/celebration";
 import type { CelebrationEvent } from "@/shared/types";
@@ -120,11 +123,15 @@ export function AgentEmojiSettings() {
     };
   }, [fileUrl]);
 
-  // Auto-dismiss preview after configured celebration duration
+  // Auto-dismiss preview after ~8s standard sale celebration duration
   useEffect(() => {
     if (!activePreview) return;
-    const t = setTimeout(() => setActivePreview(null), Math.max(3, duration) * 1000);
-    return () => clearTimeout(t);
+    const ms = saleCelebrationDurationMs(duration);
+    const t = setTimeout(() => setActivePreview(null), ms);
+    return () => {
+      clearTimeout(t);
+      cancelVoiceAnnouncement(`preview_${activePreview.id}`);
+    };
   }, [activePreview, duration]);
 
   async function performAction(body: Record<string, unknown>) {
@@ -210,12 +217,30 @@ export function AgentEmojiSettings() {
     setActivePreview(event);
 
     if (previewSound) {
-      if (previewMode === "teams") {
-        playPreviewSound(teamOverride || (selectedAgent.team ? themeFor(selectedAgent.team) : "crest"));
-      } else {
-        audioEngine.unlock();
-        audioEngine.play("sale");
-      }
+      const ownerToken = `preview_${event.id}`;
+      audioEngine.unlock();
+      const s = useSettingsStore.getState();
+      const soundThenVoice =
+        previewMode === "teams"
+          ? playTeamStingerWithCompletion(teamOverride || (selectedAgent.team ? themeFor(selectedAgent.team) : "crest"), {
+              soundEnabled: s.soundEnabled,
+              saleCategory: s.soundCategories?.sale !== false,
+              teamSaleSound: s.teamSaleSound !== false,
+            })
+          : audioEngine.playWithCompletion("sale");
+
+      void soundThenVoice
+        .catch(() => "skipped" as const)
+        .then(() => {
+          if (s.voiceAnnouncerEnabled === false) return;
+          return announceSaleVoice({
+            eventId: event.id,
+            agentName: selectedAgent.name,
+            ownerToken,
+            preview: true,
+          });
+        })
+        .catch(() => undefined);
     }
   }
 

@@ -6,6 +6,7 @@ import { useSettingsStore, fillTemplate } from "@/frontend/stores/settings-store
 import { RewardIconView } from "@/frontend/components/brand/RewardIconView";
 import { ConfettiCanvas } from "@/frontend/components/celebrations/ConfettiCanvas";
 import { audioEngine } from "@/frontend/audio/engine";
+import { useArenaTheme } from "@/frontend/theme/arena-theme";
 import type { Agent, Reward, Team } from "@/shared/types";
 
 /** Seconds the reveal stays fully visible before returning to the Live Arena. */
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function PrizeReveal({ agent, team, reward, spinsLeft, reducedMotion, onDone }: Props) {
+  const { isChristmas, theme: arenaTheme } = useArenaTheme();
   const headlineT = useSettingsStore((s) => s.revealHeadline);
   const messageT = useSettingsStore((s) => s.revealMessage);
   const style = useSettingsStore((s) => s.revealStyle);
@@ -52,6 +54,7 @@ export function PrizeReveal({ agent, team, reward, spinsLeft, reducedMotion, onD
       role="dialog"
       aria-modal="true"
       aria-labelledby="reveal-title"
+      data-arena-theme={arenaTheme}
       data-reveal-state={holding ? "holding" : "entering"}
       className="fixed inset-0 z-[90] grid place-items-center p-4"
       initial={{ opacity: 0 }}
@@ -88,7 +91,9 @@ export function PrizeReveal({ agent, team, reward, spinsLeft, reducedMotion, onD
           <RewardIconView icon={reward.icon} className="h-16 w-16 text-white drop-shadow-[0_0_18px_rgba(255,255,255,0.7)] sm:h-20 sm:w-20" />
         </motion.div>
 
-        <p className="mb-3 text-sm font-bold tracking-[0.35em] text-secondary">PRIZE UNLOCKED</p>
+        <p className="mb-3 text-sm font-bold tracking-[0.35em] text-secondary">
+          {isChristmas ? "🎄 CHRISTMAS PRIZE UNLOCKED" : "PRIZE UNLOCKED"}
+        </p>
         <h2 id="reveal-title" className="font-heading text-4xl font-extrabold text-white sm:text-5xl">
           {fillTemplate(headlineT, vals)}
         </h2>
