@@ -27,6 +27,8 @@ export interface WeeklyTopAgent {
   name: string;
   validated: number;
   submitted: number;
+  teamName?: string | null;
+  teamColor?: string | null;
 }
 export interface WeeklyCelebrated extends WeeklyTopAgent {
   weekFrom: string;
@@ -65,7 +67,29 @@ export async function weeklyTopPerformer(pool: Pool, opts: { now?: Date; fresh?:
   if (campaignId) rows = rows.filter((r) => r.agent.campaignId === campaignId);
   rows = rows.filter((r) => r.counts.validated > 0); // a celebration needs at least one approved sale
   const first = rows[0];
-  const top = first ? { userCode: String(first.code || first.agent.id), name: first.agent.name, validated: first.counts.validated, submitted: first.counts.submitted } : null;
+  let teamName: string | null = null;
+  let teamColor: string | null = null;
+  if (first) {
+    const code = String(first.code || first.agent.id);
+    const teamRow = await pool
+      .query(
+        `SELECT t.name, t.color
+           FROM team_memberships m
+           JOIN teams t ON t.id = m.team_id
+          WHERE m.user_code = $1
+            AND t.active = TRUE
+            AND (m.effective_to IS NULL OR m.effective_to > $2::date)
+          ORDER BY m.effective_from DESC
+          LIMIT 1`,
+        [code, range.to],
+      )
+      .catch(() => ({ rows: [] as Array<{ name: string; color: string }> }));
+    if (teamRow.rows[0]) {
+      teamName = teamRow.rows[0].name;
+      teamColor = teamRow.rows[0].color;
+    }
+  }
+  const top = first ? { userCode: String(first.code || first.agent.id), name: first.agent.name, validated: first.counts.validated, submitted: first.counts.submitted, teamName, teamColor } : null;
   const tied = first && rows[1] && rows[1].counts.validated === first.counts.validated ? rows[1].agent.name : null;
   const stored = (await pool.query(`SELECT s.value, u.email FROM admin_settings s LEFT JOIN admin_users u ON u.id::text = s.value->>'adminId' WHERE s.key = $1`, [RECOGNITION_KEY])).rows[0];
   const v = stored?.value as (Omit<WeeklyCelebrated, "by"> & { adminId?: string }) | undefined;
@@ -112,6 +136,6 @@ export async function celebrateWeeklyTop(
     client.release();
   }
   // After the commit: one live event to every display (they dedupe by id).
-  arenaBroadcaster.broadcast(RECOGNITION_EVENT, { id, from: state.week.from, to: state.week.to, label: state.week.label, userCode: top.userCode, name: top.name, validated: top.validated, at: new Date().toISOString() });
+  arenaBroadcaster.broadcast(RECOGNITION_EVENT, { id, from: state.week.from, to: state.week.to, label: state.week.label, userCode: top.userCode, name: top.name, validated: top.validated, teamName: top.teamName ?? null, teamColor: top.teamColor ?? null, at: new Date().toISOString() });
   return { id, week: state.week, top };
 }

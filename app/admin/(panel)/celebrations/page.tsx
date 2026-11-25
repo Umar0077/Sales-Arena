@@ -7,6 +7,7 @@ import { Section, Toggle, Range, Choice, TextField } from "@/frontend/components
 import { ArenaCubSettings } from "@/frontend/components/admin/cub/ArenaCubSettings";
 import { TeamCelebrationSettings } from "@/frontend/components/admin/teams/TeamCelebrationSettings";
 import { WeeklyTopPerformerSettings } from "@/frontend/components/admin/celebrations/WeeklyTopPerformerSettings";
+import { WeeklyTopTeamSettings } from "@/frontend/components/admin/celebrations/WeeklyTopTeamSettings";
 
 export default function CelebrationSettingsPage() {
   const s = useSettingsStore();
@@ -73,6 +74,7 @@ export default function CelebrationSettingsPage() {
 
       <AgentEmojiSettings />
       <WeeklyTopPerformerSettings />
+      <WeeklyTopTeamSettings />
 
       <TeamCelebrationSettings />
 

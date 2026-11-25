@@ -21,6 +21,7 @@ export type ArenaBroadcastEventType =
   | "target.updated"
   | "teams.updated"
   | "arena.recognition.weekly_top"
+  | "arena.recognition.weekly_top_team"
   | "arena.sound.test"
   | "stats.updated"
   | "connection.status"

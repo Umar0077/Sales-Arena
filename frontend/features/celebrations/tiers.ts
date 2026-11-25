@@ -22,9 +22,10 @@ export const TIERS: Record<CelebrationTier, TierMeta> = {
   "top-performer": { tier: "top-performer", label: "New #1", priority: 4, color: "#FFC857", durationFactor: 1.25, particles: 0.85, sound: "special", fullscreen: false },
   "team-target": { tier: "team-target", label: "Team Target Completed", priority: 5, color: "#FFC857", durationFactor: 1.5, particles: 1, sound: "target", fullscreen: true },
   special: { tier: "special", label: "Special Achievement", priority: 6, color: "#FF8FD8", durationFactor: 1.5, particles: 1, sound: "special", fullscreen: true },
-  // Admin-triggered ceremony: its own view, length and sound (CelebrationOverlay / WeeklyTopCelebration); not in
-  // TIER_ORDER, so the Admin test-trigger list is unchanged.
+  // Admin-triggered ceremonies: their own views, length and sound (CelebrationOverlay / WeeklyTopCelebration / WeeklyTopTeamCelebration);
+  // not in TIER_ORDER, so the Admin test-trigger list is unchanged.
   "weekly-top": { tier: "weekly-top", label: "Top Performer of the Week", priority: 7, color: "#FFC857", durationFactor: 1.9, particles: 1, sound: "special", fullscreen: true },
+  "weekly-top-team": { tier: "weekly-top-team", label: "Weekly Top Team Performers", priority: 7, color: "#FFC857", durationFactor: 1.9, particles: 1, sound: "special", fullscreen: true },
 };
 
 /** Minimum total on-screen duration for a standard validated-sale celebration (~8s). */

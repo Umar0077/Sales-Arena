@@ -147,7 +147,16 @@ export type CelebrationTier =
   | "team-target"
   | "special"
   /** Admin-triggered Weekly Top Performer ceremony (recognition only, no reward). */
-  | "weekly-top";
+  | "weekly-top"
+  /** Admin-triggered Weekly Top Team Performers ceremony (recognition only, no reward). */
+  | "weekly-top-team";
+
+export interface CelebrationTeamMember {
+  userCode: string;
+  name: string;
+  validated?: number;
+  designation?: string | null;
+}
 
 export interface CelebrationEvent {
   id: ID;
@@ -162,6 +171,10 @@ export interface CelebrationEvent {
   createdAt: ISODate;
   /** True for previews that did not change data. */
   preview: boolean;
+  /** Optional team logo URL for team-wide celebrations (e.g. weekly-top-team). */
+  teamLogoUrl?: string | null;
+  /** Optional team roster for squad celebrations (e.g. weekly-top-team). */
+  teamMembers?: CelebrationTeamMember[];
   /**
    * Live sales only: the server's team attribution (team on the sale's business day, by user_code).
    * Absent = unknown (old server or failed lookup), null = no team that day. Used only to choose the

@@ -599,8 +599,41 @@ export function LiveApiSync() {
                     subline: String(p.label ?? ""),
                     agentId: String(p.userCode ?? ""),
                     agentName: String(p.name),
-                    teamName: null,
-                    teamColor: null,
+                    teamName: p.teamName ? String(p.teamName) : null,
+                    teamColor: p.teamColor ? String(p.teamColor) : null,
+                    value: Number(p.validated) || 0,
+                    createdAt: String(p.at ?? new Date().toISOString()),
+                    preview: false,
+                  },
+                },
+                { broadcast: false },
+              );
+            } catch {
+              /* malformed: ignored */
+            }
+          });
+
+          // Weekly Top Team Performers ceremony (Admin-triggered, once per week on the server)
+          eventSource.addEventListener("arena.recognition.weekly_top_team", (e) => {
+            try {
+              const p = JSON.parse((e as MessageEvent).data);
+              const id = String(p?.id ?? "");
+              if (!id || !p?.teamName || seenRecognitions.has(id)) return;
+              seenRecognitions.add(id);
+              arenaBus.emit(
+                "celebration:enqueue",
+                {
+                  event: {
+                    id: `recognition_${id}`,
+                    tier: "weekly-top-team",
+                    headline: `${String(p.teamName).toUpperCase()} — THIS WEEK'S TOP PERFORMERS`,
+                    subline: String(p.label ?? ""),
+                    agentId: null,
+                    agentName: null,
+                    teamName: String(p.teamName),
+                    teamColor: p.teamColor ? String(p.teamColor) : "#F5C451",
+                    teamLogoUrl: p.teamLogoUrl ? String(p.teamLogoUrl) : null,
+                    teamMembers: Array.isArray(p.members) ? p.members : [],
                     value: Number(p.validated) || 0,
                     createdAt: String(p.at ?? new Date().toISOString()),
                     preview: false,

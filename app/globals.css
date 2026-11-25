@@ -543,8 +543,23 @@ button, input, select, textarea { font-family: inherit; }
 [data-preview-stage="true"] .tc-root { --tc-w: min(36cqw, 44cqh, 620px); }
 [data-preview-stage="true"] .tc-agent-emoji { height: clamp(135px, 42cqh, 440px); max-width: 42cqw; }
 [data-preview-stage="true"] .tc-headline { margin-top: 2cqh; font-size: clamp(20px, min(4.2cqw, 6.8cqh), 72px); }
-[data-preview-stage="true"] .sale-celeb-card { padding-top: clamp(14px, 3.2cqh, 28px); padding-bottom: clamp(14px, 3.2cqh, 28px); }
-[data-preview-stage="true"] .sale-celeb-emoji { height: clamp(120px, 34cqh, 280px); }
+[data-preview-stage="true"] .sale-celeb-card { max-width: min(76cqw, 620px); padding: clamp(12px, 3cqh, 26px) clamp(16px, 3cqw, 36px); }
+[data-preview-stage="true"] .sale-celeb-heading { font-size: clamp(16px, 4.4cqh, 36px); margin-top: 1.2cqh; }
+[data-preview-stage="true"] .sale-celeb-emoji { height: clamp(86px, 27cqh, 240px); }
+[data-preview-stage="true"] .sale-celeb-agent { font-size: clamp(16px, 4.2cqh, 34px); }
+[data-preview-stage="true"] .wtp-agent-emoji { height: clamp(84px, 28cqh, 240px); }
+[data-preview-stage="true"] .wtp-medal { width: clamp(64px, 18cqh, 140px); height: clamp(64px, 18cqh, 140px); }
+[data-preview-stage="true"] .wtp-headline { font-size: clamp(20px, min(5.4cqw, 9.2cqh), 74px); margin-top: 1.2cqh; }
+[data-preview-stage="true"] .wtp-kicker { font-size: clamp(9px, 2.2cqh, 18px); letter-spacing: 0.28em; }
+[data-preview-stage="true"] .wtp-name { font-size: clamp(18px, min(4.2cqw, 7cqh), 58px); margin-top: 0.8cqh; }
+[data-preview-stage="true"] .wtp-rule { margin: 1.2cqh auto; }
+[data-preview-stage="true"] .wtp-chip { margin-top: 1.2cqh; }
+[data-preview-stage="true"] .wtt-logo { height: clamp(36px, 11cqh, 88px); width: auto; }
+[data-preview-stage="true"] .wtt-headline { font-size: clamp(14px, min(3.4cqw, 5.4cqh), 46px); margin-top: 0.8cqh; }
+[data-preview-stage="true"] .wtt-members-grid { margin-top: 1.4cqh; gap: clamp(6px, 1.2cqw, 14px); }
+[data-preview-stage="true"] .wtt-member-card { padding: clamp(4px, 1cqh, 10px) clamp(6px, 1cqw, 10px); }
+[data-preview-stage="true"] .wtt-member-emoji { height: clamp(40px, 12cqh, 96px); }
+[data-preview-stage="true"] .wtt-member-name { font-size: clamp(9px, 1.8cqh, 14px); }
 
 /* ---------- Weekly Top Performer ceremony (frontend/components/celebrations/WeeklyTopCelebration.tsx) ----------
    wtp-full (rays, beams, sweep, ring pulses), wtp-lite (entrances only), wtp-static (reduced motion: opacity only).

@@ -16,6 +16,7 @@ import { audioEngine } from "@/frontend/audio/engine";
 import { announceSaleVoice, cancelVoiceAnnouncement } from "@/frontend/audio/voice-announcer";
 import { ConfettiCanvas } from "./ConfettiCanvas";
 import { WEEKLY_TOP_MS, WeeklyTopCelebration, useWeeklyTopMotion } from "./WeeklyTopCelebration";
+import { WeeklyTopTeamCelebration } from "./WeeklyTopTeamCelebration";
 import { celebrationSoundAllowed, playCelebrationSound } from "@/frontend/audio/celebration-sounds";
 import { TIERS, SALE_CELEBRATION_MAX_MS, saleCelebrationDurationMs } from "@/frontend/features/celebrations/tiers";
 import { 
@@ -50,14 +51,15 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
   // Advance queue when current is null and queue has items
   useEffect(() => {
     if (previewEvent) return;
-    if (queue[0]?.tier === "weekly-top" && (spinStage !== "idle" || bonusBusy)) return;
+    if ((queue[0]?.tier === "weekly-top" || queue[0]?.tier === "weekly-top-team") && (spinStage !== "idle" || bonusBusy)) return;
     if (!current && queue.length > 0 && !paused && !teamBusy) {
       const next = advance();
       if (next) {
         const meta = TIERS[next.tier] || TIERS.sale;
         // Play sound corresponding to the tier; standard sales sequence sound -> voice announcement in the active effect below.
-        if (next.tier === "weekly-top") playCelebrationSound("bonus", { allowed: celebrationSoundAllowed(meta.sound), key: next.id });
-        else if (next.tier !== "sale") audioEngine.play(meta.sound);
+        if (next.tier === "weekly-top" || next.tier === "weekly-top-team") {
+          playCelebrationSound("bonus", { allowed: celebrationSoundAllowed(meta.sound), key: next.id });
+        } else if (next.tier !== "sale") audioEngine.play(meta.sound);
       }
     }
   }, [current, queue, paused, advance, teamBusy, spinStage, bonusBusy, previewEvent]);
@@ -81,9 +83,12 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
 
     const meta = TIERS[current.tier] || TIERS.sale;
     const isStandardSale = current.tier === "sale";
-    const baseDurationMs = isStandardSale
-      ? saleCelebrationDurationMs(settings.celebrationDuration)
-      : settings.celebrationDuration * meta.durationFactor * 1000;
+    const baseDurationMs =
+      current.tier === "weekly-top" || current.tier === "weekly-top-team"
+        ? WEEKLY_TOP_MS[weeklyTopMotion]
+        : isStandardSale
+        ? saleCelebrationDurationMs(settings.celebrationDuration)
+        : settings.celebrationDuration * meta.durationFactor * 1000;
 
     if (!isStandardSale) {
       const timer = setTimeout(() => {
@@ -123,6 +128,7 @@ export function CelebrationOverlay({ previewEvent }: { previewEvent?: import("@/
 
   if (!current) return null;
   if (current.tier === "weekly-top") return <WeeklyTopCelebration key={current.id} event={current} motion={weeklyTopMotion} />;
+  if (current.tier === "weekly-top-team") return <WeeklyTopTeamCelebration key={current.id} event={current} motion={weeklyTopMotion} />;
 
   const meta = TIERS[current.tier] || TIERS.sale;
   const isSale = current.tier === "sale";
