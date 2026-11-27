@@ -10,6 +10,7 @@ import { addCredits } from "@/shared/sales/weighting";
 import { LiveLeaderboard, useCloserRows, usePeriodInfo } from "@/frontend/components/arena/LiveLeaderboard";
 import { TopPerformersPodium } from "@/frontend/components/arena/TopPerformersPodium";
 import { ArenaLiveActivity } from "@/frontend/components/arena/ArenaLiveActivity";
+import { RecentSpinWinners } from "@/frontend/components/spinflow/RecentSpinWinners";
 import { ScreenTitle, StatGrid, AwardFeed } from "./parts";
 import { cn } from "@/shared/utils";
 import { useLiveStore } from "@/frontend/stores/live-store";
@@ -210,6 +211,8 @@ export function PeriodScreen({ kind }: { kind: "weekly" | "monthly" }) {
             emptyText={`No validated sales recorded ${cfg.word} yet.`}
           />
         </div>
+
+        <RecentSpinWinners />
       </div>
 
       {showBoard && (

@@ -6,6 +6,7 @@ import { X, Disc3, Loader2 } from "lucide-react";
 import { useArenaStore, pickData } from "@/frontend/stores/arena-store";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { DEMO_AGENT } from "@/frontend/stores/spin-flow-store";
+import { useSpinBoardStore } from "@/frontend/stores/spin-board-store";
 import { WheelCanvas } from "@/frontend/components/spinner/WheelCanvas";
 import type { WheelPhase } from "@/frontend/components/spinner/Wheel3D";
 import { planSpin, scaleProfile, DEFAULT_PROFILE, type SpinPlan } from "@/frontend/features/spins/wheel-math";
@@ -207,6 +208,8 @@ export function SpinStage({ agentId, agent: agentProp, demo = false, reducedMoti
       } else if (live) {
         left = serverLeft.current;
         setServer((sv) => (sv ? { ...sv, available: left } : sv));
+        void useSpinBoardStore.getState().refreshPending();
+        void useSpinBoardStore.getState().refreshWinners();
       } else {
         useArenaStore.getState().completeSpin(p.spinId);
         left = computeSpinCredit(pickData(useArenaStore.getState()), agentId).available;

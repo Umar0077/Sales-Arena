@@ -16,6 +16,7 @@ import { useCloserRows } from "@/frontend/components/arena/LiveLeaderboard";
 import { ScreenTitle } from "./parts";
 import { useRewardsStore } from "@/frontend/stores/rewards-store";
 import { usePeriodInfo } from "@/frontend/components/arena/LiveLeaderboard";
+import { RecentSpinWinners } from "@/frontend/components/spinflow/RecentSpinWinners";
 
 const EMPTY_ACTIVITY: ActivityEvent[] = [];
 
@@ -195,6 +196,8 @@ export function FloorScreen({ variant }: { variant: "spin" | "daily" }) {
             />
           </div>
         )}
+
+        {daily && <RecentSpinWinners />}
       </div>
 
       {showBoard && (

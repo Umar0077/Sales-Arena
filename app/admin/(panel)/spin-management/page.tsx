@@ -7,9 +7,11 @@ import { BalancesTab } from "@/frontend/components/admin/spins/BalancesTab";
 import { HistoryTab } from "@/frontend/components/admin/spins/HistoryTab";
 import { PrizesTab } from "@/frontend/components/admin/spins/PrizesTab";
 import { DevicesTab } from "@/frontend/components/admin/spins/DevicesTab";
+import { ReconcileTab } from "@/frontend/components/admin/spins/ReconcileTab";
+import { PreviewTab } from "@/frontend/components/admin/spins/PreviewTab";
 import { cn } from "@/shared/utils";
 
-const TABS = ["Rules & Settings", "Manual Allocation", "Agent Balances", "Credit History", "Prizes", "Displays"] as const;
+const TABS = ["Rules & Settings", "Manual Allocation", "Agent Balances", "Credit History", "Prizes", "Displays", "Reconcile", "Preview"] as const;
 type Tab = (typeof TABS)[number];
 
 /** Spin Management — everything here is stored in PostgreSQL and enforced on the server. */
@@ -52,6 +54,8 @@ export default function SpinManagementPage() {
       {tab === "Credit History" && <HistoryTab key={historyFor} initialUserCode={historyFor} />}
       {tab === "Prizes" && <PrizesTab />}
       {tab === "Displays" && <DevicesTab />}
+      {tab === "Reconcile" && <ReconcileTab />}
+      {tab === "Preview" && <PreviewTab />}
     </div>
   );
 }

@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
-import { allocateManualSpins, SpinError } from "@/backend/spins/ledger";
+import { allocateManualSpins, grantAutomaticSpins, SpinError } from "@/backend/spins/ledger";
 import { executeSpin } from "@/backend/spins/execute";
+import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as spinApi } from "@/app/api/arena/spin/route";
+import { GET as pendingApi } from "@/app/api/arena/spin/pending/route";
+import { GET as winnersApi } from "@/app/api/arena/spin/recent-winners/route";
+import { GET as reconcileApi } from "@/app/api/admin/spins/reconcile/route";
 import { POST as pairApi } from "@/app/api/arena/device/pair/route";
 import { POST as createDevice } from "@/app/api/admin/devices/route";
 import { DELETE as revokeDevice } from "@/app/api/admin/devices/[id]/route";
@@ -167,5 +171,69 @@ describe("spin ledger", () => {
     expect((await again.json()).replayed).toBe(true);
     expect(await balance("BO2")).toBe(2);
     expect((await pool().query(`SELECT admin_id FROM manual_spin_allocations`)).rows[0].admin_id).toBe(admin.id);
+  });
+
+  it("automatic spins use raw validated sales count (not weighted credits) and expose pending/winners/reconcile APIs", async () => {
+    const sess = sessionFrom(await login(req("/api/admin/auth/login", { method: "POST", body: { email: "owner@example.com", password: "Correct-Horse-Battery-9" } })));
+    // Enable automatic spins with Nov 27, 2026 NY midnight cutoff and a 2-sales-per-spin global rule.
+    await pool().query(
+      `INSERT INTO admin_settings (key, value) VALUES
+         ('auto_spins_enabled', 'true'::jsonb),
+         ('reward_activation_cutoff', '"2026-11-27T05:00:00.000Z"'::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    );
+    await pool().query(
+      `UPDATE target_rules
+          SET sales_per_spin = 2, spins_per_threshold = 1, period = 'daily', enabled = TRUE, effective_from = '2026-11-27T05:00:00.000Z'
+        WHERE scope_type = 'global' AND superseded_at IS NULL`,
+    );
+
+    // Ingest 2 Corebridge Financial sales (0.5 weighted each = 1.0 weighted, but 2 raw validated sales!).
+    const s1 = await ingestValidatedSale(
+      pool(),
+      { caseId: "CB_1", userCode: "AL1", closerName: "Ali Khan", carrier: "Corebridge Financial", validatedAt: "2026-11-27T15:00:00.000Z" },
+      "sse",
+    );
+    expect(s1.spinGrants).toHaveLength(0);
+    const s2 = await ingestValidatedSale(
+      pool(),
+      { caseId: "CB_2", userCode: "AL1", closerName: "Ali Khan", carrier: "Corebridge Financial", validatedAt: "2026-11-27T16:00:00.000Z" },
+      "sse",
+    );
+    expect(s2.spinGrants).toHaveLength(1);
+    expect(await balance("AL1")).toBe(1);
+
+    // Pre-cutoff sale (Nov 26 NY) never earns automatic spins.
+    const pre = await ingestValidatedSale(
+      pool(),
+      { caseId: "PRE_1", userCode: "BO2", closerName: "Bo Lee", carrier: "Mutual of Omaha", validatedAt: "2026-11-27T04:30:00.000Z" },
+      "sse",
+    );
+    expect(pre.rewardEligible).toBe(false);
+    expect(pre.spinGrants).toHaveLength(0);
+
+    // Manual allocation coexists independently with automatic balance.
+    await allocateManualSpins(pool(), { userCode: "AL1", quantity: 1, reason: "Bonus", idempotencyKey: key("ind"), adminId: admin.id });
+    expect(await balance("AL1")).toBe(2);
+
+    // Pending API shows AL1 with 2 spins.
+    const pendRes = await (await pendingApi(req("/api/arena/spin/pending"))).json();
+    expect(pendRes.ok).toBe(true);
+    expect(pendRes.pending).toEqual([expect.objectContaining({ user_code: "AL1", available: 2 })]);
+
+    // Execute one spin → recent-winners API records it permanently, pending drops to 1.
+    await addPrize("rw_cash", null, 1);
+    await spinApi(req("/api/arena/spin", { method: "POST", body: { userCode: "AL1", idempotencyKey: key("sp1") }, cookie: sess.cookie }));
+    const winRes = await (await winnersApi()).json();
+    expect(winRes.ok).toBe(true);
+    expect(winRes.winners).toHaveLength(1);
+    expect(winRes.winners[0]).toMatchObject({ user_code: "AL1", reward_title: "rw_cash" });
+
+    // Reconcile GET is read-only and reports 0 missing credits for AL1.
+    const recRes = await (await reconcileApi(req("/api/admin/spins/reconcile", { cookie: sess.cookie }))).json();
+    expect(recRes.ok).toBe(true);
+    const alRow = recRes.report.find((r: { userCode: string }) => r.userCode === "AL1");
+    expect(alRow).toMatchObject({ rawValidatedSales: 2, expectedCredits: 1, actualCredits: 1, missingCredits: 0 });
+    void grantAutomaticSpins;
   });
 });

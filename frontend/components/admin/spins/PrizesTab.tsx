@@ -97,7 +97,10 @@ export function PrizesTab({ onCatalog }: { onCatalog?: (prizes: Prize[]) => void
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       {syncedAt && <p className="text-xs text-text-muted" data-testid="catalog-synced">Catalog loaded from PostgreSQL at {new Date(syncedAt).toLocaleTimeString()}. Saved changes reach Live Arena wheels automatically.</p>}
       {active.length < 2 && <Notice kind="info">The wheel needs at least 2 active prizes before spins can run. ({active.length} active)</Notice>}
-      <Section title="Eligible spin prizes" description="Stored in PostgreSQL. The server picks prizes by weight; prizes with stock 0 drop off the wheel.">
+      {active.length > 0 && totalWeight <= 0 && (
+        <Notice kind="error">All active prizes currently have zero weight. Set at least one active prize weight above 0.</Notice>
+      )}
+      <Section title="Eligible spin prizes" description="Stored in PostgreSQL. Relative weights (e.g. 0–1) are normalized across active prizes on the server; prizes with weight 0 or stock 0 drop off the wheel.">
         <Table head={["", "Prize", "Stock", "Weight", "Chance", "Order", "Won", "Status", ""]} empty={!prizes.length} testId="prizes">
           {prizes.map((p, idx) => (
             <tr key={p.id} data-prize={p.title}>
@@ -146,7 +149,7 @@ export function PrizesTab({ onCatalog }: { onCatalog?: (prizes: Prize[]) => void
           </div>
         </Field>
         <Field label="Stock" hint="Empty = unlimited."><input type="number" min={0} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className={`${inputClass} w-32`} /></Field>
-        <Field label="Weight" hint="Relative chance. 2 is twice as likely as 1."><input type="number" min={0.01} step={0.01} value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} className={`${inputClass} w-32`} /></Field>
+        <Field label="Relative weight (0–1)" hint="Normalized across active prizes (0 = excluded, e.g. 0.5 vs 0.25 → 66.7% vs 33.3%)."><input type="number" min={0} max={1000} step={0.01} value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} className={`${inputClass} w-32`} data-testid="prize-weight" /></Field>
         <Field label="Wheel order"><input type="number" min={0} value={form.displayOrder} onChange={(e) => setForm({ ...form, displayOrder: Number(e.target.value) })} className={`${inputClass} w-32`} /></Field>
         <Toggle label="On the wheel" checked={form.active} onChange={(v) => setForm({ ...form, active: v })} />
         <div className="flex gap-2">

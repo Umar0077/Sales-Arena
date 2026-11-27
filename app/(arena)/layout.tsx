@@ -4,6 +4,7 @@ import { CelebrationOverlay } from "@/frontend/components/celebrations/Celebrati
 import { ArenaEventBridge } from "@/frontend/components/arena/ArenaEventBridge";
 import { AutoSimulator } from "@/frontend/components/arena/AutoSimulator";
 import { SpinFlow } from "@/frontend/components/spinflow/SpinFlow";
+import { PendingSpinsPanel } from "@/frontend/components/spinflow/PendingSpinsPanel";
 import { HydrationGate } from "@/frontend/components/common/HydrationGate";
 import { ArenaContent, WhenArenaOnline } from "@/frontend/components/arena/ArenaSwitch";
 import { PoweredBy } from "@/frontend/components/brand/PoweredBy";
@@ -34,6 +35,7 @@ export default function ArenaLayout({ children }: { children: React.ReactNode })
         <AutoSimulator />
         <CelebrationOverlay />
         <SpinFlow />
+        <PendingSpinsPanel />
         <RewardRuntime />
         <ArenaCub />
       </WhenArenaOnline>

@@ -32,7 +32,7 @@ export async function loadWheelSegments(pool: Pool): Promise<WheelSegment[]> {
 
 /** Weighted pick using a cryptographic RNG. */
 export function weightedPick<T extends { weight: number | string }>(items: T[]): number {
-  const weights = items.map((i) => Math.max(0, Math.round(Number(i.weight) * 100)));
+  const weights = items.map((i) => Math.max(0, Math.round(Number(i.weight) * 10000)));
   const total = weights.reduce((a, b) => a + b, 0);
   if (total <= 0) return 0;
   let roll = randomInt(total);

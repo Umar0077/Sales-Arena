@@ -34,6 +34,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               display_order = $9, updated_at = NOW() WHERE id = $1`,
       [id, p.title, p.description, p.icon, p.color, p.active, p.quantity, p.weight, p.displayOrder],
     );
+    const activeWeightCheck = await client.query<{ total: string; active_count: number }>(
+      `SELECT COALESCE(SUM(weight), 0)::numeric AS total, COUNT(*)::int AS active_count
+         FROM rewards_catalog
+        WHERE active AND (quantity IS NULL OR quantity > 0)`,
+    );
+    if (activeWeightCheck.rows[0].active_count > 0 && Number(activeWeightCheck.rows[0].total) <= 0) {
+      await client.query("ROLLBACK");
+      return jsonError(400, "At least one active prize must have a weight greater than 0.");
+    }
     const before = cur.rows[0];
     await writeAudit(client, {
       adminId: auth.ctx.admin.id,

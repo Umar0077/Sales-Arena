@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useArenaStore } from "@/frontend/stores/arena-store";
 import { useSettingsStore } from "@/frontend/stores/settings-store";
 import { useSpinFlowStore } from "@/frontend/stores/spin-flow-store";
+import { useSpinBoardStore } from "@/frontend/stores/spin-board-store";
 import { useRewardsStore } from "@/frontend/stores/rewards-store";
 import { useLiveStore } from "@/frontend/stores/live-store";
 import { appliedDisplayRevision, applyGlobalDisplay, fetchGlobalDisplay } from "@/frontend/live/display-sync";
@@ -339,6 +340,8 @@ export function LiveApiSync() {
       syncCatalog(),
       fetchGlobalDisplay(),
       fetchArenaConfig(),
+      useSpinBoardStore.getState().refreshPending(),
+      useSpinBoardStore.getState().refreshWinners(),
       live ? fetchLivePrograms() : Promise.resolve(false),
     ]).then(() => {
       lastReconcileRef.current = Date.now();
@@ -402,6 +405,9 @@ export function LiveApiSync() {
         lastReconcileRef.current = Date.now();
       });
       void syncCatalog();
+      // Load persistent pending spin invitations and recent completed spin winners from PostgreSQL.
+      void useSpinBoardStore.getState().refreshPending();
+      void useSpinBoardStore.getState().refreshWinners();
     }, 0);
 
     // A validated sale, from the live stream or (missed there) from the background check: one popup and one
@@ -516,6 +522,8 @@ export function LiveApiSync() {
             void syncCatalog();
             void fetchGlobalDisplay();
             void fetchArenaConfig();
+            void useSpinBoardStore.getState().refreshPending();
+            void useSpinBoardStore.getState().refreshWinners();
             arenaBus.emit("cub:resync", {}, { broadcast: false });
             if (connectedOnce) arenaBus.emit("teams:updated", {}, { broadcast: false }); // reconnected: restore standings
             if (connectedOnce) {
@@ -695,6 +703,7 @@ export function LiveApiSync() {
               const qty = Number(payload.quantity) || 1;
               const manual = payload.origin === "manual";
               scheduleLiveSync(600); // balances refresh either way
+              void useSpinBoardStore.getState().refreshPending();
               // The spin credit is stored regardless; only the public popup follows the admin switches.
               const s = useSettingsStore.getState();
               if (!s.arenaEnabled || !s.celebrationPopups || !s.spinFeatureEnabled || !s.spinFlowEnabled || !(manual ? s.announceManualSpins : s.announceAutoSpins)) return;
@@ -713,6 +722,12 @@ export function LiveApiSync() {
             } catch (err) {
               console.error("[LiveApiSync] Failed to process spin unlock event", err);
             }
+          });
+
+          eventSource.addEventListener("spin.completed", () => {
+            scheduleLiveSync(600);
+            void useSpinBoardStore.getState().refreshPending();
+            void useSpinBoardStore.getState().refreshWinners();
           });
 
           eventSource.addEventListener("settings.performance.updated", (e) => {

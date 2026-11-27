@@ -100,4 +100,55 @@ test.describe("spin rewards", () => {
     const history = await (await api.get(`/api/admin/spins/history?userCode=${code}`, { headers })).json();
     expect(JSON.stringify(history)).toContain(code);
   });
+
+  test("global spin notification appears on Weekly/Monthly/Daily Arena and persists across refresh until consumed", async ({ context, page, baseURL }) => {
+    test.skip(!(await liveDataConfigured(page)), "Needs the live server with the dev database.");
+    test.setTimeout(120_000);
+    const headers = await adminHeaders(context, baseURL!);
+    const api = context.request;
+    const code = `E2EG${Date.now().toString(36).toUpperCase()}`;
+
+    test.skip(!(await createDevAgent(code, "Global Spin Closer")), "Needs the local sales_arena_dev database.");
+    const catalog = await (await api.get("/api/admin/catalog")).json();
+    if (!(catalog.prizes ?? []).some((p: { title: string; active: boolean }) => p.title === "E2E Prize" && p.active))
+      await api.post("/api/admin/catalog", { headers, data: { title: "E2E Prize", icon: "gift", color: "#FFC857", weight: 1, quantity: null } });
+
+    await page.goto("/");
+    await expect(page.getByRole("region", { name: "Leaderboard" })).toBeVisible({ timeout: 45_000 });
+    // Switch to Weekly Arena before allocation
+    await page.getByRole("tab", { name: "Weekly Arena" }).click();
+    await page.waitForTimeout(1500);
+
+    const alloc = await api.post("/api/admin/spins/allocate", {
+      headers,
+      data: { userCode: code, quantity: 1, reason: "Global mode check", idempotencyKey: `e2eg-${randomUUID()}` },
+    });
+    expect(alloc.ok()).toBe(true);
+
+    // Immediate celebration appears on Weekly Arena with agent name & available balance
+    const popup = page.getByRole("dialog", { name: /CONGRATULATIONS, GLOBAL/ });
+    await expect(popup).toBeVisible({ timeout: 15_000 });
+    await expect(popup.getByTestId("achievement-agent-name")).toHaveText("Global Spin Closer");
+    await expect(popup.getByTestId("achievement-spins-balance")).toContainText("1 Available");
+
+    // Dismissing popup leaves persistent non-blocking SPIN AVAILABLE invitation across modes & refresh
+    await popup.getByRole("button", { name: /Spin later/i }).click();
+    await expect(page.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole("tab", { name: "Monthly Arena" }).click();
+    await expect(page.getByTestId(`pending-spin-${code}`)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("region", { name: "Leaderboard" })).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 15_000 });
+
+    // Consuming the spin from the persistent invitation removes it once completed
+    await page.getByTestId(`pending-spin-cta-${code}`).click();
+    await expect(page.getByTestId("spin-agent-name")).toHaveText("Global Spin Closer", { timeout: 15_000 });
+    const spinResp = page.waitForResponse((r) => r.url().endsWith("/api/arena/spin") && r.request().method() === "POST");
+    await page.getByTestId("spin-button").click();
+    expect((await (await spinResp).json()).ok).toBe(true);
+    await expect(page.locator("[data-reveal-state]")).toBeVisible({ timeout: 30_000 });
+    expect((await spinStatus(api, code)).available).toBe(0);
+  });
 });

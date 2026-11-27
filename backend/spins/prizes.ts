@@ -25,7 +25,7 @@ export function parsePrize(b: Record<string, unknown>): [PrizeInput, null] | [nu
   const quantity = b.quantity === null || b.quantity === "" || b.quantity === undefined ? null : Number(b.quantity);
   if (quantity !== null && (!Number.isInteger(quantity) || quantity < 0 || quantity > 1_000_000)) return [null, "Stock must be a whole number ≥ 0, or empty for unlimited."];
   const weight = Number(b.weight ?? 1);
-  if (!Number.isFinite(weight) || weight <= 0 || weight > 1000) return [null, "Weight must be between 0.01 and 1000."];
+  if (!Number.isFinite(weight) || weight < 0 || weight > 1000) return [null, "Weight must be between 0 and 1000 (use 0–1 for relative weights)."];
   const displayOrder = Number(b.displayOrder ?? 0);
   if (!Number.isInteger(displayOrder) || displayOrder < 0 || displayOrder > 1000) return [null, "Order must be a whole number from 0 to 1000."];
   return [{ title, description, icon, color, active: b.active !== false, quantity, weight, displayOrder }, null];

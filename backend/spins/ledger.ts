@@ -1,6 +1,5 @@
 import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
-import { sqlCarrierWeight } from "@/shared/sales/weighting";
 import {
   autoGrantKey,
   countingStart,
@@ -242,8 +241,10 @@ export async function grantAutomaticSpins(
   const win = periodWindow(rule.period, args.validatedAt, cal);
   const start = countingStart(rule, win, settings.activationCutoff);
   // Count only reward-eligible, still-validated sales in [start, end) that this rule version covers.
+  // Raw validated transaction count (not weighted credits) is the spin eligibility metric.
+  // Carrier weighting applies only to cash bonuses; a sale is a sale for spin purposes.
   const cnt = await client.query(
-    `SELECT COALESCE(SUM(${sqlCarrierWeight("carrier")}), 0)::numeric AS n FROM validated_sales
+    `SELECT COUNT(*)::int AS n FROM validated_sales
       WHERE user_code = $1 AND reward_eligible AND status = 'validated'
         AND validated_at >= $2 AND ($3::timestamptz IS NULL OR validated_at < $3)
         AND ($4::timestamptz IS NULL OR validated_at < $4)`,

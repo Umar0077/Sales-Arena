@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { Trophy, Sparkles, Disc3 } from "lucide-react";
 import { useSettingsStore, fillTemplate } from "@/frontend/stores/settings-store";
 import { useArenaTheme } from "@/frontend/theme/arena-theme";
+import { AgentEmoji } from "@/frontend/components/celebrations/AgentEmoji";
 import type { Agent, Team } from "@/shared/types";
 
 interface Props {
@@ -78,20 +79,30 @@ export function AchievementPopup({ agent, team, periodSales, available, reason, 
         <div className="pointer-events-none absolute -top-24 left-1/2 h-48 w-72 -translate-x-1/2 rounded-full bg-gold/30 blur-3xl" />
 
         <motion.div
-          className="relative mx-auto mb-5 grid h-24 w-24 place-items-center rounded-3xl border border-gold/50 bg-gradient-to-br from-gold/30 to-orange-500/10"
-          animate={reducedMotion ? undefined : { rotate: [0, -6, 6, -3, 0], scale: [1, 1.08, 1] }}
+          className="relative mx-auto mb-5 grid h-28 w-28 place-items-center overflow-hidden rounded-3xl border border-gold/50 bg-gradient-to-br from-gold/30 to-orange-500/10"
+          animate={reducedMotion ? undefined : { rotate: [0, -4, 4, -2, 0], scale: [1, 1.06, 1] }}
           transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 1.2 }}
         >
-          <Trophy className="h-12 w-12 text-gold drop-shadow-[0_0_14px_rgba(255,200,87,0.8)]" />
-          <Sparkles className="absolute -right-3 -top-3 h-6 w-6 text-secondary" />
+          <AgentEmoji
+            agentId={agent.id}
+            name={agent.name}
+            className="h-24 w-24 object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.6)]"
+            fallback={<Trophy className="h-12 w-12 text-gold drop-shadow-[0_0_14px_rgba(255,200,87,0.8)]" />}
+          />
+          <Sparkles className="absolute -right-2 -top-2 h-6 w-6 text-secondary" />
         </motion.div>
 
         <p className="relative mb-2 text-xs font-bold tracking-[0.3em] text-secondary">{eyebrow ?? "TARGET COMPLETED"}</p>
         <h2 id="achievement-title" className="relative font-heading text-3xl font-extrabold text-white sm:text-4xl">
           {fillTemplate(headlineT, vals)}
         </h2>
-        <p className="relative mt-3 text-lg font-medium text-text-secondary">{message}</p>
-        <p className="relative mt-1 text-xl font-bold text-gold">{fillTemplate(rewardT, vals)}</p>
+        <p className="relative mt-2 text-base font-bold text-white" data-testid="achievement-agent-name">
+          {agent.name}
+        </p>
+        <p className="relative mt-2 text-lg font-medium text-text-secondary">{message}</p>
+        <p className="relative mt-1 text-xl font-bold text-gold" data-testid="achievement-spins-balance">
+          {fillTemplate(rewardT, vals)} · {Math.max(1, available)} Available
+        </p>
         {team && (
           <span
             className="relative mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
