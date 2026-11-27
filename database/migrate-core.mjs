@@ -24,6 +24,7 @@ export const MIGRATIONS = [
   { version: "009_highest_tier_rewards", file: "009_highest_tier_rewards.sql" },
   { version: "010_teams_arena", file: "010_teams_arena.sql" },
   { version: "011_agent_emojis", file: "011_agent_emojis.sql" },
+  { version: "012_spin_campaign_and_expire", file: "012_spin_campaign_and_expire.sql" },
 ];
 
 // Arbitrary constant: "sales_arena_migrate".

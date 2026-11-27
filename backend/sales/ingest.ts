@@ -153,8 +153,8 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
           announceCash: cfg.announceCash !== false,
           announcePrizes: cfg.announcePrizes !== false,
         };
-        // Spin credits: unchanged (automatic spins need the activation cutoff, i.e. reward_eligible).
-        if (rewardEligible && cutoff) spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar });
+        // Spin credits: isolated from cash-bonus reward_activation_cutoff; governed by auto_spins_enabled + spin_campaign_start_at.
+        spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar, allowCurrentRuleFallback: true });
         bonuses = await evaluateBonusAwards(client, { userCode, agentId, closerName, saleId, caseId, validatedAt, cutoff, calendar, config });
       }
     }

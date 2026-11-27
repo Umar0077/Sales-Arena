@@ -30,18 +30,17 @@ export function PendingSpinsPanel() {
   const pendingLoaded = useSpinBoardStore((s) => s.pendingLoaded);
   const refreshPending = useSpinBoardStore((s) => s.refreshPending);
   const spinFeatureEnabled = useSettingsStore((s) => s.spinFeatureEnabled);
-  const spinFlowEnabled = useSettingsStore((s) => s.spinFlowEnabled);
   const arenaEnabled = useSettingsStore((s) => s.arenaEnabled);
   const stage = useSpinFlowStore((s) => s.stage);
   const agents = useArenaStore((s) => s.agents);
 
   useEffect(() => {
-    if (!pendingLoaded && arenaEnabled && spinFeatureEnabled && spinFlowEnabled) {
+    if (!pendingLoaded && arenaEnabled && spinFeatureEnabled) {
       void refreshPending();
     }
-  }, [pendingLoaded, arenaEnabled, spinFeatureEnabled, spinFlowEnabled, refreshPending]);
+  }, [pendingLoaded, arenaEnabled, spinFeatureEnabled, refreshPending]);
 
-  if (!arenaEnabled || !spinFeatureEnabled || !spinFlowEnabled) return null;
+  if (!arenaEnabled || !spinFeatureEnabled) return null;
   if (stage !== "idle" || pending.length === 0) return null;
 
   const launchSpin = (item: (typeof pending)[number]) => {

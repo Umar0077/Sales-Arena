@@ -22,9 +22,9 @@ export async function GET() {
       reward_icon: string;
       created_at: string;
     }>(
-      `SELECT r.id, r.user_code, a.name, r.reward_title, r.reward_color, r.reward_icon, r.created_at
+      `SELECT r.id, r.user_code, COALESCE(a.name, r.user_code) AS name, r.reward_title, r.reward_color, r.reward_icon, r.created_at
          FROM spin_results r
-         JOIN agents a ON a.id = r.agent_id
+         LEFT JOIN agents a ON a.user_code = r.user_code
         WHERE r.status = 'completed'
         ORDER BY r.created_at DESC
         LIMIT 20`,

@@ -5,7 +5,8 @@ import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as spinApi } from "@/app/api/arena/spin/route";
 import { GET as pendingApi } from "@/app/api/arena/spin/pending/route";
 import { GET as winnersApi } from "@/app/api/arena/spin/recent-winners/route";
-import { GET as reconcileApi } from "@/app/api/admin/spins/reconcile/route";
+import { GET as reconcileApi, POST as reconcileApproveApi } from "@/app/api/admin/spins/reconcile/route";
+import { GET as expirePreviewApi, POST as expireApproveApi } from "@/app/api/admin/spins/expire/route";
 import { POST as pairApi } from "@/app/api/arena/device/pair/route";
 import { POST as createDevice } from "@/app/api/admin/devices/route";
 import { DELETE as revokeDevice } from "@/app/api/admin/devices/[id]/route";
@@ -235,5 +236,149 @@ describe("spin ledger", () => {
     const alRow = recRes.report.find((r: { userCode: string }) => r.userCode === "AL1");
     expect(alRow).toMatchObject({ rawValidatedSales: 2, expectedCredits: 1, actualCredits: 1, missingCredits: 0 });
     void grantAutomaticSpins;
+  });
+
+  it("Nov 27 NY boundary: finds missing agents without spin_credits rows, approves idempotently, and expires only pre-campaign credits", async () => {
+    const sess = sessionFrom(await login(req("/api/admin/auth/login", { method: "POST", body: { email: "owner@example.com", password: "Correct-Horse-Battery-9" } })));
+    await createAgent("URW", "Urwah Malik");
+
+    // Simulate production bug state: shared reward_activation_cutoff is Nov 27 10:53 PM PKT (17:53Z),
+    // rule effective_from is Nov 28 1:41 AM PKT (20:41Z), and spin_campaign_start_at is Nov 27 00:00 NY (05:00Z).
+    await pool().query(
+      `INSERT INTO admin_settings (key, value) VALUES
+         ('auto_spins_enabled', 'true'::jsonb),
+         ('reward_activation_cutoff', '"2026-11-27T17:53:00.000Z"'::jsonb),
+         ('spin_campaign_start_at', '"2026-11-27T05:00:00.000Z"'::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    );
+    await pool().query(
+      `UPDATE target_rules
+          SET sales_per_spin = 2, spins_per_threshold = 1, period = 'daily', enabled = TRUE, effective_from = '2026-11-27T20:41:00.000Z'
+        WHERE scope_type = 'global' AND superseded_at IS NULL`,
+    );
+
+    // Insert 2 Nov 27 NY sales for URW (before 17:53Z, so reward_eligible = FALSE, and URW has NO spin_credits row)
+    // plus 1 pre-Nov-27 sale (04:30Z = Nov 26 23:30 EST) that must NOT count.
+    await pool().query(
+      `INSERT INTO validated_sales (id, case_id, user_code, agent_id, carrier, validated_at, source, reward_eligible, closer_name, status) VALUES
+         ('s_urw_pre', 'C_URW_PRE', 'URW', 'agt_URW', 'Aetna', '2026-11-27T04:30:00.000Z', 'sse', FALSE, 'Urwah Malik', 'validated'),
+         ('s_urw_1',   'C_URW_1',   'URW', 'agt_URW', 'Aetna', '2026-11-27T13:00:00.000Z', 'sse', FALSE, 'Urwah Malik', 'validated'),
+         ('s_urw_2',   'C_URW_2',   'URW', 'agt_URW', 'Corebridge Financial', '2026-11-27T14:00:00.000Z', 'sse', FALSE, 'Urwah Malik', 'validated')`,
+    );
+
+    // Reconcile GET must find URW with 2 raw Nov 27 NY sales, 1 expected, 0 granted, 1 missing.
+    const rec = await (await reconcileApi(req("/api/admin/spins/reconcile?from=2026-11-27", { cookie: sess.cookie }))).json();
+    expect(rec.ok).toBe(true);
+    const urw = rec.report.find((r: { userCode: string }) => r.userCode === "URW");
+    expect(urw).toMatchObject({
+      rawValidatedSales: 2,
+      expectedAutoSpins: 1,
+      grantedAutoSpins: 0,
+      missingSpins: 1,
+      status: "missing",
+    });
+
+    // Single-agent approval grants 1 spin; concurrent/repeated approval never duplicates.
+    const [a1, a2] = await Promise.all([
+      reconcileApproveApi(req("/api/admin/spins/reconcile", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { dryRun: false, agentIds: ["URW"], periodKey: "D:2026-11-27" } })),
+      reconcileApproveApi(req("/api/admin/spins/reconcile", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { dryRun: false, agentIds: ["URW"], periodKey: "D:2026-11-27" } })),
+    ]);
+    expect(a1.status).toBe(200);
+    expect(a2.status).toBe(200);
+    expect(await balance("URW")).toBe(1);
+
+    // Pre-campaign historical credit expiration: AL1 gets 2 pre-Nov-27 manual credits + 1 Nov-27+ manual credit.
+    await allocateManualSpins(pool(), { userCode: "AL1", quantity: 2, reason: "Old contest", idempotencyKey: key("old"), adminId: admin.id });
+    await pool().query(`UPDATE spin_credit_transactions SET created_at = '2026-11-20T12:00:00.000Z' WHERE user_code = 'AL1'`);
+    await allocateManualSpins(pool(), { userCode: "AL1", quantity: 1, reason: "Nov 27 contest", idempotencyKey: key("new"), adminId: admin.id });
+    expect(await balance("AL1")).toBe(3);
+
+    const dry = await (await expirePreviewApi(req("/api/admin/spins/expire", { cookie: sess.cookie }))).json();
+    const alExp = dry.rows.find((r: { userCode: string }) => r.userCode === "AL1");
+    expect(alExp).toMatchObject({ available: 3, protectedNov27Credits: 1, expirableCredits: 2 });
+
+    // Approved expiration expires only the 2 pre-campaign credits and is idempotent on repeat.
+    const exp1 = await (await expireApproveApi(req("/api/admin/spins/expire", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { dryRun: false, userCodes: ["AL1"] } }))).json();
+    expect(exp1.expired[0]).toMatchObject({ userCode: "AL1", expiredCount: 2, balanceAfter: 1, replayed: false });
+    const exp2 = await (await expireApproveApi(req("/api/admin/spins/expire", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { dryRun: false, userCodes: ["AL1"] } }))).json();
+    expect(exp2.expired).toHaveLength(0);
+    expect(await balance("AL1")).toBe(1);
+  });
+
+  it("fresh_campaign_reset zeroes all old available credits, leaves non-spin tables intact, is idempotent, and enables clean Nov 27 post-reset grants", async () => {
+    const sess = sessionFrom(await login(req("/api/admin/auth/login", { method: "POST", body: { email: "owner@example.com", password: "Correct-Horse-Battery-9" } })));
+    await createAgent("HAM", "Hamna Nasir");
+    await createAgent("URW2", "Urwah Malik");
+
+    // Seed old balances (6 manual + 1 auto = 7 total available) + 1 completed spin_result + 1 cash reward_program + shared cutoff.
+    await pool().query(
+      `INSERT INTO admin_settings (key, value) VALUES
+         ('auto_spins_enabled', 'true'::jsonb),
+         ('reward_activation_cutoff', '"2026-11-27T17:53:00.000Z"'::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    );
+    await addPrize("rw_keep", null, 1);
+    await allocateManualSpins(pool(), { userCode: "HAM", quantity: 4, reason: "Legacy manual", idempotencyKey: key("ham_old"), adminId: admin.id });
+    await allocateManualSpins(pool(), { userCode: "AL1", quantity: 3, reason: "Legacy manual", idempotencyKey: key("al1_old"), adminId: admin.id });
+    // Consume 1 on AL1 so there is a completed spin_results row to preserve.
+    await executeSpin(pool(), { userCode: "AL1", idempotencyKey: key("al1_spin"), actor: "test" });
+
+    // Seed Nov 27 NY sales for HAM (2) and URW2 (2).
+    await pool().query(
+      `INSERT INTO validated_sales (id, case_id, user_code, agent_id, carrier, validated_at, source, reward_eligible, closer_name, status) VALUES
+         ('s_fr_ham_1', 'C_FR_HAM_1', 'HAM', 'agt_HAM', 'Aetna', '2026-11-27T14:00:00.000Z', 'sse', FALSE, 'Hamna Nasir', 'validated'),
+         ('s_fr_ham_2', 'C_FR_HAM_2', 'HAM', 'agt_HAM', 'Corebridge Financial', '2026-11-27T15:00:00.000Z', 'sse', FALSE, 'Hamna Nasir', 'validated'),
+         ('s_fr_urw_1', 'C_FR_URW_1', 'URW2', 'agt_URW2', 'Aetna', '2026-11-27T16:00:00.000Z', 'sse', FALSE, 'Urwah Malik', 'validated'),
+         ('s_fr_urw_2', 'C_FR_URW_2', 'URW2', 'agt_URW2', 'Aetna', '2026-11-27T17:00:00.000Z', 'sse', FALSE, 'Urwah Malik', 'validated')`,
+    );
+
+    const salesCountBefore = (await pool().query(`SELECT COUNT(*)::int AS n FROM validated_sales`)).rows[0].n;
+    const spinResultsBefore = (await pool().query(`SELECT COUNT(*)::int AS n FROM spin_results`)).rows[0].n;
+    const cutoffBefore = (await pool().query(`SELECT value FROM admin_settings WHERE key = 'reward_activation_cutoff'`)).rows[0].value;
+
+    // Execute one-time fresh campaign reset.
+    const r1 = await (
+      await expireApproveApi(
+        req("/api/admin/spins/expire", {
+          method: "POST",
+          cookie: sess.cookie,
+          csrf: sess.csrf,
+          body: { dryRun: false, mode: "fresh_campaign_reset", resetMarker: "nov27_fresh_reset_v1" },
+        }),
+      )
+    ).json();
+    expect(r1.ok).toBe(true);
+    expect(r1.alreadyExecuted).toBe(false);
+    expect(await balance("HAM")).toBe(0);
+    expect(await balance("AL1")).toBe(0);
+
+    // Repeat execution is strictly idempotent.
+    const r2 = await (
+      await expireApproveApi(
+        req("/api/admin/spins/expire", {
+          method: "POST",
+          cookie: sess.cookie,
+          csrf: sess.csrf,
+          body: { dryRun: false, mode: "fresh_campaign_reset", resetMarker: "nov27_fresh_reset_v1" },
+        }),
+      )
+    ).json();
+    expect(r2.alreadyExecuted).toBe(true);
+
+    // Non-spin tables, completed spin_results, and shared reward_activation_cutoff are untouched.
+    expect((await pool().query(`SELECT COUNT(*)::int AS n FROM validated_sales`)).rows[0].n).toBe(salesCountBefore);
+    expect((await pool().query(`SELECT COUNT(*)::int AS n FROM spin_results`)).rows[0].n).toBe(spinResultsBefore);
+    expect((await pool().query(`SELECT value FROM admin_settings WHERE key = 'reward_activation_cutoff'`)).rows[0].value).toBe(cutoffBefore);
+
+    // Find Missing Spins finds HAM (1 missing) and URW2 (1 missing) post-reset.
+    const rec = await (await reconcileApi(req("/api/admin/spins/reconcile?from=2026-11-27", { cookie: sess.cookie }))).json();
+    expect(rec.report.find((r: { userCode: string }) => r.userCode === "HAM")).toMatchObject({ rawValidatedSales: 2, missingSpins: 1 });
+    expect(rec.report.find((r: { userCode: string }) => r.userCode === "URW2")).toMatchObject({ rawValidatedSales: 2, missingSpins: 1 });
+
+    // Approve HAM & URW2 post-reset → each has exactly 1 spin; AL1 remains at 0.
+    await reconcileApproveApi(req("/api/admin/spins/reconcile", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { dryRun: false, agentIds: ["HAM", "URW2"], periodKey: "D:2026-11-27" } }));
+    expect(await balance("HAM")).toBe(1);
+    expect(await balance("URW2")).toBe(1);
+    expect(await balance("AL1")).toBe(0);
   });
 });

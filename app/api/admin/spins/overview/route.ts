@@ -32,7 +32,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
-        settings: { ...settings, activationCutoff: settings.activationCutoff?.toISOString() ?? null },
+        settings: {
+          ...settings,
+          activationCutoff: settings.activationCutoff?.toISOString() ?? null,
+          spinCampaignStartAt: settings.spinCampaignStartAt.toISOString(),
+        },
         timezone: process.env.SALES_ARENA_TIMEZONE || "America/New_York",
         rules: rules.rows,
         teams: teams.rows,

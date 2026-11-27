@@ -11,7 +11,7 @@ import { ReconcileTab } from "@/frontend/components/admin/spins/ReconcileTab";
 import { PreviewTab } from "@/frontend/components/admin/spins/PreviewTab";
 import { cn } from "@/shared/utils";
 
-const TABS = ["Rules & Settings", "Manual Allocation", "Agent Balances", "Credit History", "Prizes", "Displays", "Reconcile", "Preview"] as const;
+const TABS = ["Rules & Settings", "Manual Allocation", "Agent Balances", "Spin History", "Prizes", "Displays", "Reconcile", "Preview"] as const;
 type Tab = (typeof TABS)[number];
 
 /** Spin Management — everything here is stored in PostgreSQL and enforced on the server. */
@@ -47,11 +47,11 @@ export default function SpinManagementPage() {
         <BalancesTab
           onHistory={(u) => {
             setHistoryFor(u);
-            setTab("Credit History");
+            setTab("Spin History");
           }}
         />
       )}
-      {tab === "Credit History" && <HistoryTab key={historyFor} initialUserCode={historyFor} />}
+      {tab === "Spin History" && <HistoryTab key={historyFor} initialUserCode={historyFor} />}
       {tab === "Prizes" && <PrizesTab />}
       {tab === "Displays" && <DevicesTab />}
       {tab === "Reconcile" && <ReconcileTab />}

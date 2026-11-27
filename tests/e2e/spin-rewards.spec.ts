@@ -151,4 +151,48 @@ test.describe("spin rewards", () => {
     await expect(page.locator("[data-reveal-state]")).toBeVisible({ timeout: 30_000 });
     expect((await spinStatus(api, code)).available).toBe(0);
   });
+
+  test("two-TV isolation: pre-existing pending credits appear on both TVs on load; Spin Now opens wheel only on TV 1 and clears TV 2 on completion", async ({ context, page: tv1, baseURL }) => {
+    test.skip(!(await liveDataConfigured(tv1)), "Needs the live server with the dev database.");
+    test.setTimeout(120_000);
+    const headers = await adminHeaders(context, baseURL!);
+    const api = context.request;
+    const code = `E2ETV${Date.now().toString(36).toUpperCase()}`;
+
+    test.skip(!(await createDevAgent(code, "Multi TV Closer")), "Needs the local sales_arena_dev database.");
+    const catalog = await (await api.get("/api/admin/catalog")).json();
+    if (!(catalog.prizes ?? []).some((p: { title: string; active: boolean }) => p.title === "E2E Prize" && p.active))
+      await api.post("/api/admin/catalog", { headers, data: { title: "E2E Prize", icon: "gift", color: "#FFC857", weight: 1, quantity: null } });
+
+    // Pre-allocate 1 spin credit BEFORE either TV opens (verifies existing DB credits appear on initial load without allocating new ones).
+    const alloc = await api.post("/api/admin/spins/allocate", {
+      headers,
+      data: { userCode: code, quantity: 1, reason: "Pre-existing credit", idempotencyKey: `e2etv-${randomUUID()}` },
+    });
+    expect(alloc.ok()).toBe(true);
+
+    const tv2 = await context.newPage();
+    await Promise.all([tv1.goto("/"), tv2.goto("/")]);
+    await expect(tv1.getByRole("region", { name: "Leaderboard" })).toBeVisible({ timeout: 45_000 });
+    await expect(tv2.getByRole("region", { name: "Leaderboard" })).toBeVisible({ timeout: 45_000 });
+
+    // Both TV 1 and TV 2 show the pre-existing pending invitation on initial load.
+    await expect(tv1.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 15_000 });
+    await expect(tv2.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 15_000 });
+
+    // Click SPIN NOW on TV 1 only.
+    await tv1.getByTestId(`pending-spin-cta-${code}`).click();
+    await expect(tv1.getByTestId("spin-agent-name")).toHaveText("Multi TV Closer", { timeout: 15_000 });
+    // TV 2 must stay on its normal Arena screen (never open the wheel).
+    await expect(tv2.getByTestId("spin-button")).toHaveCount(0);
+
+    const spinResp = tv1.waitForResponse((r) => r.url().endsWith("/api/arena/spin") && r.request().method() === "POST");
+    await tv1.getByTestId("spin-button").click();
+    expect((await (await spinResp).json()).ok).toBe(true);
+    await expect(tv1.locator("[data-reveal-state]")).toBeVisible({ timeout: 30_000 });
+
+    // TV 2's pending invitation disappears once the credit is consumed.
+    await expect(tv2.getByTestId(`pending-spin-${code}`)).toHaveCount(0, { timeout: 15_000 });
+    await tv2.close();
+  });
 });

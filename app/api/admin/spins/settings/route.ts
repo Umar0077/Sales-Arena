@@ -30,6 +30,12 @@ export async function POST(req: NextRequest) {
       updates.push(["reward_activation_cutoff", d.toISOString()]);
     }
   }
+  if ("spinCampaignStartAt" in body) {
+    const v = body.spinCampaignStartAt;
+    const d = new Date(String(v));
+    if (!v || Number.isNaN(d.getTime())) return jsonError(400, "Spin campaign start date/time is not valid.");
+    updates.push(["spin_campaign_start_at", d.toISOString()]);
+  }
   if ("manualMaxPerGrant" in body) {
     const n = Number(body.manualMaxPerGrant);
     if (!Number.isInteger(n) || n < 1 || n > 1000) return jsonError(400, "Manual grant limit must be a whole number from 1 to 1000.");
@@ -53,13 +59,27 @@ export async function POST(req: NextRequest) {
       action: "spins.settings_updated",
       targetType: "admin_settings",
       targetId: "spins",
-      details: { before: { ...before, activationCutoff: before.activationCutoff?.toISOString() ?? null }, changes: Object.fromEntries(updates) },
+      details: {
+        before: {
+          ...before,
+          activationCutoff: before.activationCutoff?.toISOString() ?? null,
+          spinCampaignStartAt: before.spinCampaignStartAt.toISOString(),
+        },
+        changes: Object.fromEntries(updates),
+      },
       ip: requestIp(req),
       userAgent: requestUserAgent(req),
     });
     await client.query("COMMIT");
     const after = await readSpinSettings(auth.pool);
-    return NextResponse.json({ ok: true, settings: { ...after, activationCutoff: after.activationCutoff?.toISOString() ?? null } });
+    return NextResponse.json({
+      ok: true,
+      settings: {
+        ...after,
+        activationCutoff: after.activationCutoff?.toISOString() ?? null,
+        spinCampaignStartAt: after.spinCampaignStartAt.toISOString(),
+      },
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     return errorResponse(err);

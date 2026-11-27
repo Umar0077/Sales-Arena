@@ -56,6 +56,8 @@ interface SpinFlowState {
   setStage: (stage: SpinFlowStage) => void;
   /** End the current flow and return to the Live Arena. */
   finish: () => void;
+  /** Dismiss a pending achievement popup/queue entry for an agent (e.g. when consumed on another TV). */
+  dismissAgent: (userCode: string) => void;
   clear: () => void;
 }
 
@@ -92,5 +94,13 @@ export const useSpinFlowStore = create<SpinFlowState>()((set, get) => ({
   },
   setStage: (stage) => set({ stage }),
   finish: () => set({ active: null, stage: "idle" }),
+  dismissAgent: (userCode) =>
+    set((s) => {
+      const code = userCode.toUpperCase();
+      const queue = s.queue.filter((q) => q.userCode?.toUpperCase() !== code);
+      // Only close if the TV is still on the achievement prompt (never yank an actively spinning wheel).
+      const activeIsPrompt = s.stage === "achievement" && s.active?.userCode?.toUpperCase() === code;
+      return activeIsPrompt ? { queue, active: null, stage: "idle" } : { queue };
+    }),
   clear: () => set({ queue: [], active: null, stage: "idle" }),
 }));

@@ -724,7 +724,17 @@ export function LiveApiSync() {
             }
           });
 
-          eventSource.addEventListener("spin.completed", () => {
+          eventSource.addEventListener("spin.completed", (e) => {
+            try {
+              const payload = JSON.parse((e as MessageEvent).data);
+              const code = String(payload?.userCode ?? "").toUpperCase();
+              const left = Number(payload?.availableLeft ?? 0);
+              if (code && left <= 0) {
+                useSpinFlowStore.getState().dismissAgent(code);
+              }
+            } catch {
+              /* malformed payload ignored */
+            }
             scheduleLiveSync(600);
             void useSpinBoardStore.getState().refreshPending();
             void useSpinBoardStore.getState().refreshWinners();

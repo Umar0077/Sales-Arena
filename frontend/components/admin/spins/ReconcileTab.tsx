@@ -1,133 +1,204 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Search, CheckCircle2 } from "lucide-react";
 import { adminApi } from "@/frontend/components/admin/admin-api";
-import { Section, PrimaryButton, GhostButton } from "@/frontend/components/admin/ui";
-import { Notice, Table, td } from "./shared";
+import { Section, Field, PrimaryButton, GhostButton, inputClass } from "@/frontend/components/admin/ui";
+import { fmtDate, Notice, Table, td } from "./shared";
 
-interface ReportRow {
+export interface MissingSpinReportRow {
   userCode: string;
   name: string;
+  periodKey: string;
+  businessDate: string;
   rawValidatedSales: number;
-  actualCredits: number;
-  expectedCredits: number;
-  missingCredits: number;
-  rule: string | null;
+  weightedCredits: number;
+  salesPerSpin: number;
+  spinsPerThreshold: number;
+  expectedAutoSpins: number;
+  grantedAutoSpins: number;
+  manualEarned: number;
+  consumed: number;
+  available: number;
+  expired: number;
+  missingSpins: number;
+  spinEligible: boolean;
+  status: "missing" | "granted" | "below_threshold" | "ineligible" | "disabled";
+  reason: string;
+  ruleId: string;
 }
 
+const STATUS_BADGE: Record<MissingSpinReportRow["status"], string> = {
+  missing: "bg-amber-500/20 text-amber-200 border-amber-400/40",
+  granted: "bg-emerald-500/15 text-emerald-200 border-emerald-400/30",
+  below_threshold: "bg-white/10 text-text-secondary border-white/10",
+  ineligible: "bg-rose-500/15 text-rose-200 border-rose-400/30",
+  disabled: "bg-rose-500/15 text-rose-200 border-rose-400/30",
+};
+
 /**
- * Read-only reconciliation: compares expected spin credits (raw validated sales ÷ threshold)
- * against what has actually been granted. Admins can then write missing credits with one click.
+ * Shared Find Missing Spins & Reconcile panel (used in Spin History → Find Missing Spins
+ * and the Reconcile tab). Queries authoritative validated_sales from America/New_York
+ * business dates and allows single-agent or batch missing spin approval.
  */
-export function ReconcileTab() {
-  const [report, setReport] = useState<ReportRow[] | null>(null);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+export function FindMissingSpinsPanel({ onAllocated }: { onAllocated?: () => void }) {
+  const [fromDate, setFromDate] = useState("2026-11-27");
+  const [toDate, setToDate] = useState("");
+  const [q, setQ] = useState("");
+  const [report, setReport] = useState<MissingSpinReportRow[] | null>(null);
+  const [meta, setMeta] = useState<{ campaignStartAt: string; timezone: string; autoEnabled: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [approvingKey, setApprovingKey] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
-    const r = await adminApi<{ report: ReportRow[] }>("/api/admin/spins/reconcile");
+    const params = new URLSearchParams();
+    if (fromDate) params.set("from", fromDate);
+    if (toDate) params.set("to", toDate);
+    if (q.trim()) params.set("q", q.trim());
+    const r = await adminApi<{
+      campaignStartAt: string;
+      timezone: string;
+      autoEnabled: boolean;
+      report: MissingSpinReportRow[];
+    }>(`/api/admin/spins/reconcile?${params.toString()}`);
     setBusy(false);
     if (r.ok) {
       setReport(r.data.report);
-      setSelected(new Set());
-      if (r.data.report.length === 0) setMsg({ kind: "info", text: "Automatic spins are disabled or no activation cutoff is set. Enable them in Rules & Settings first." });
-      else setMsg(null);
-    } else setMsg({ kind: "error", text: r.error });
-  }, []);
+      setMeta({
+        campaignStartAt: r.data.campaignStartAt,
+        timezone: r.data.timezone,
+        autoEnabled: r.data.autoEnabled,
+      });
+      setMsg(null);
+    } else {
+      setMsg({ kind: "error", text: r.error });
+    }
+  }, [fromDate, toDate, q]);
 
   useEffect(() => {
-    const t = setTimeout(() => void load(), 0);
+    const t = setTimeout(() => void load(), 150);
     return () => clearTimeout(t);
   }, [load]);
 
-  const withDeficit = (report ?? []).filter((r) => r.missingCredits > 0);
-  const toggleAll = () =>
-    setSelected((prev) =>
-      prev.size === withDeficit.length ? new Set() : new Set(withDeficit.map((r) => r.userCode)),
-    );
-  const toggle = (uc: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.has(uc) ? next.delete(uc) : next.add(uc);
-      return next;
-    });
-
-  const grantMissing = async () => {
-    if (selected.size === 0) return;
-    if (!confirm(`Grant missing spin credits to ${selected.size} agent${selected.size > 1 ? "s" : ""}? This writes to the ledger and cannot be undone.`)) return;
-    setBusy(true);
-    const r = await adminApi<{ granted: Array<{ userCode: string; name: string; grantsAdded: number }> }>(
+  const allocateSingle = async (row: MissingSpinReportRow) => {
+    const rowKey = `${row.userCode}:${row.periodKey}`;
+    setApprovingKey(rowKey);
+    const r = await adminApi<{ granted: Array<{ userCode: string; name: string; grantsAdded: number; balanceAfter: number }> }>(
       "/api/admin/spins/reconcile",
-      { method: "POST", body: { dryRun: false, agentIds: Array.from(selected) } },
+      { method: "POST", body: { dryRun: false, agentIds: [row.userCode], periodKey: row.periodKey } },
     );
-    setBusy(false);
+    setApprovingKey(null);
     if (r.ok) {
-      const count = r.data.granted.reduce((n, g) => n + g.grantsAdded, 0);
-      setMsg({ kind: "ok", text: `Reconciliation complete. ${count} credit batch${count !== 1 ? "es" : ""} granted to ${r.data.granted.length} agent${r.data.granted.length !== 1 ? "s" : ""}.` });
+      const g = r.data.granted[0];
+      setMsg({
+        kind: "ok",
+        text:
+          g && g.grantsAdded > 0
+            ? `Allocated missing spin(s) for ${row.name} (${row.periodKey}). Available balance: ${g.balanceAfter}.`
+            : `No new spins granted for ${row.name} (already granted or ineligible).`,
+      });
+      onAllocated?.();
       void load();
-    } else setMsg({ kind: "error", text: r.error });
+    } else {
+      setMsg({ kind: "error", text: r.error });
+    }
   };
 
+  const withMissing = (report ?? []).filter((r) => r.missingSpins > 0);
+
   return (
-    <div className="space-y-6">
+    <Section
+      title="Find Missing Spins"
+      description="Compares authoritative validated sales (America/New_York business dates) against granted automatic spins. Includes agents who have qualifying sales without any prior spin ledger row."
+    >
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      {meta && (
+        <p className="text-xs text-text-muted">
+          Campaign start: <span className="text-white">{fmtDate(meta.campaignStartAt)}</span> · Timezone: <span className="text-white">{meta.timezone}</span> · Auto spins: <span className={meta.autoEnabled ? "text-emerald-300" : "text-rose-300"}>{meta.autoEnabled ? "Enabled" : "Disabled"}</span>
+        </p>
+      )}
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="From business date (NY)">
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={`${inputClass} w-44`} aria-label="From business date" />
+        </Field>
+        <Field label="To business date (optional)">
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={`${inputClass} w-44`} aria-label="To business date" />
+        </Field>
+        <Field label="Search agent">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or userCode" className={`${inputClass} w-52 pl-9`} aria-label="Search missing spins" />
+          </div>
+        </Field>
+        <GhostButton disabled={busy} onClick={load} data-testid="reconcile-refresh">
+          {busy ? "Scanning…" : "Scan Sales"}
+        </GhostButton>
+      </div>
 
-      <Section
-        title="Spin credit reconciliation"
-        description="Read-only audit: compares expected credits (raw validated sales ÷ rule threshold) against what the ledger has actually granted. Use this to fix missing credits without duplicating existing ones."
-      >
-        <div className="flex flex-wrap items-center gap-3">
-          <GhostButton disabled={busy} onClick={load}>
-            {busy ? "Loading…" : "Refresh report"}
-          </GhostButton>
-          {withDeficit.length > 0 && (
-            <>
-              <GhostButton disabled={busy} onClick={toggleAll}>
-                {selected.size === withDeficit.length ? "Deselect all" : `Select all with deficit (${withDeficit.length})`}
-              </GhostButton>
-              <PrimaryButton disabled={busy || selected.size === 0} onClick={grantMissing}>
-                Grant missing credits ({selected.size} selected)
-              </PrimaryButton>
-            </>
-          )}
-        </div>
+      {withMissing.length > 0 && (
+        <Notice kind="info">
+          Found <b>{withMissing.length}</b> agent period{withMissing.length === 1 ? "" : "s"} with missing spin entitlements. Approve individually below.
+        </Notice>
+      )}
 
-        {report !== null && (
-          <Table
-            head={["", "Agent", "userCode", "Raw sales", "Expected credits", "Actual credits", "Missing", "Rule"]}
-            empty={report.length === 0}
-            testId="reconcile-table"
-          >
-            {report.map((r) => (
-              <tr key={r.userCode} className={r.missingCredits > 0 ? "bg-rose-500/5" : ""}>
+      {report !== null && (
+        <Table
+          head={["Agent", "Date / Period", "Raw Sales", "Weighted", "Expected", "Auto Granted", "Manual", "Used", "Available", "Missing", "Status / Reason", "Action"]}
+          empty={report.length === 0}
+          testId="reconcile-table"
+        >
+          {report.map((r) => {
+            const rowKey = `${r.userCode}:${r.periodKey}`;
+            return (
+              <tr key={rowKey} className={r.missingSpins > 0 ? "bg-amber-500/[0.06]" : ""}>
                 <td className={td}>
-                  {r.missingCredits > 0 && (
-                    <input
-                      type="checkbox"
-                      checked={selected.has(r.userCode)}
-                      onChange={() => toggle(r.userCode)}
-                      className="h-4 w-4 accent-[#7568FF]"
-                      aria-label={`Select ${r.name}`}
-                    />
+                  <span className="font-medium text-white">{r.name}</span>
+                  <span className="block text-xs text-text-muted tabular">{r.userCode}</span>
+                </td>
+                <td className={`${td} tabular whitespace-nowrap`}>
+                  <span className="text-white">{r.businessDate}</span>
+                  <span className="block text-xs text-text-muted">{r.periodKey}</span>
+                </td>
+                <td className={`${td} tabular font-semibold text-white`}>{r.rawValidatedSales}</td>
+                <td className={`${td} tabular text-text-secondary`}>{r.weightedCredits}</td>
+                <td className={`${td} tabular`}>{r.expectedAutoSpins}</td>
+                <td className={`${td} tabular`}>{r.grantedAutoSpins}</td>
+                <td className={`${td} tabular`}>{r.manualEarned}</td>
+                <td className={`${td} tabular`}>{r.consumed}</td>
+                <td className={`${td} tabular font-bold text-gold`}>{r.available}</td>
+                <td className={`${td} tabular font-bold ${r.missingSpins > 0 ? "text-amber-300" : "text-emerald-300"}`}>
+                  {r.missingSpins > 0 ? `+${r.missingSpins}` : "0"}
+                </td>
+                <td className={td}>
+                  <span className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[r.status]}`}>
+                    {r.reason}
+                  </span>
+                </td>
+                <td className={td}>
+                  {r.missingSpins > 0 ? (
+                    <PrimaryButton
+                      disabled={approvingKey === rowKey}
+                      onClick={() => allocateSingle(r)}
+                      data-testid={`allocate-missing-${r.userCode}`}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {approvingKey === rowKey ? "Allocating…" : "Allocate Missing Spin"}
+                    </PrimaryButton>
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
                   )}
                 </td>
-                <td className={`${td} font-medium text-white`}>{r.name}</td>
-                <td className={`${td} text-text-muted tabular`}>{r.userCode}</td>
-                <td className={`${td} tabular`}>{r.rawValidatedSales}</td>
-                <td className={`${td} tabular`}>{r.expectedCredits}</td>
-                <td className={`${td} tabular`}>{r.actualCredits}</td>
-                <td className={`${td} tabular font-bold ${r.missingCredits > 0 ? "text-rose-300" : "text-emerald-300"}`}>
-                  {r.missingCredits > 0 ? `−${r.missingCredits}` : "✓"}
-                </td>
-                <td className={`${td} text-text-muted`}>{r.rule ?? "global"}</td>
               </tr>
-            ))}
-          </Table>
-        )}
-        {report === null && !msg && <p className="text-sm text-text-muted">Loading reconciliation report…</p>}
-      </Section>
-    </div>
+            );
+          })}
+        </Table>
+      )}
+    </Section>
   );
+}
+
+export function ReconcileTab() {
+  return <FindMissingSpinsPanel />;
 }

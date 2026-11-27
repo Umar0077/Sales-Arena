@@ -2,7 +2,6 @@ import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import {
   autoGrantKey,
-  countingStart,
   periodWindow,
   selectRule,
   thresholdsToGrant,
@@ -26,10 +25,16 @@ export class SpinError extends Error {
   }
 }
 
+export const DEFAULT_SPIN_CAMPAIGN_START = new Date("2026-11-27T05:00:00.000Z");
+
 export interface SpinSettings {
   autoEnabled: boolean;
-  /** Automatic rewards only for sales validated at/after this time. null = automatic rewards off. */
+  /** Cash/SPIF shared reward activation cutoff (kept separate from Spin & Win). */
   activationCutoff: Date | null;
+  /** Isolated Spin & Win campaign start instant (default: Nov 27, 2026 00:00 America/New_York). */
+  spinCampaignStartAt: Date;
+  /** Timestamp of the one-time fresh campaign reset, if executed. */
+  spinCampaignResetAt: Date | null;
   manualMaxPerGrant: number;
 }
 
@@ -39,15 +44,21 @@ export function businessCalendar(weekStartDay = 1): BusinessCalendar {
 
 export async function readSpinSettings(db: Pool | PoolClient): Promise<SpinSettings> {
   const { rows } = await db.query(
-    `SELECT key, value FROM admin_settings WHERE key IN ('auto_spins_enabled', 'reward_activation_cutoff', 'manual_spin_max_per_grant')`,
+    `SELECT key, value FROM admin_settings WHERE key IN ('auto_spins_enabled', 'reward_activation_cutoff', 'spin_campaign_start_at', 'spin_campaign_reset_at', 'manual_spin_max_per_grant')`,
   );
   const m = new Map(rows.map((r) => [r.key, r.value]));
   const cutoffRaw = m.get("reward_activation_cutoff");
   const cutoff = typeof cutoffRaw === "string" ? new Date(cutoffRaw) : null;
+  const spinStartRaw = m.get("spin_campaign_start_at");
+  const spinStart = typeof spinStartRaw === "string" ? new Date(spinStartRaw) : null;
+  const resetRaw = m.get("spin_campaign_reset_at");
+  const resetAt = typeof resetRaw === "string" ? new Date(resetRaw) : null;
   const max = Number(m.get("manual_spin_max_per_grant"));
   return {
     autoEnabled: m.get("auto_spins_enabled") === true,
     activationCutoff: cutoff && !Number.isNaN(cutoff.getTime()) ? cutoff : null,
+    spinCampaignStartAt: spinStart && !Number.isNaN(spinStart.getTime()) ? spinStart : DEFAULT_SPIN_CAMPAIGN_START,
+    spinCampaignResetAt: resetAt && !Number.isNaN(resetAt.getTime()) ? resetAt : null,
     manualMaxPerGrant: Number.isInteger(max) && max > 0 ? max : 50,
   };
 }
@@ -68,7 +79,7 @@ export function mapRuleRow(r: Record<string, unknown>): SpinRuleVersion {
 
 export interface LedgerEntryInput {
   userCode: string;
-  kind: "automatic" | "manual" | "consume";
+  kind: "automatic" | "manual" | "consume" | "expire";
   quantity: number;
   idempotencyKey: string;
   adminId?: string | null;
@@ -130,15 +141,26 @@ export async function applyLedgerEntry(client: PoolClient, e: LedgerEntryInput):
       e.ruleId ?? null, e.periodKey ?? null, e.thresholdN ?? null, e.saleId ?? null, e.spinResultId ?? null, e.idempotencyKey,
     ],
   );
-  const col = e.kind === "automatic" ? "auto_earned" : e.kind === "manual" ? "manual_earned" : "consumed";
+  const col =
+    e.kind === "automatic"
+      ? "auto_earned"
+      : e.kind === "manual"
+        ? "manual_earned"
+        : e.kind === "expire"
+          ? "expired"
+          : "consumed";
   const delta = Math.abs(e.quantity);
   // Legacy columns (earned/bonus/used) are kept in step for older readers.
   const legacy = e.kind === "automatic" ? "earned" : e.kind === "manual" ? "bonus" : "used";
+  const updateSql =
+    e.kind === "expire"
+      ? `UPDATE spin_credits SET available = $2, expired = expired + $3, updated_at = NOW() WHERE user_code = $1`
+      : `UPDATE spin_credits SET available = $2, ${col} = ${col} + $3, ${legacy} = ${legacy} + $3,
+            last_spin_at = CASE WHEN $4 THEN NOW() ELSE last_spin_at END, updated_at = NOW()
+          WHERE user_code = $1`;
   await client.query(
-    `UPDATE spin_credits SET available = $2, ${col} = ${col} + $3, ${legacy} = ${legacy} + $3,
-       last_spin_at = CASE WHEN $4 THEN NOW() ELSE last_spin_at END, updated_at = NOW()
-     WHERE user_code = $1`,
-    [e.userCode, after, delta, e.kind === "consume"],
+    updateSql,
+    e.kind === "expire" ? [e.userCode, after, delta] : [e.userCode, after, delta, e.kind === "consume"],
   );
   return { replayed: false, transactionId: Number(ins.rows[0].id), balanceBefore: before, balanceAfter: after };
 }
@@ -218,11 +240,12 @@ export interface AutoGrant {
  */
 export async function grantAutomaticSpins(
   client: PoolClient,
-  args: { userCode: string; triggerSaleId: string; validatedAt: Date; calendar?: BusinessCalendar },
+  args: { userCode: string; triggerSaleId: string; validatedAt: Date; calendar?: BusinessCalendar; allowCurrentRuleFallback?: boolean },
 ): Promise<AutoGrant[]> {
   const settings = await readSpinSettings(client);
-  if (!settings.autoEnabled || !settings.activationCutoff) return [];
-  if (args.validatedAt.getTime() < settings.activationCutoff.getTime()) return [];
+  if (!settings.autoEnabled) return [];
+  const campaignStart = settings.spinCampaignStartAt;
+  if (args.validatedAt.getTime() < campaignStart.getTime()) return [];
 
   const agent = (
     await client.query(`SELECT team_id, campaign_id, spin_eligible FROM agents WHERE user_code = $1`, [args.userCode])
@@ -234,21 +257,24 @@ export async function grantAutomaticSpins(
   const rules = (
     await client.query(`SELECT * FROM target_rules WHERE effective_from <= $1 AND (superseded_at IS NULL OR superseded_at > $1)`, [args.validatedAt])
   ).rows.map(mapRuleRow);
-  const rule = selectRule(rules, { teamId: agent.team_id, campaignId: agent.campaign_id }, args.validatedAt);
+  let rule = selectRule(rules, { teamId: agent.team_id, campaignId: agent.campaign_id }, args.validatedAt);
+  if (!rule && args.allowCurrentRuleFallback) {
+    const currentRules = (await client.query(`SELECT * FROM target_rules WHERE superseded_at IS NULL`)).rows.map(mapRuleRow);
+    rule = selectRule(currentRules, { teamId: agent.team_id, campaignId: agent.campaign_id }, new Date());
+  }
   if (!rule || !rule.enabled) return [];
 
   const cal = args.calendar ?? businessCalendar();
   const win = periodWindow(rule.period, args.validatedAt, cal);
-  const start = countingStart(rule, win, settings.activationCutoff);
-  // Count only reward-eligible, still-validated sales in [start, end) that this rule version covers.
+  const start = win.start ? new Date(Math.max(win.start.getTime(), campaignStart.getTime())) : campaignStart;
   // Raw validated transaction count (not weighted credits) is the spin eligibility metric.
-  // Carrier weighting applies only to cash bonuses; a sale is a sale for spin purposes.
+  // Uses spinCampaignStartAt (independent of cash-bonus reward_activation_cutoff).
   const cnt = await client.query(
     `SELECT COUNT(*)::int AS n FROM validated_sales
-      WHERE user_code = $1 AND reward_eligible AND status = 'validated'
+      WHERE user_code = $1 AND status = 'validated' AND source <> 'backfill'
         AND validated_at >= $2 AND ($3::timestamptz IS NULL OR validated_at < $3)
         AND ($4::timestamptz IS NULL OR validated_at < $4)`,
-    [args.userCode, start, win.end, rule.supersededAt],
+    [args.userCode, start, win.end, args.allowCurrentRuleFallback ? null : rule.supersededAt],
   );
   const granted = await client.query(
     `SELECT COALESCE(MAX(threshold_n), 0)::int AS n FROM automatic_spin_awards WHERE rule_id = $1 AND user_code = $2 AND period_key = $3`,

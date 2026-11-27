@@ -19,7 +19,7 @@ interface Rule {
   created_by_email: string | null;
 }
 interface Overview {
-  settings: { autoEnabled: boolean; activationCutoff: string | null; manualMaxPerGrant: number };
+  settings: { autoEnabled: boolean; activationCutoff: string | null; spinCampaignStartAt: string; manualMaxPerGrant: number };
   timezone: string;
   rules: Rule[];
   teams: Array<{ id: string; name: string }>;
@@ -34,6 +34,7 @@ export function RulesTab() {
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [form, setForm] = useState({ scopeType: "global", scopeId: "", salesPerSpin: 2, spinsPerThreshold: 1, period: "daily", enabled: true, when: "now", at: "", note: "" });
   const [cutoffAt, setCutoffAt] = useState("");
+  const [campaignStartInput, setCampaignStartInput] = useState("");
   const [maxGrant, setMaxGrant] = useState(50);
   const [busy, setBusy] = useState(false);
 
@@ -108,7 +109,27 @@ export function RulesTab() {
 
       <Section title="Automatic spins" description={`Spins are granted on the server from validated sales only. Business timezone: ${data.timezone}.`}>
         <Toggle label="Automatic spins enabled" checked={s.autoEnabled} onChange={(v) => saveSettings({ autoSpinsEnabled: v }, v ? "Automatic spins enabled." : "Automatic spins disabled.")} />
-        <Field label="Reward activation cutoff" hint="Only sales validated at or after this moment can earn automatic spins or bonuses. Imported history never does.">
+        <Field label="Spin campaign start (isolated from cash bonuses)" hint="Only sales validated at or after this instant count for Spin & Win. Changing this never affects cash bonuses/SPIFs.">
+          <div className="space-y-2">
+            <p className="text-sm text-white" data-testid="spin-campaign-start">
+              Active since {fmtDate(s.spinCampaignStartAt)} ({s.spinCampaignStartAt})
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <GhostButton
+                disabled={busy}
+                onClick={() => saveSettings({ spinCampaignStartAt: "2026-11-27T05:00:00.000Z" }, "Spin campaign start set to Nov 27, 2026 00:00 America/New_York.")}
+                data-testid="spin-start-nov27"
+              >
+                Set to Nov 27, 2026 00:00 NY
+              </GhostButton>
+              <input type="datetime-local" value={campaignStartInput} onChange={(e) => setCampaignStartInput(e.target.value)} className={`${inputClass} max-w-[220px]`} aria-label="Spin campaign start date and time" />
+              <GhostButton disabled={busy || !campaignStartInput} onClick={() => saveSettings({ spinCampaignStartAt: new Date(campaignStartInput).toISOString() }, "Spin campaign start updated.")}>
+                Apply
+              </GhostButton>
+            </div>
+          </div>
+        </Field>
+        <Field label="Cash bonus activation cutoff (shared)" hint="Controls cash bonus/SPIF eligibility. Leave unchanged if you only want to adjust Spin & Win.">
           <div className="space-y-2">
             <p className="text-sm text-white" data-testid="activation-cutoff">
               {s.activationCutoff ? `Active since ${fmtDate(s.activationCutoff)}` : "Not set — automatic rewards are OFF until you set it."}

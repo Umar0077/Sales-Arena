@@ -21,9 +21,12 @@ export async function GET(_req: NextRequest) {
       name: string;
       available: number;
     }>(
-      `SELECT c.user_code, c.agent_id, a.name, c.available
+      `SELECT c.user_code,
+              COALESCE(a.id, c.agent_id, 'agt_' || c.user_code) AS agent_id,
+              COALESCE(a.name, c.user_code) AS name,
+              c.available::int AS available
          FROM spin_credits c
-         JOIN agents a ON a.id = c.agent_id
+         LEFT JOIN agents a ON a.user_code = c.user_code
         WHERE c.available > 0
         ORDER BY c.updated_at DESC`,
     );
