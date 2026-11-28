@@ -137,7 +137,7 @@ export function SpinStage({ agentId, agent: agentProp, demo = false, reducedMoti
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "same-origin",
-              body: JSON.stringify({ userCode, idempotencyKey: keyRef.current }),
+              body: JSON.stringify({ userCode, idempotencyKey: keyRef.current, claimOnly: true }),
             });
             const j = await res.json().catch(() => ({}));
             if (!res.ok || !j.ok) {
@@ -208,8 +208,16 @@ export function SpinStage({ agentId, agent: agentProp, demo = false, reducedMoti
       } else if (live) {
         left = serverLeft.current;
         setServer((sv) => (sv ? { ...sv, available: left } : sv));
-        void useSpinBoardStore.getState().refreshPending();
-        void useSpinBoardStore.getState().refreshWinners();
+        void fetch("/api/arena/spin/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          keepalive: true,
+          body: JSON.stringify({ spinId: p.spinId }),
+        }).finally(() => {
+          void useSpinBoardStore.getState().refreshPending();
+          void useSpinBoardStore.getState().refreshWinners();
+        });
       } else {
         useArenaStore.getState().completeSpin(p.spinId);
         left = computeSpinCredit(pickData(useArenaStore.getState()), agentId).available;

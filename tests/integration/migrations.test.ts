@@ -57,7 +57,7 @@ describe("migrations", () => {
     await p.query(`INSERT INTO validated_sales (id, case_id, user_code, agent_id, premium, validated_at) VALUES ('sale_c1', 'C1', 'OLD1', 'agt_old', 10, NOW())`);
 
     const res = await runMigrations(p);
-    expect(res.applied).toEqual(["002_admin_auth", "003_spin_credit_ledger", "004_sync_eligibility_devices", "005_sales_targets", "006_reward_programs_v2", "007_ip_perimeter_security", "008_bonus_award_recovery", "009_highest_tier_rewards", "010_teams_arena"]);
+    expect(res.applied).toEqual(MIGRATIONS.slice(1).map((m) => m.version));
     const sale = await p.query(`SELECT source, reward_eligible, status FROM validated_sales WHERE case_id = 'C1'`);
     expect(sale.rows[0]).toEqual({ source: "backfill", reward_eligible: false, status: "validated" });
     const cs = await p.query(`SELECT checksum FROM schema_migrations WHERE version = '001_initial_schema'`);
@@ -94,5 +94,29 @@ describe("migrations", () => {
     // Every foreign key is validated.
     const notValid = await p.query(`SELECT COUNT(*)::int AS n FROM pg_constraint WHERE contype = 'f' AND NOT convalidated`);
     expect(notValid.rows[0].n).toBe(0);
+  });
+
+  it("migration 012 upgrades a representative 001..011 database without deleting or resetting any existing data", async () => {
+    const p = pool();
+    await p.query("DROP SCHEMA public CASCADE");
+    await p.query("CREATE SCHEMA public");
+    await p.query(`CREATE TABLE schema_migrations (version VARCHAR(64) PRIMARY KEY, checksum VARCHAR(64), applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    for (const m of MIGRATIONS.slice(0, 11)) {
+      const sql = readFileSync(path.join(defaultMigrationsDir(), m.file), "utf8");
+      await p.query(sql);
+      const { createHash } = await import("node:crypto");
+      await p.query(`INSERT INTO schema_migrations (version, checksum) VALUES ($1, $2)`, [m.version, createHash("sha256").update(sql).digest("hex")]);
+    }
+    // Seed representative existing records before 012 runs.
+    await p.query(`INSERT INTO agents (id, user_code, name, initials) VALUES ('agt_rep', 'REP1', 'Rep Agent', 'RA')`);
+    await p.query(`INSERT INTO validated_sales (id, case_id, user_code, agent_id, premium, validated_at, status) VALUES ('s_rep', 'C_REP', 'REP1', 'agt_rep', 99, NOW(), 'validated')`);
+    await p.query(`INSERT INTO spin_credits (id, user_code, agent_id, available, manual_earned) VALUES ('credit_REP1', 'REP1', 'agt_rep', 5, 5)`);
+    await p.query(`INSERT INTO spin_results (id, user_code, agent_id, reward_title, reward_color, reward_icon, status, mode) VALUES ('sr_rep', 'REP1', 'agt_rep', 'Gift Card', '#FFC857', 'gift', 'completed', 'server')`);
+
+    const res = await runMigrations(p);
+    expect(res.applied).toEqual(["012_spin_campaign_and_expire"]);
+    expect((await p.query(`SELECT available, manual_earned, expired FROM spin_credits WHERE user_code = 'REP1'`)).rows[0]).toEqual({ available: 5, manual_earned: 5, expired: 0 });
+    expect((await p.query(`SELECT COUNT(*)::int AS n FROM validated_sales WHERE case_id = 'C_REP'`)).rows[0].n).toBe(1);
+    expect((await p.query(`SELECT COUNT(*)::int AS n FROM spin_results WHERE id = 'sr_rep'`)).rows[0].n).toBe(1);
   });
 });

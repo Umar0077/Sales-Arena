@@ -19,12 +19,22 @@ interface Rule {
   created_by_email: string | null;
 }
 interface Overview {
-  settings: { autoEnabled: boolean; activationCutoff: string | null; spinCampaignStartAt: string; manualMaxPerGrant: number };
+  settings: { autoEnabled: boolean; activationCutoff: string | null; spinCampaignStartAt: string; spinCampaignResetAt?: string | null; manualMaxPerGrant: number };
   timezone: string;
+  serverTime?: string;
   rules: Rule[];
   teams: Array<{ id: string; name: string }>;
   campaigns: Array<{ id: string; name: string }>;
-  totals: { automatic: number; manual: number; consumed: number; available: number };
+  totals: {
+    automatic: number;
+    manual: number;
+    consumed: number;
+    expired?: number;
+    available: number;
+    in_progress?: number;
+    completed_prizes?: number;
+    connected_tvs?: number;
+  };
 }
 
 const PERIOD_LABEL: Record<string, string> = { daily: "per business day", weekly: "per week", monthly: "per month", lifetime: "in total" };
@@ -95,10 +105,14 @@ export function RulesTab() {
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[
+          ["Spins available now", data.totals.available],
           ["Automatic spins granted", data.totals.automatic],
           ["Manual spins granted", data.totals.manual],
           ["Spins used", data.totals.consumed],
-          ["Spins available now", data.totals.available],
+          ["Expired / archived", data.totals.expired ?? 0],
+          ["Currently spinning", data.totals.in_progress ?? 0],
+          ["Completed prizes", data.totals.completed_prizes ?? 0],
+          ["Connected TVs (15m)", data.totals.connected_tvs ?? 0],
         ].map(([k, v]) => (
           <div key={k as string} className="rounded-xl border border-white/[0.07] bg-[#0B1122]/80 px-4 py-3">
             <div className="text-xs text-text-muted">{k}</div>
@@ -106,6 +120,12 @@ export function RulesTab() {
           </div>
         ))}
       </div>
+      {data.serverTime && (
+        <p className="text-xs text-text-muted">
+          Authoritative PostgreSQL sync: {fmtDate(data.serverTime)}
+          {s.spinCampaignResetAt ? ` · Last campaign reset: ${fmtDate(s.spinCampaignResetAt)}` : ""}
+        </p>
+      )}
 
       <Section title="Automatic spins" description={`Spins are granted on the server from validated sales only. Business timezone: ${data.timezone}.`}>
         <Toggle label="Automatic spins enabled" checked={s.autoEnabled} onChange={(v) => saveSettings({ autoSpinsEnabled: v }, v ? "Automatic spins enabled." : "Automatic spins disabled.")} />
@@ -121,6 +141,13 @@ export function RulesTab() {
                 data-testid="spin-start-nov27"
               >
                 Set to Nov 27, 2026 00:00 NY
+              </GhostButton>
+              <GhostButton
+                disabled={busy}
+                onClick={() => saveSettings({ spinCampaignStartAt: "2026-11-28T05:00:00.000Z" }, "Spin campaign start set to Nov 28, 2026 00:00 America/New_York.")}
+                data-testid="spin-start-nov28"
+              >
+                Set to Nov 28, 2026 00:00 NY
               </GhostButton>
               <input type="datetime-local" value={campaignStartInput} onChange={(e) => setCampaignStartInput(e.target.value)} className={`${inputClass} max-w-[220px]`} aria-label="Spin campaign start date and time" />
               <GhostButton disabled={busy || !campaignStartInput} onClick={() => saveSettings({ spinCampaignStartAt: new Date(campaignStartInput).toISOString() }, "Spin campaign start updated.")}>

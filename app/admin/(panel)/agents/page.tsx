@@ -14,6 +14,8 @@ import {
   X
 } from "lucide-react";
 import { adminApi } from "@/frontend/components/admin/admin-api";
+import { useAdminSync } from "@/frontend/components/admin/AdminLiveSync";
+import { formatSalesCount } from "@/shared/sales/weighting";
 import Link from "next/link";
 
 interface AgentRow {
@@ -27,7 +29,13 @@ interface AgentRow {
   consumed: number;
   last_spin_at: string | null;
   validated_sales: number;
+  credited_sales?: number;
   eligible_sales: number;
+  team_id?: string | null;
+  team_name?: string | null;
+  team_color?: string | null;
+  team_active?: boolean | null;
+  designation?: string | null;
 }
 
 export default function AdminAgentsPage() {
@@ -37,6 +45,8 @@ export default function AdminAgentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [togglingCode, setTogglingCode] = useState<string | null>(null);
+  const salesRev = useAdminSync((s) => s.salesRev);
+  const teamsRev = useAdminSync((s) => s.teamsRev);
 
   // Manual spin allocation modal state
   const [allocatingAgent, setAllocatingAgent] = useState<AgentRow | null>(null);
@@ -44,13 +54,22 @@ export default function AdminAgentsPage() {
   const [allocReason, setAllocReason] = useState("");
   const [allocating, setAllocating] = useState(false);
 
-  const loadAgents = useCallback(async () => {
+  const loadAgents = useCallback(async (fresh = false) => {
     setLoading(true);
-    const res = await adminApi<{ ok: boolean; agents: AgentRow[] }>("/api/admin/spins/agents?limit=150");
+    const res = await adminApi<{ ok: boolean; agents: AgentRow[]; sync?: { created: number } | null }>(
+      `/api/admin/spins/agents?limit=250${fresh ? "&fresh=true" : ""}`,
+    );
     setLoading(false);
     if (res.ok) {
       setAgents(res.data.agents);
       setError(null);
+      if (fresh && res.data.sync && res.data.sync.created > 0) {
+        setActionMsg({
+          kind: "ok",
+          text: `Synced ${res.data.sync.created} new verified SafeQuote closer${res.data.sync.created === 1 ? "" : "s"} into Agent & Team Management.`,
+        });
+        setTimeout(() => setActionMsg(null), 5000);
+      }
     } else {
       setError(res.error);
     }
@@ -58,7 +77,7 @@ export default function AdminAgentsPage() {
 
   useEffect(() => {
     let active = true;
-    adminApi<{ ok: boolean; agents: AgentRow[] }>("/api/admin/spins/agents?limit=150").then((res) => {
+    adminApi<{ ok: boolean; agents: AgentRow[] }>("/api/admin/spins/agents?limit=250").then((res) => {
       if (!active) return;
       setLoading(false);
       if (res.ok) {
@@ -70,7 +89,7 @@ export default function AdminAgentsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [salesRev, teamsRev]);
 
   const toggleEligibility = async (agent: AgentRow) => {
     setTogglingCode(agent.user_code);
@@ -153,7 +172,15 @@ export default function AdminAgentsPage() {
             Live closers synced with Safe Quote and PostgreSQL. View real-time sales counts, authoritative spin balances, and grant spins directly.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/teams"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
+          >
+            <Users className="h-4 w-4 text-secondary" />
+            <span>Team Management</span>
+            <ExternalLink className="h-3 w-3" />
+          </Link>
           <Link
             href="/admin/spin-management"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-text-secondary hover:text-white transition-colors"
@@ -163,12 +190,13 @@ export default function AdminAgentsPage() {
             <ExternalLink className="h-3 w-3" />
           </Link>
           <button
-            onClick={loadAgents}
+            onClick={() => void loadAgents(true)}
             disabled={loading}
+            data-testid="agents-sync-btn"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-hover text-xs font-bold text-white shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span>Refresh Roster</span>
+            <span>Sync & Refresh Roster</span>
           </button>
         </div>
       </div>
@@ -258,6 +286,7 @@ export default function AdminAgentsPage() {
               <tr>
                 <th className="py-3 px-4">Closer</th>
                 <th className="py-3 px-4">Closer Code</th>
+                <th className="py-3 px-4">Team</th>
                 <th className="py-3 px-4 text-center">Validated Sales</th>
                 <th className="py-3 px-4 text-center">Spins Available</th>
                 <th className="py-3 px-4 text-center">Earned (Auto / Manual)</th>
@@ -268,19 +297,19 @@ export default function AdminAgentsPage() {
             <tbody className="divide-y divide-white/5">
               {loading && agents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted">
+                  <td colSpan={8} className="py-8 text-center text-muted">
                     Loading authoritative agents from PostgreSQL database...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted">
+                  <td colSpan={8} className="py-8 text-center text-muted">
                     {search ? `No closers match "${search}".` : "No agents recorded in the database yet."}
                   </td>
                 </tr>
               ) : (
                 filtered.map((a) => (
-                  <tr key={a.user_code} className="hover:bg-white/5 transition-colors">
+                  <tr key={a.user_code} className="hover:bg-white/5 transition-colors" data-testid="admin-agent-row" data-user={a.user_code}>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20 border border-primary/30 font-heading text-xs font-bold text-white">
@@ -288,7 +317,9 @@ export default function AdminAgentsPage() {
                         </div>
                         <div>
                           <div className="font-heading font-bold text-white">{a.name}</div>
-                          <div className="text-[10px] text-muted">Final Expense Closer</div>
+                          <div className="text-[10px] text-muted">
+                            {a.designation ? `${a.designation.toUpperCase()} · ` : ""}Final Expense Closer
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -297,8 +328,36 @@ export default function AdminAgentsPage() {
                       <span className="font-mono text-secondary font-semibold">{a.user_code}</span>
                     </td>
 
+                    <td className="py-3 px-4">
+                      {a.team_name ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                          style={{
+                            borderColor: `${a.team_color || "#7568FF"}55`,
+                            backgroundColor: `${a.team_color || "#7568FF"}1A`,
+                            color: a.team_color || "#E2E8F0",
+                          }}
+                        >
+                          {a.team_name}
+                          {a.team_active === false ? " (archived)" : ""}
+                        </span>
+                      ) : (
+                        <Link
+                          href="/admin/teams"
+                          className="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-secondary underline-offset-2 hover:underline"
+                        >
+                          Unassigned · Assign
+                        </Link>
+                      )}
+                    </td>
+
                     <td className="py-3 px-4 text-center">
                       <span className="font-heading font-bold text-white">{a.validated_sales}</span>
+                      {a.credited_sales !== undefined && a.credited_sales !== a.validated_sales && (
+                        <div className="text-[10px] font-mono text-text-muted">
+                          {formatSalesCount(a.credited_sales)} credited
+                        </div>
+                      )}
                     </td>
 
                     <td className="py-3 px-4 text-center">

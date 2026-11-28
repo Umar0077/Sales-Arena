@@ -30,6 +30,7 @@ interface SpinRow {
   agent_name: string | null;
   reward_title: string;
   reward_color: string;
+  mode?: string;
   actor: string | null;
   created_at: string;
 }
@@ -76,7 +77,7 @@ const KIND_STYLE: Record<Tx["kind"], string> = {
  *  - Historical Credit Expiration (dry-run audit + explicit approval)
  */
 export function HistoryTab({ initialUserCode = "" }: { initialUserCode?: string }) {
-  const [view, setView] = useState<"ledger" | "spins" | "audit" | "missing" | "expire">("ledger");
+  const [view, setView] = useState<"ledger" | "spins" | "historical" | "audit" | "missing" | "expire">("ledger");
   const [userCode, setUserCode] = useState(initialUserCode);
   const [tx, setTx] = useState<Tx[]>([]);
   const [spins, setSpins] = useState<SpinRow[]>([]);
@@ -84,6 +85,9 @@ export function HistoryTab({ initialUserCode = "" }: { initialUserCode?: string 
   const [expireRows, setExpireRows] = useState<ExpireAuditRow[]>([]);
   const [expireMeta, setExpireMeta] = useState<{ campaignStartAt: string; resetAt: string | null; totalAvailable: number; totalExpirable: number } | null>(null);
   const [selectedExpire, setSelectedExpire] = useState<Set<string>>(new Set());
+  const [histUserCode, setHistUserCode] = useState("");
+  const [histPrizeTitle, setHistPrizeTitle] = useState("");
+  const [histNote, setHistNote] = useState("Admin demo outcome preserved");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "error" | "info"; text: string } | null>(null);
 
@@ -104,7 +108,7 @@ export function HistoryTab({ initialUserCode = "" }: { initialUserCode?: string 
     if (!r.ok) return setMsg({ kind: "error", text: r.error });
     setMsg(null);
     if (view === "ledger") setTx(r.data.transactions ?? []);
-    else if (view === "spins") setSpins(r.data.spins ?? []);
+    else if (view === "spins" || view === "historical") setSpins(r.data.spins ?? []);
     else if (view === "audit") setAudits(r.data.audits ?? []);
   }, [view, userCode]);
 
@@ -156,6 +160,26 @@ export function HistoryTab({ initialUserCode = "" }: { initialUserCode?: string 
     } else setMsg({ kind: "error", text: r.error });
   };
 
+  const recordHistoricalDemo = async () => {
+    if (!histUserCode.trim() || histPrizeTitle.trim().length < 2) return;
+    setBusy(true);
+    const r = await adminApi<{ replayed: boolean; spinId: string }>("/api/admin/spins/historical-prize", {
+      method: "POST",
+      body: { userCode: histUserCode.trim().toUpperCase(), prizeTitle: histPrizeTitle.trim(), note: histNote.trim() },
+    });
+    setBusy(false);
+    if (r.ok) {
+      setMsg({
+        kind: r.data.replayed ? "info" : "ok",
+        text: r.data.replayed
+          ? `Historical demo outcome already recorded (${r.data.spinId}).`
+          : `Recorded historical demo outcome (${histPrizeTitle.trim()}) with zero credit impact.`,
+      });
+      setHistPrizeTitle("");
+      void loadHistory();
+    } else setMsg({ kind: "error", text: r.error });
+  };
+
   return (
     <div className="space-y-6">
       <Section title="Spin History" description="Complete immutable spin ledger, prize results, audit trail, missing spin finder, and pre-campaign credit expiration.">
@@ -166,6 +190,7 @@ export function HistoryTab({ initialUserCode = "" }: { initialUserCode?: string 
             options={[
               { value: "ledger", label: "Credit Ledger" },
               { value: "spins", label: "Spin Results" },
+              { value: "historical", label: "Historical Demo Outcomes" },
               { value: "audit", label: "Audit History" },
               { value: "missing", label: "Find Missing Spins" },
               { value: "expire", label: "Historical Reset" },
@@ -207,25 +232,51 @@ export function HistoryTab({ initialUserCode = "" }: { initialUserCode?: string 
           </Table>
         )}
 
-        {view === "spins" && (
-          <Table head={["When", "Agent", "Prize Awarded", "Run by"]} empty={!spins.length} testId="spin-results">
-            {spins.map((s) => (
-              <tr key={s.id}>
-                <td className={td}>{fmtDate(s.created_at)}</td>
-                <td className={td}>
-                  <span className="text-white">{s.agent_name ?? s.user_code}</span>
-                  <span className="block text-xs text-text-muted tabular">{s.user_code}</span>
-                </td>
-                <td className={td}>
-                  <span className="inline-flex items-center gap-2 font-medium text-white">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.reward_color }} />
-                    {s.reward_title}
-                  </span>
-                </td>
-                <td className={`${td} text-text-muted`}>{s.actor ?? "—"}</td>
-              </tr>
-            ))}
-          </Table>
+        {(view === "spins" || view === "historical") && (
+          <div className="space-y-4">
+            {view === "historical" && (
+              <div className="rounded-xl border border-gold/25 bg-gold/[0.05] p-4 space-y-3" data-testid="historical-demo-import">
+                <p className="text-xs text-text-secondary">
+                  Record a confirmed historical admin demo outcome (source: <code>admin_demo_historical_result</code>). Idempotent per agent &amp; prize; consumes zero credits and triggers no payouts.
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <input value={histUserCode} onChange={(e) => setHistUserCode(e.target.value)} placeholder="Agent userCode (e.g. CLS-...)" className={`${inputClass} w-48`} aria-label="Historical agent userCode" />
+                  <input value={histPrizeTitle} onChange={(e) => setHistPrizeTitle(e.target.value)} placeholder="Prize (e.g. KFC)" className={`${inputClass} w-48`} aria-label="Historical prize title" />
+                  <input value={histNote} onChange={(e) => setHistNote(e.target.value)} placeholder="Note" className={`${inputClass} w-60`} aria-label="Historical note" />
+                  <PrimaryButton disabled={busy || !histUserCode.trim() || histPrizeTitle.trim().length < 2} onClick={recordHistoricalDemo} data-testid="record-historical-demo-btn">
+                    Record Historical Outcome
+                  </PrimaryButton>
+                </div>
+              </div>
+            )}
+            <Table head={["When", "Agent", "Prize Awarded", "Source", "Run by"]} empty={!spins.length} testId="spin-results">
+              {spins.map((s) => (
+                <tr key={s.id}>
+                  <td className={td}>{fmtDate(s.created_at)}</td>
+                  <td className={td}>
+                    <span className="text-white">{s.agent_name ?? s.user_code}</span>
+                    <span className="block text-xs text-text-muted tabular">{s.user_code}</span>
+                  </td>
+                  <td className={td}>
+                    <span className="inline-flex items-center gap-2 font-medium text-white">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.reward_color }} />
+                      {s.reward_title}
+                    </span>
+                  </td>
+                  <td className={td}>
+                    {s.mode === "admin_demo_historical_result" ? (
+                      <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-[11px] font-semibold text-gold">
+                        Historical Demo
+                      </span>
+                    ) : (
+                      <span className="text-xs text-text-secondary">Live Spin</span>
+                    )}
+                  </td>
+                  <td className={`${td} text-text-muted`}>{s.actor ?? "—"}</td>
+                </tr>
+              ))}
+            </Table>
+          </div>
         )}
 
         {view === "audit" && (

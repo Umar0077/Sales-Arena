@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from "crypto";
 import type { Pool } from "pg";
 import { applyLedgerEntry, lockBalance, SpinError } from "./ledger";
+import { arenaBroadcaster } from "../events/broadcaster";
 
 export interface WheelSegment {
   id: string;
@@ -49,7 +50,10 @@ export function weightedPick<T extends { weight: number | string }>(items: T[]):
  * - `idempotencyKey` (from the client, one per spin attempt): a retry returns the same result.
  * - Prize rows are locked while choosing, so limited stock can't be oversold.
  */
-export async function executeSpin(pool: Pool, args: { userCode: string; idempotencyKey: string; actor: string }): Promise<SpinOutcome> {
+export async function executeSpin(
+  pool: Pool,
+  args: { userCode: string; idempotencyKey: string; actor: string; claimOnly?: boolean },
+): Promise<SpinOutcome> {
   if (!/^[A-Za-z0-9:_-]{8,120}$/.test(args.idempotencyKey)) throw new SpinError("invalid_input", "Missing or invalid spin request key.");
   const client = await pool.connect();
   try {
@@ -89,12 +93,14 @@ export async function executeSpin(pool: Pool, args: { userCode: string; idempote
     }
     const segments: WheelSegment[] = prizes.map((p) => ({ id: p.id, title: p.title, description: p.description, icon: p.icon, color: p.color }));
     const spinId = `spin_${randomUUID()}`;
+    const initialStatus = args.claimOnly ? "in-progress" : "completed";
+    const completedAt = new Date();
     await client.query(
       `INSERT INTO spin_results (id, user_code, agent_id, reward_id, reward_title, reward_color, reward_icon, status, mode, segment_index,
-                                 idempotency_key, actor, reward_snapshot)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', 'server', $8, $9, $10, $11)`,
-      [spinId, args.userCode, bal.agent_id, won.id, won.title, won.color, won.icon, idx, args.idempotencyKey, args.actor,
-        JSON.stringify({ reward: segments[idx], segments })],
+                                 idempotency_key, actor, reward_snapshot, completed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'server', $9, $10, $11, $12, $13)`,
+      [spinId, args.userCode, bal.agent_id, won.id, won.title, won.color, won.icon, initialStatus, idx, args.idempotencyKey, args.actor,
+        JSON.stringify({ reward: segments[idx], segments }), completedAt],
     );
     const led = await applyLedgerEntry(client, {
       userCode: args.userCode,
@@ -105,6 +111,128 @@ export async function executeSpin(pool: Pool, args: { userCode: string; idempote
     });
     await client.query("COMMIT");
     return { replayed: false, spinId, reward: segments[idx], segmentIndex: idx, segments, availableLeft: led.balanceAfter };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Finalizes an 'in-progress' spin to 'completed'. Idempotent: if already completed,
+ * returns replayed: true without modifying anything or generating a second prize.
+ */
+export async function completeSpin(
+  pool: Pool,
+  args: { spinId: string },
+): Promise<{
+  replayed: boolean;
+  spinId: string;
+  userCode: string;
+  reward: WheelSegment;
+  availableLeft: number;
+}> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const cur = await client.query<{
+      id: string;
+      user_code: string;
+      reward_id: string;
+      reward_title: string;
+      reward_color: string;
+      reward_icon: string;
+      status: string;
+      reward_snapshot: { reward?: WheelSegment } | null;
+    }>(`SELECT id, user_code, reward_id, reward_title, reward_color, reward_icon, status, reward_snapshot FROM spin_results WHERE id = $1 FOR UPDATE`, [args.spinId]);
+    if (!cur.rowCount) throw new SpinError("invalid_input", "Spin record not found.");
+    const r = cur.rows[0];
+    const replayed = r.status === "completed";
+    if (!replayed) {
+      await client.query(`UPDATE spin_results SET status = 'completed', completed_at = NOW() WHERE id = $1`, [args.spinId]);
+    }
+    const bal = await client.query<{ available: number }>(`SELECT available FROM spin_credits WHERE user_code = $1`, [r.user_code]);
+    await client.query("COMMIT");
+    return {
+      replayed,
+      spinId: r.id,
+      userCode: r.user_code,
+      reward: {
+        id: r.reward_id,
+        title: r.reward_title,
+        description: r.reward_snapshot?.reward?.description ?? "",
+        icon: r.reward_icon,
+        color: r.reward_color,
+      },
+      availableLeft: Number(bal.rows[0]?.available ?? 0),
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Recovers stale 'in-progress' spins (e.g. if a TV browser crashed, lost network, or the
+ * server restarted before POST /api/arena/spin/complete arrived). Because the credit was
+ * already atomically claimed and the prize server-selected, finalizing it preserves the
+ * exact prize without losing the credit or generating a duplicate.
+ */
+export async function recoverStaleSpins(
+  pool: Pool,
+  maxAgeSeconds = 90,
+): Promise<Array<{ spinId: string; userCode: string; rewardTitle: string; availableLeft: number }>> {
+  const secs = Math.max(5, Math.floor(maxAgeSeconds));
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query<{
+      id: string;
+      user_code: string;
+      reward_id: string | null;
+      reward_title: string;
+      reward_color: string;
+      reward_icon: string;
+      reward_snapshot: { reward?: WheelSegment } | null;
+    }>(
+      `UPDATE spin_results
+          SET status = 'completed', completed_at = NOW()
+        WHERE id IN (
+          SELECT id FROM spin_results
+           WHERE status = 'in-progress'
+             AND created_at <= NOW() - make_interval(secs => $1)
+           FOR UPDATE SKIP LOCKED
+        )
+       RETURNING id, user_code, reward_id, reward_title, reward_color, reward_icon, reward_snapshot`,
+      [secs],
+    );
+    const out: Array<{ spinId: string; userCode: string; rewardTitle: string; availableLeft: number }> = [];
+    for (const r of rows) {
+      const bal = await client.query<{ available: number }>(`SELECT available FROM spin_credits WHERE user_code = $1`, [r.user_code]);
+      const availableLeft = Number(bal.rows[0]?.available ?? 0);
+      out.push({ spinId: r.id, userCode: r.user_code, rewardTitle: r.reward_title, availableLeft });
+    }
+    await client.query("COMMIT");
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      arenaBroadcaster.broadcast("spin.completed", {
+        spinId: r.id,
+        userCode: r.user_code,
+        reward: {
+          id: r.reward_id ?? r.id,
+          title: r.reward_title,
+          description: r.reward_snapshot?.reward?.description ?? "",
+          icon: r.reward_icon,
+          color: r.reward_color,
+        },
+        availableLeft: out[i].availableLeft,
+      });
+    }
+    return out;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

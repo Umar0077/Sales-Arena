@@ -1,9 +1,9 @@
-import { creditClosers } from "@/backend/sales/credited-metrics";
+import { creditClosers, creditedMetrics } from "@/backend/sales/credited-metrics";
 import type { Pool } from "pg";
 import { getSafeQuoteClient } from "../safequote/client";
 import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { getPeriodDateRange, type RewardPeriod } from "@/shared/time/business";
-import { closeRateOf, leaderOf, rankTeams, topPerformers, type Designation, type MemberStats, type RankedTeam, type TeamInput, type TopPerformer } from "@/shared/teams/ranking";
+import { closeRateOf, leaderOf, rankTeams, rankTeamsByRaw, topPerformers, type Designation, type MemberStats, type RankedTeam, type TeamInput, type TopPerformer } from "@/shared/teams/ranking";
 
 /**
  * Teams Arena standings for Today / This Week / This Month (read-only).
@@ -47,26 +47,55 @@ interface Seg {
   open: boolean;
 }
 
-type CloserFetcher = (from: string, to: string) => Promise<Map<string, { submitted: number; validated: number; closeRate: number }>>;
+type CloserStats = { submitted: number; validated: number; closeRate: number };
+type CloserFetcher = (from: string, to: string) => Promise<Map<string, CloserStats>>;
 
-export const safeQuoteClosers: CloserFetcher = async (from, to) => {
-  const res = await getSafeQuoteClient().getClosers({ from, to });
-  const m = new Map<string, { submitted: number; validated: number; closeRate: number }>();
-  for (const c of await creditClosers(res.closers, { from, to })) {
-    const code = String(c.userCode || "").trim().toUpperCase();
-    if (!code) continue;
-    const prev = m.get(code);
-    // A closer listed twice (should not happen) is summed, never double-ranked.
-    m.set(code, prev ? { submitted: prev.submitted + c.submitted, validated: prev.validated + c.validated, closeRate: c.closeRate } : { submitted: c.submitted, validated: c.validated, closeRate: c.closeRate });
-  }
-  return m;
-};
+function makeSafeQuoteClosers(pool?: Pool, fresh = false): CloserFetcher {
+  return async (from, to) => {
+    const [res, totals] = await Promise.all([
+      getSafeQuoteClient().getClosers({ from, to }, fresh),
+      creditedMetrics({ from, to }, "user", pool),
+    ]);
+    const m = new Map<string, CloserStats>();
+    for (const c of res.closers) {
+      const code = String(c.userCode || "").trim().toUpperCase();
+      if (!code) continue;
+      const t = totals.get(code);
+      const validated = t?.validated ?? 0;
+      const prev = m.get(code);
+      const submitted = (prev?.submitted ?? 0) + c.submitted;
+      const combinedValidated = prev ? prev.validated : validated;
+      m.set(code, {
+        submitted,
+        validated: combinedValidated,
+        closeRate: submitted > 0 ? (combinedValidated / submitted) * 100 : 0,
+      });
+    }
+    // Include any verified closer who has PostgreSQL validated_sales in [from, to] even if Safe Quote's /closers list lagged.
+    for (const [code, t] of totals.entries()) {
+      if (!code || code === "ALL" || m.has(code)) continue;
+      m.set(code, {
+        submitted: 0,
+        validated: t.validated,
+        closeRate: 0,
+      });
+    }
+    void creditClosers;
+    return m;
+  };
+}
 
-export async function computeStandings(pool: Pool, period: RewardPeriod, opts: { now?: Date; closers?: CloserFetcher } = {}): Promise<Standings> {
+export const safeQuoteClosers: CloserFetcher = makeSafeQuoteClosers();
+
+export async function computeStandings(
+  pool: Pool,
+  period: RewardPeriod,
+  opts: { now?: Date; fresh?: boolean; closers?: CloserFetcher } = {},
+): Promise<Standings> {
   const cfg = (await readArenaConfig(pool)).values;
   const clock = calendarFrom(cfg);
   const range = getPeriodDateRange(period, clock, opts.now);
-  const fetchClosers = opts.closers ?? safeQuoteClosers;
+  const fetchClosers = opts.closers ?? makeSafeQuoteClosers(pool, opts.fresh === true);
 
   const [teamsRes, segRes] = await Promise.all([
     pool.query(`SELECT id, name, slug, logo_url, color, accent_secondary, display_order, leader_user_code FROM teams WHERE slug IS NOT NULL AND active ORDER BY display_order, name`),
@@ -132,23 +161,49 @@ export async function computeStandings(pool: Pool, period: RewardPeriod, opts: {
     displayOrder: Number(t.display_order), leaderUserCode: t.leader_user_code,
     members: list.filter((m) => m.teamId === t.id).map((m) => ({ userCode: m.userCode, name: m.name, designation: m.designation, submitted: m.submitted, validated: m.validated, closeRate: m.closeRate, former: m.former })),
   }));
-  // Count transactions independently of credited rankings and upstream closer rows.
-  // EXISTS attributes a case once per team, even if membership rows overlap.
-  const actual = await pool.query(
-    `SELECT t.id, COUNT(DISTINCT s.case_id)::int AS raw
-       FROM teams t JOIN validated_sales s ON s.status = 'validated'
-        AND s.validated_at >= ($1::date::timestamp AT TIME ZONE $3)
-        AND s.validated_at < (($2::date + 1)::timestamp AT TIME ZONE $3)
-        AND EXISTS (
-          SELECT 1 FROM team_memberships m WHERE m.team_id = t.id AND m.user_code = s.user_code
-           AND m.effective_from <= (s.validated_at AT TIME ZONE $3)::date
-           AND (m.effective_to IS NULL OR m.effective_to > (s.validated_at AT TIME ZONE $3)::date)
-        )
-      WHERE t.slug IS NOT NULL AND t.active GROUP BY t.id`,
-    [range.from, range.to, clock.timezone],
-  );
-  const rawByTeam = new Map(actual.rows.map((r) => [r.id, Number(r.raw)]));
-  const teams = rankTeams(inputs).map((t) => ({ ...t, rawValidated: rawByTeam.get(t.id) ?? 0 }));
+  // Count unique validated transactions independently of credited rankings and upstream closer rows.
+  // EXISTS attributes a case once per team on the sale's business date, even if membership rows transferred inside the period.
+  const [actual, memberActual] = await Promise.all([
+    pool.query(
+      `SELECT t.id, COUNT(DISTINCT s.case_id)::int AS raw
+         FROM teams t JOIN validated_sales s ON s.status = 'validated'
+          AND s.validated_at >= ($1::date::timestamp AT TIME ZONE $3)
+          AND s.validated_at < (($2::date + 1)::timestamp AT TIME ZONE $3)
+          AND EXISTS (
+            SELECT 1 FROM team_memberships m WHERE m.team_id = t.id AND m.user_code = s.user_code
+             AND m.effective_from <= (s.validated_at AT TIME ZONE $3)::date
+             AND (m.effective_to IS NULL OR m.effective_to > (s.validated_at AT TIME ZONE $3)::date)
+          )
+        WHERE t.slug IS NOT NULL AND t.active GROUP BY t.id`,
+      [range.from, range.to, clock.timezone],
+    ),
+    pool.query(
+      `SELECT m.team_id, UPPER(TRIM(s.user_code)) AS user_code, COUNT(DISTINCT s.case_id)::int AS raw
+         FROM team_memberships m
+         JOIN teams t ON t.id = m.team_id AND t.slug IS NOT NULL AND t.active
+         JOIN validated_sales s ON UPPER(TRIM(s.user_code)) = UPPER(TRIM(m.user_code)) AND s.status = 'validated'
+          AND s.validated_at >= ($1::date::timestamp AT TIME ZONE $3)
+          AND s.validated_at < (($2::date + 1)::timestamp AT TIME ZONE $3)
+          AND m.effective_from <= (s.validated_at AT TIME ZONE $3)::date
+          AND (m.effective_to IS NULL OR m.effective_to > (s.validated_at AT TIME ZONE $3)::date)
+        GROUP BY m.team_id, UPPER(TRIM(s.user_code))`,
+      [range.from, range.to, clock.timezone],
+    ),
+  ]);
+  const rawByTeam = new Map((actual?.rows ?? []).map((r) => [r.id, Number(r.raw)]));
+  const rawByMember = new Map((memberActual?.rows ?? []).map((r) => [`${r.team_id}|${r.user_code}`, Number(r.raw)]));
+  const useDbRaw = !opts.closers || rawByTeam.size > 0;
+  const baseRanked = rankTeams(inputs).map((t) => ({
+    ...t,
+    rawValidated: useDbRaw ? (rawByTeam.get(t.id) ?? 0) : undefined,
+    members: t.members.map((m) => ({
+      ...m,
+      rawValidated: useDbRaw ? (rawByMember.get(`${t.id}|${m.userCode.toUpperCase()}`) ?? 0) : m.rawValidated,
+    })),
+  }));
+  const teams = useDbRaw
+    ? rankTeamsByRaw(baseRanked)
+    : baseRanked.map((t) => ({ ...t, rawValidated: rawByTeam.get(t.id) ?? 0 }));
   return {
     period,
     from: range.from,
@@ -157,7 +212,7 @@ export async function computeStandings(pool: Pool, period: RewardPeriod, opts: {
     teams,
     top: topPerformers(teams, 3),
     leaderTeamId: leaderOf(teams),
-    attribution: "Each business day's figures count for the team the agent belonged to on that day (submitted leads, credited sales and credited close rate).",
+    attribution: "Each business day's figures count for the team the agent belonged to on that day (submitted leads, raw validated sales, credited sales and credited close rate).",
     generatedAt: new Date().toISOString(),
   };
 }
@@ -167,13 +222,16 @@ const g = globalThis as unknown as { [KEY]?: Map<string, { at: number; p: Promis
 const memo = (g[KEY] ??= new Map());
 
 /** Shared by every display for MEMO_MS (one computation for many screens). */
-export function cachedStandings(pool: Pool, period: RewardPeriod): Promise<Standings> {
-  const m = memo.get(period);
-  if (m && Date.now() - m.at < MEMO_MS) return m.p;
-  const p = computeStandings(pool, period);
+export function cachedStandings(pool: Pool, period: RewardPeriod, opts: { fresh?: boolean } = {}): Promise<Standings> {
+  if (!opts.fresh) {
+    const m = memo.get(period);
+    if (m && Date.now() - m.at < MEMO_MS) return m.p;
+  }
+  const p = computeStandings(pool, period, { fresh: opts.fresh });
   memo.set(period, { at: Date.now(), p });
   p.catch(() => memo.get(period)?.p === p && memo.delete(period));
   return p;
 }
-export const __resetStandingsMemo = () => memo.clear();
+export const invalidateStandingsCache = () => memo.clear();
+export const __resetStandingsMemo = invalidateStandingsCache;
 export { addDays as __addDays };

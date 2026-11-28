@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDbPool } from "@/database/client";
+import { recoverStaleSpins } from "@/backend/spins/execute";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Database not configured." }, { status: 503 });
 
   try {
+    await recoverStaleSpins(pool, 90).catch(() => []);
     const { rows } = await pool.query<{
       id: string;
       user_code: string;
@@ -20,9 +22,10 @@ export async function GET() {
       reward_title: string;
       reward_color: string;
       reward_icon: string;
+      mode: string;
       created_at: string;
     }>(
-      `SELECT r.id, r.user_code, COALESCE(a.name, r.user_code) AS name, r.reward_title, r.reward_color, r.reward_icon, r.created_at
+      `SELECT r.id, r.user_code, COALESCE(a.name, r.user_code) AS name, r.reward_title, r.reward_color, r.reward_icon, r.mode, r.created_at
          FROM spin_results r
          LEFT JOIN agents a ON a.user_code = r.user_code
         WHERE r.status = 'completed'

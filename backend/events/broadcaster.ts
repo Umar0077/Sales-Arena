@@ -2,6 +2,7 @@ export type ArenaBroadcastEventType =
   | "sale.validated"
   | "bonus.awarded"
   | "spin.unlocked"
+  | "spin.in_progress"
   | "spin.completed"
   | "rewards.catalog.updated"
   | "settings.performance.updated"

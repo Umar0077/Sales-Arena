@@ -16,13 +16,14 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(500, Math.max(1, Number(sp.get("limit")) || 100));
   const type = sp.get("type") ?? "ledger";
   try {
-    if (type === "spins") {
+    if (type === "spins" || type === "historical") {
       const { rows } = await auth.pool.query(
-        `SELECT r.id, r.user_code, COALESCE(a.name, r.user_code) AS agent_name, r.reward_title, r.reward_color, r.reward_icon, r.actor, r.created_at
+        `SELECT r.id, r.user_code, COALESCE(a.name, r.user_code) AS agent_name, r.reward_title, r.reward_color, r.reward_icon, r.mode, r.actor, r.created_at
            FROM spin_results r LEFT JOIN agents a ON a.user_code = r.user_code
-          WHERE $1::varchar IS NULL OR r.user_code = $1
+          WHERE ($1::varchar IS NULL OR r.user_code = $1)
+            AND ($3::boolean = FALSE OR r.mode = 'admin_demo_historical_result')
           ORDER BY r.created_at DESC LIMIT $2`,
-        [userCode, limit],
+        [userCode, limit, type === "historical"],
       );
       return NextResponse.json({ ok: true, spins: rows }, { headers: { "Cache-Control": "no-store" } });
     }

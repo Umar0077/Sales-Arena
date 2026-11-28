@@ -104,7 +104,19 @@ export async function findMissingSpins(
     consumed: number | null;
   }>(
     `SELECT vs.id, vs.user_code, vs.closer_name,
-            a.name AS agent_name, a.team_id, a.campaign_id, COALESCE(a.spin_eligible, TRUE) AS spin_eligible,
+            a.name AS agent_name,
+            COALESCE(
+              (SELECT m.team_id
+                 FROM team_memberships m
+                 JOIN teams t ON t.id = m.team_id AND t.active
+                WHERE m.user_code = vs.user_code
+                  AND m.effective_from <= (vs.validated_at AT TIME ZONE $3)::date
+                  AND (m.effective_to IS NULL OR m.effective_to > (vs.validated_at AT TIME ZONE $3)::date)
+                ORDER BY m.effective_from DESC
+                LIMIT 1),
+              a.team_id
+            ) AS team_id,
+            a.campaign_id, COALESCE(a.spin_eligible, TRUE) AS spin_eligible,
             vs.carrier, vs.validated_at,
             COALESCE(c.available, 0)::int AS available,
             COALESCE(c.auto_earned, 0)::int AS auto_earned,
@@ -118,7 +130,7 @@ export async function findMissingSpins(
         AND vs.validated_at >= $1
         AND ($2::timestamptz IS NULL OR vs.validated_at < $2)
       ORDER BY vs.validated_at ASC`,
-    [startBound, endBound],
+    [startBound, endBound, cal.timezone],
   );
 
   const fallbackRule: SpinRuleVersion = {
@@ -295,8 +307,23 @@ export async function approveMissingSpinsForAgent(
     const bal = await lockBalance(client, userCode);
     const agentRow = (
       await client.query<{ name: string; team_id: string | null; campaign_id: string | null; spin_eligible: boolean }>(
-        `SELECT name, team_id, campaign_id, spin_eligible FROM agents WHERE user_code = $1`,
-        [userCode],
+        `SELECT a.name,
+                COALESCE(
+                  (SELECT m.team_id
+                     FROM team_memberships m
+                     JOIN teams t ON t.id = m.team_id AND t.active
+                    WHERE m.user_code = a.user_code
+                      AND m.effective_from <= (NOW() AT TIME ZONE $2)::date
+                      AND (m.effective_to IS NULL OR m.effective_to > (NOW() AT TIME ZONE $2)::date)
+                    ORDER BY m.effective_from DESC
+                    LIMIT 1),
+                  a.team_id
+                ) AS team_id,
+                a.campaign_id,
+                a.spin_eligible
+           FROM agents a
+          WHERE a.user_code = $1`,
+        [userCode, cal.timezone],
       )
     ).rows[0];
     if (!agentRow) throw new SpinError("agent_not_found", "Agent not found.");

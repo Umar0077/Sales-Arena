@@ -90,6 +90,11 @@ export function RecentSpinWinners({ limit = 6 }: { limit?: number }) {
                   <div className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: w.reward_color || "#FFC857" }}>
                     <RewardIconView icon={(w.reward_icon || "gift") as RewardIcon} className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{w.reward_title}</span>
+                    {w.mode === "admin_demo_historical_result" && (
+                      <span className="rounded border border-gold/30 bg-gold/10 px-1 py-0 text-[9px] uppercase tracking-wider text-gold">
+                        Historical
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="shrink-0 text-[11px] text-text-muted tabular">

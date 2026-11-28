@@ -1,6 +1,8 @@
 import type { Pool } from "pg";
 import { getSafeQuoteClient } from "../safequote/client";
+import { syncVerifiedClosers } from "../safequote/agent-sync";
 import { extractCloserIdentity } from "../safequote/mapper";
+import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { ingestValidatedSale, type SaleSource } from "./ingest";
 
 /**
@@ -97,13 +99,21 @@ async function importDays(pool: Pool, days: string[], source: SaleSource, opts: 
   return report;
 }
 
+async function resolveBusinessTimezone(pool: Pool): Promise<string> {
+  try {
+    return calendarFrom((await readArenaConfig(pool)).values).timezone;
+  } catch {
+    return process.env.SALES_ARENA_TIMEZONE || "America/New_York";
+  }
+}
+
 /**
  * Fast discovery: today's validated sales only (one Safe Quote request), so a sale the live stream did not
  * deliver is stored within seconds instead of waiting for the next full reconciliation. Same ingest path
  * (idempotent by case id, same reward rules); no checkpoint row, no summary request.
  */
 export async function discoverTodaySales(pool: Pool): Promise<SyncReport> {
-  const tz = process.env.SALES_ARENA_TIMEZONE || "America/New_York";
+  const tz = await resolveBusinessTimezone(pool);
   return importDays(pool, [ymd(new Date(), tz)], "reconciliation", { summary: false });
 }
 
@@ -112,9 +122,10 @@ export async function discoverTodaySales(pool: Pool): Promise<SyncReport> {
  * Sales found here are genuine live sales: eligible for rewards if after the cutoff.
  */
 export async function reconcileRecentSales(pool: Pool): Promise<SyncReport> {
-  const tz = process.env.SALES_ARENA_TIMEZONE || "America/New_York";
+  const tz = await resolveBusinessTimezone(pool);
   const today = ymd(new Date(), tz);
   const yesterday = ymd(new Date(Date.now() - 86_400_000), tz);
+  await syncVerifiedClosers(pool).catch(() => {});
   const report = await importDays(pool, [yesterday, today], "reconciliation");
   await saveCheckpoint(pool, "reconciliation", "/recent-sales", report, report.errors.length === 0);
   return report;

@@ -14,14 +14,14 @@ export async function GET(req: NextRequest) {
   if (!pool) return NextResponse.json({ ok: false, mode: "no-database" }, { status: 503 });
   try {
     const actor = await resolveSpinActor(req);
-    if (!actor) return NextResponse.json({ ok: true, authorized: false }, { headers: { "Cache-Control": "no-store" } });
     const userCode = (req.nextUrl.searchParams.get("userCode") ?? "").trim().toUpperCase();
-    const segments = await loadWheelSegments(pool);
     let available = 0;
     if (/^[A-Z0-9:_.-]{1,64}$/.test(userCode)) {
       const { rows } = await pool.query(`SELECT available FROM spin_credits WHERE user_code = $1`, [userCode]);
       available = rows[0]?.available ?? 0;
     }
+    if (!actor) return NextResponse.json({ ok: true, authorized: false, available }, { headers: { "Cache-Control": "no-store" } });
+    const segments = await loadWheelSegments(pool);
     return NextResponse.json({ ok: true, authorized: true, available, segments }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ ok: false, error: "Database unavailable." }, { status: 503 });

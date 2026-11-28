@@ -59,10 +59,23 @@ export function TeamManagement() {
   const [agentFilter, setAgentFilter] = useState<{ team: string }>({ team: "all" });
   const [historyFilter, setHistoryFilter] = useState<{ teamId?: string; userCode?: string; label?: string }>({});
   const teamsRev = useAdminSync((s) => s.teamsRev); // another admin (or tab) changed teams
-  const load = useCallback(async () => {
-    const r = await adminApi<View>("/api/admin/teams");
-    if (r.ok) setView(r.data);
-    else setMsg({ kind: "error", text: r.error });
+  const [syncing, setSyncing] = useState(false);
+  const load = useCallback(async (fresh = false) => {
+    if (fresh) setSyncing(true);
+    const r = await adminApi<View & { sync?: { created: number } | null }>(`/api/admin/teams${fresh ? "?fresh=true" : ""}`);
+    if (fresh) setSyncing(false);
+    if (r.ok) {
+      setView(r.data);
+      if (fresh && r.data.sync) {
+        setMsg({
+          kind: "ok",
+          text:
+            r.data.sync.created > 0
+              ? `Synced ${r.data.sync.created} new verified SafeQuote closer${r.data.sync.created === 1 ? "" : "s"}. You can now assign them to a team on Members & agents.`
+              : "Closer roster is up to date with SafeQuote.",
+        });
+      }
+    } else setMsg({ kind: "error", text: r.error });
   }, []);
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
@@ -79,13 +92,18 @@ export function TeamManagement() {
 
   return (
     <div className="space-y-6" data-testid="team-management">
-      <div>
-        <h2 className="font-heading text-xl font-bold text-white">Team Management</h2>
-        <p className="mt-1 max-w-3xl text-sm text-text-muted">
-          Teams, members and Senior / Junior designations for the Teams Arena, stored in PostgreSQL. Active teams compete on the Live Arena automatically
-          (one, two, three or more). Changes take effect from the business date you choose: each day&apos;s sales count for the team the agent belonged to
-          on that day, so earlier results never move. Team changes never change sales, earned bonuses or spins.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="font-heading text-xl font-bold text-white">Team Management</h2>
+          <p className="mt-1 max-w-3xl text-sm text-text-muted">
+            Teams, members and Senior / Junior designations for the Teams Arena, stored in PostgreSQL. Active teams compete on the Live Arena automatically
+            (one, two, three or more). Changes take effect from the business date you choose: each day&apos;s sales count for the team the agent belonged to
+            on that day, so earlier results never move. Team changes never change sales, earned bonuses or spins.
+          </p>
+        </div>
+        <GhostButton onClick={() => void load(true)} disabled={syncing} className="px-3.5 py-2 text-xs" data-testid="teams-sync-closers">
+          <RefreshCw className={cn("h-3.5 w-3.5", syncing && "animate-spin")} /> Sync SafeQuote Closers
+        </GhostButton>
       </div>
       <div role="tablist" aria-label="Team management" className="flex flex-wrap gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
         {TABS.map((t) => (

@@ -17,7 +17,10 @@ export interface WeeklyTopTeamMember {
   userCode: string;
   name: string;
   designation: string | null;
+  /** Raw validated sales count attributed to this team during the business week. */
   validated: number;
+  /** Carrier-weighted performance credits preserved separately. */
+  creditedValidated: number;
   submitted: number;
 }
 
@@ -28,10 +31,29 @@ export interface WeeklyTopTeamInfo {
   logoUrl: string | null;
   color: string;
   accentSecondary: string | null;
+  /** Authoritative raw validated transaction count for the business week. */
   validated: number;
+  /** Carrier-weighted performance credits preserved separately. */
+  creditedValidated: number;
   submitted: number;
   closeRate: number | null;
+  memberCount: number;
   members: WeeklyTopTeamMember[];
+}
+
+export interface WeeklyTeamSummary {
+  id: string;
+  slug: string | null;
+  name: string;
+  logoUrl: string | null;
+  color: string;
+  validated: number;
+  creditedValidated: number;
+  submitted: number;
+  closeRate: number | null;
+  memberCount: number;
+  rank: number;
+  tied: boolean;
 }
 
 export interface WeeklyTopTeamCelebrated {
@@ -47,41 +69,71 @@ export interface WeeklyTopTeamCelebrated {
 export interface WeeklyTopTeamState {
   week: { from: string; to: string; label: string };
   topTeam: WeeklyTopTeamInfo | null;
+  isTie: boolean;
+  tiedTeams: WeeklyTopTeamInfo[];
   tiedWith: string | null;
+  teams: WeeklyTeamSummary[];
   celebrated: WeeklyTopTeamCelebrated | null;
 }
 
-/** This business week's #1 team and its full member roster (read-only). */
+function toTeamInfo(t: Awaited<ReturnType<typeof computeStandings>>["teams"][number]): WeeklyTopTeamInfo {
+  const raw = t.rawValidated ?? t.validated;
+  return {
+    id: t.id,
+    slug: t.slug,
+    name: t.name,
+    logoUrl: t.logoUrl,
+    color: t.color,
+    accentSecondary: t.accentSecondary,
+    validated: raw,
+    creditedValidated: t.validated,
+    submitted: t.submitted,
+    closeRate: t.closeRate,
+    memberCount: t.memberCount,
+    members: t.members.map((m) => ({
+      userCode: m.userCode,
+      name: m.name,
+      designation: m.designation,
+      validated: m.rawValidated ?? m.validated,
+      creditedValidated: m.validated,
+      submitted: m.submitted,
+    })),
+  };
+}
+
+/** This business week's #1 team (or co-leaders when tied on raw validated sales) and full member roster (read-only). */
 export async function weeklyTopTeam(
   pool: Pool,
-  opts: { now?: Date } = {},
+  opts: { now?: Date; fresh?: boolean; closers?: Parameters<typeof computeStandings>[2] extends { closers?: infer C } ? C : never } = {},
 ): Promise<WeeklyTopTeamState> {
-  const standings = await computeStandings(pool, "week", opts);
-  const ranked = standings.teams.filter((t) => t.validated > 0);
-  const first = ranked[0] ?? null;
-  const tiedWith =
-    first && ranked[1] && ranked[1].validated === first.validated ? ranked[1].name : null;
+  const standings = await computeStandings(pool, "week", {
+    now: opts.now,
+    fresh: opts.fresh ?? true,
+    closers: opts.closers,
+  });
+  const teams: WeeklyTeamSummary[] = standings.teams.map((t) => ({
+    id: t.id,
+    slug: t.slug,
+    name: t.name,
+    logoUrl: t.logoUrl,
+    color: t.color,
+    validated: t.rawValidated ?? t.validated,
+    creditedValidated: t.validated,
+    submitted: t.submitted,
+    closeRate: t.closeRate,
+    memberCount: t.memberCount,
+    rank: t.rank,
+    tied: t.tied,
+  }));
 
-  const topTeam: WeeklyTopTeamInfo | null = first
-    ? {
-        id: first.id,
-        slug: first.slug,
-        name: first.name,
-        logoUrl: first.logoUrl,
-        color: first.color,
-        accentSecondary: first.accentSecondary,
-        validated: first.validated,
-        submitted: first.submitted,
-        closeRate: first.closeRate,
-        members: first.members.map((m) => ({
-          userCode: m.userCode,
-          name: m.name,
-          designation: m.designation,
-          validated: m.validated,
-          submitted: m.submitted,
-        })),
-      }
-    : null;
+  const ranked = standings.teams.filter((t) => (t.rawValidated ?? t.validated) > 0);
+  const first = ranked[0] ?? null;
+  const maxRaw = first ? (first.rawValidated ?? first.validated) : 0;
+  const coLeaders = first ? ranked.filter((t) => (t.rawValidated ?? t.validated) === maxRaw) : [];
+  const isTie = coLeaders.length > 1;
+  const tiedTeams = isTie ? coLeaders.map(toTeamInfo) : [];
+  const topTeam: WeeklyTopTeamInfo | null = first && !isTie ? toTeamInfo(first) : null;
+  const tiedWith = isTie ? coLeaders.map((t) => t.name).join(" & ") : null;
 
   const stored = (
     await pool.query(
@@ -110,7 +162,10 @@ export async function weeklyTopTeam(
   return {
     week: { from: standings.from, to: standings.to, label: standings.label },
     topTeam,
+    isTie,
+    tiedTeams,
     tiedWith,
+    teams,
     celebrated,
   };
 }
@@ -119,9 +174,15 @@ export async function weeklyTopTeam(
 export async function celebrateWeeklyTopTeam(
   pool: Pool,
   actor: { adminId: string; ip: string | null; userAgent: string | null },
-  opts: { now?: Date } = {},
+  opts: { now?: Date; closers?: Parameters<typeof computeStandings>[2] extends { closers?: infer C } ? C : never } = {},
 ): Promise<{ id: string; week: WeeklyTopTeamState["week"]; topTeam: WeeklyTopTeamInfo }> {
-  const state = await weeklyTopTeam(pool, opts);
+  const state = await weeklyTopTeam(pool, { ...opts, fresh: true });
+  if (state.isTie && state.tiedTeams.length > 1) {
+    throw new RecognitionError(
+      409,
+      `Teams are tied at ${state.tiedTeams[0].validated} approved sales (${state.tiedTeams.map((t) => t.name).join(" & ")}). Break the tie before celebrating a sole winning team.`,
+    );
+  }
   if (!state.topTeam) {
     throw new RecognitionError(422, "No competing team has approved sales this week yet.");
   }

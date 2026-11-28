@@ -159,7 +159,7 @@ export function TeamsScreen() {
   const fresh = useFreshSales(data);
   const takeoverTeam = takeover ? data?.teams.find((t) => t.id === takeover.teamId) : null;
   const leader = data?.teams.find((t) => t.id === data.leaderTeamId) ?? null;
-  const totalValidated = data?.teams.reduce((s, t) => addCredits(s, t.validated), 0) ?? 0;
+  const totalValidated = data?.teams.reduce((s, t) => addCredits(s, t.rawValidated ?? t.validated), 0) ?? 0;
 
   return (
     <div className={cn("mx-auto flex w-full max-w-[1880px] flex-1 flex-col gap-4 px-3 pt-3 sm:px-5 lg:gap-5", animate && "teams-motion")} data-testid="teams-screen">
@@ -289,7 +289,8 @@ interface LayoutProps {
 }
 export const layoutOf = (n: number) => (n === 1 ? "spotlight" : n === 2 ? "head-to-head" : n === 3 ? "ranked" : "grid");
 const shortName = (name: string) => name.replace(/^team\s+/i, "");
-/** Every team shares first place (e.g. 0 – 0, or 5 – 5 on validated AND submitted): nobody gets the winner treatment. */
+const teamSales = (t: RankedTeam) => t.rawValidated ?? t.validated;
+/** Every team shares first place (e.g. 0 – 0, or 30 – 30 on raw validated sales): nobody gets the winner treatment. */
 const allTied = (teams: RankedTeam[]) => teams.length > 1 && teams.every((t) => t.rank === 1);
 
 function Column({ team, children, animate, z, className }: { team: RankedTeam; children: React.ReactNode; animate: boolean; z: number; className?: string }) {
@@ -312,7 +313,7 @@ function Column({ team, children, animate, z, className }: { team: RankedTeam; c
 /** Three teams: ranked columns, 1st on the left and in front; the all-teams panel on the right. */
 function RankedLayout({ data, fresh, animate }: LayoutProps) {
   const neutral = allTied(data.teams);
-  const topValidated = data.teams[0]?.validated ?? 0;
+  const topValidated = data.teams[0] ? teamSales(data.teams[0]) : 0;
   return (
     <div className="grid items-start gap-4 md:grid-cols-3 lg:gap-5 2xl:grid-cols-[1.12fr_1fr_1fr_minmax(19rem,24rem)]">
       {data.teams.map((t) => (
@@ -330,7 +331,7 @@ function RankedLayout({ data, fresh, animate }: LayoutProps) {
 function HeadToHeadLayout({ data, fresh, animate }: LayoutProps) {
   const [a, b] = data.teams;
   const neutral = allTied(data.teams);
-  const topValidated = a.validated;
+  const topValidated = teamSales(a);
   return (
     <>
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-5" data-testid="head-to-head">
@@ -350,8 +351,10 @@ function HeadToHeadLayout({ data, fresh, animate }: LayoutProps) {
 }
 
 function VersusEmblem({ a, b, neutral, animate }: { a: RankedTeam; b: RankedTeam; neutral: boolean; animate: boolean }) {
-  const total = a.validated + b.validated;
-  const share = total ? Math.round((a.validated / total) * 100) : 50;
+  const aSales = teamSales(a);
+  const bSales = teamSales(b);
+  const total = aSales + bSales;
+  const share = total ? Math.round((aSales / total) * 100) : 50;
   return (
     <div className="flex flex-row items-center justify-center gap-4 self-stretch lg:flex-col lg:justify-start lg:pt-16 min-[1800px]:pt-24" data-testid="versus">
       <div
@@ -380,7 +383,7 @@ function SpotlightLayout({ data, fresh, animate }: LayoutProps) {
   return (
     <div className="mx-auto grid w-full max-w-[1280px] items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(17rem,1fr)] lg:gap-5" data-testid="spotlight">
       <Column team={t} animate={animate} z={30}>
-        <TeamCard team={t} leader={false} topValidated={t.validated} animate={animate} neutral variant="hero" spotlight />
+        <TeamCard team={t} leader={false} topValidated={teamSales(t)} animate={animate} neutral variant="hero" spotlight />
         <TeamTop3 team={t} fresh={fresh} animate={animate} />
       </Column>
       <TopPerformers top={data.top} animate={animate} />
@@ -391,7 +394,7 @@ function SpotlightLayout({ data, fresh, animate }: LayoutProps) {
 /** Four or more teams: a responsive grid that keeps every team, at a readable minimum card width. */
 function GridLayout({ data, fresh, animate }: LayoutProps) {
   const neutral = allTied(data.teams);
-  const topValidated = data.teams[0]?.validated ?? 0;
+  const topValidated = data.teams[0] ? teamSales(data.teams[0]) : 0;
   return (
     <>
       <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr))] lg:gap-5" data-testid="teams-grid">
@@ -434,7 +437,8 @@ function TeamCard({
   const accent = team.color;
   const frame = m?.color ?? accent;
   const first = !neutral && team.rank === 1;
-  const gap = topValidated - team.validated;
+  const salesCount = teamSales(team);
+  const gap = topValidated - salesCount;
   const crest = hero
     ? first || neutral
       ? "clamp(128px, 11.5vw, 230px)"
@@ -450,7 +454,7 @@ function TeamCard({
   const word = spotlight ? "ONLY ACTIVE TEAM" : neutral ? "LEVEL ON SALES" : (m?.word ?? `PLACE ${team.rank}`);
   const metrics = (
     <div className={cn("relative grid grid-cols-3", hero ? "mt-3 gap-2.5 min-[1800px]:mt-4 min-[1800px]:gap-3" : "mt-3 gap-2")}>
-      <Metric icon={BadgeCheck} label="Validated" accent={accent} primary testId="team-validated" value={team.rawValidated} text="—" hero={hero} />
+      <Metric icon={BadgeCheck} label="Validated" accent={accent} primary testId="team-validated" value={salesCount} text="—" hero={hero} />
       <Metric icon={Send} label="Submitted" accent={accent} testId="team-submitted" value={team.submitted} hero={hero} />
       <Metric icon={Percent} label="Close rate" accent={accent} testId="team-rate" text={rate(team.closeRate)} hero={hero} />
     </div>
@@ -516,7 +520,7 @@ function TeamCard({
                 <span>Competing on validated sales</span>
               ) : neutral ? (
                 <span>Level on validated sales</span>
-              ) : team.rank === 1 && team.validated > 0 ? (
+              ) : team.rank === 1 && salesCount > 0 ? (
                 <>
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-300" />
                   <span className="text-emerald-300">{team.tied ? "Sharing the lead" : "Leading the floor"}</span>

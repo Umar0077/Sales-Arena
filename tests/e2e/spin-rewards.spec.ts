@@ -195,4 +195,72 @@ test.describe("spin rewards", () => {
     await expect(tv2.getByTestId(`pending-spin-${code}`)).toHaveCount(0, { timeout: 15_000 });
     await tv2.close();
   });
+
+  test("separate browser contexts (Admin + unpaired/paired TV): real pairing, live allocation sync, refresh persistence, and isolated spin", async ({ browser, context: adminContext, baseURL }) => {
+    test.skip(!(await liveDataConfigured(await adminContext.newPage())), "Needs the live server with the dev database.");
+    test.setTimeout(120_000);
+    const headers = await adminHeaders(adminContext, baseURL!);
+    const api = adminContext.request;
+    const code = `E2ECTX${Date.now().toString(36).toUpperCase()}`;
+
+    test.skip(!(await createDevAgent(code, "Separate TV Closer")), "Needs the local sales_arena_dev database.");
+    const catalog = await (await api.get("/api/admin/catalog")).json();
+    if (!(catalog.prizes ?? []).some((p: { title: string; active: boolean }) => p.title === "E2E Prize" && p.active))
+      await api.post("/api/admin/catalog", { headers, data: { title: "E2E Prize", icon: "gift", color: "#FFC857", weight: 1, quantity: null } });
+
+    // Create two genuinely separate browser contexts (separate cookies & localStorage, no admin login on TV 1 / TV 2).
+    const tv1Context = await browser.newContext({ baseURL });
+    const tv2Context = await browser.newContext({ baseURL });
+    try {
+      // Pair TV 2 via /pair using a real admin-generated pairing code.
+      const devRes = await api.post("/api/admin/devices", { headers, data: { label: `TV2-${code}` } });
+      expect(devRes.ok()).toBe(true);
+      const { code: pairCode } = await devRes.json();
+      const tv2Page = await tv2Context.newPage();
+      await tv2Page.goto("/pair");
+      await tv2Page.getByTestId("pair-code").fill(pairCode);
+      await tv2Page.getByTestId("pair-submit").click();
+      await expect(tv2Page.getByText(/This display is paired/i)).toBeVisible({ timeout: 10_000 });
+
+      const tv1Page = await tv1Context.newPage();
+      await tv1Page.setViewportSize({ width: 1920, height: 1080 });
+      await Promise.all([tv1Page.goto("/"), tv2Page.goto("/")]);
+      await expect(tv1Page.getByRole("region", { name: "Leaderboard" })).toBeVisible({ timeout: 45_000 });
+      await expect(tv2Page.getByRole("region", { name: "Leaderboard" })).toBeVisible({ timeout: 45_000 });
+
+      // Admin allocates 1 spin → both independent TV contexts show the persistent pending invitation.
+      const alloc = await api.post("/api/admin/spins/allocate", {
+        headers,
+        data: { userCode: code, quantity: 1, reason: "Multi-context E2E", idempotencyKey: `e2ectx-${randomUUID()}` },
+      });
+      expect(alloc.ok()).toBe(true);
+
+      await expect(tv1Page.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 15_000 });
+      await expect(tv2Page.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 15_000 });
+
+      // Refresh TV 2 → pending credit still appears from PostgreSQL.
+      await tv2Page.reload();
+      await expect(tv2Page.getByTestId(`pending-spin-${code}`)).toBeVisible({ timeout: 15_000 });
+
+      // Dismiss popup on TV 2 if open, then click SPIN NOW on paired TV 2 → wheel opens only on TV 2.
+      const tv2Dialog = tv2Page.getByRole("dialog", { name: /CONGRATULATIONS/ });
+      if (await tv2Dialog.isVisible().catch(() => false)) {
+        await tv2Dialog.getByRole("button", { name: /Spin later/i }).click();
+      }
+      await tv2Page.getByTestId(`pending-spin-cta-${code}`).click();
+      await expect(tv2Page.getByTestId("spin-agent-name")).toHaveText("Separate TV Closer", { timeout: 15_000 });
+      await expect(tv1Page.getByTestId("spin-button")).toHaveCount(0);
+
+      const spinResp = tv2Page.waitForResponse((r) => r.url().endsWith("/api/arena/spin") && r.request().method() === "POST");
+      await tv2Page.getByTestId("spin-button").click();
+      expect((await (await spinResp).json()).ok).toBe(true);
+      await expect(tv2Page.locator("[data-reveal-state]")).toBeVisible({ timeout: 30_000 });
+
+      // TV 1 clears its pending invitation after completion.
+      await expect(tv1Page.getByTestId(`pending-spin-${code}`)).toHaveCount(0, { timeout: 15_000 });
+    } finally {
+      await tv1Context.close();
+      await tv2Context.close();
+    }
+  });
 });

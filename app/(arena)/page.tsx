@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ARENA_MODE_ORDER, useArenaMode, useArenaModeStore } from "@/frontend/stores/arena-mode-store";
+import { useSpinBoardStore } from "@/frontend/stores/spin-board-store";
 import { TeamsScreen } from "@/frontend/components/arena/screens/TeamsScreen";
 import type { ArenaMode } from "@/shared/types";
 import { useReducedMotion } from "@/frontend/performance/reduced-motion";
@@ -21,6 +22,11 @@ export default function LiveArenaPage() {
     const screen = sp.get("screen") as ArenaMode | null;
     if (screen && ARENA_MODE_ORDER.includes(screen)) useArenaModeStore.getState().setPicked(screen);
   }, []);
+
+  // Re-fetch authoritative pending spins whenever the TV switches Arena modes.
+  useEffect(() => {
+    void useSpinBoardStore.getState().refreshPending();
+  }, [mode]);
 
   return (
     <AnimatePresence mode="wait" initial={false}>

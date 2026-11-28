@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Crown, Eye, RefreshCw, Sparkles, Square, Volume2, VolumeX } from "lucide-react";
 import { adminApi } from "@/frontend/components/admin/admin-api";
+import { useAdminSync } from "@/frontend/components/admin/AdminLiveSync";
 import { Section, PrimaryButton, GhostButton } from "@/frontend/components/admin/ui";
 import { Notice } from "@/frontend/components/admin/spins/shared";
 import { AgentEmoji } from "@/frontend/components/celebrations/AgentEmoji";
@@ -37,10 +38,12 @@ export function WeeklyTopPerformerSettings() {
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [previewEvent, setPreviewEvent] = useState<CelebrationEvent | null>(null);
   const [previewSound, setPreviewSound] = useState(false);
+  const salesRev = useAdminSync((s) => s.salesRev);
+  const teamsRev = useAdminSync((s) => s.teamsRev);
   const motion = useWeeklyTopMotion();
 
   const load = useCallback(async () => {
-    const r = await adminApi<State>("/api/admin/celebrations/weekly-top-performer");
+    const r = await adminApi<State>(`/api/admin/celebrations/weekly-top-performer?t=${Date.now()}`);
     if (r.ok) {
       setState(r.data);
       setError(null);
@@ -49,7 +52,7 @@ export function WeeklyTopPerformerSettings() {
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, salesRev, teamsRev]);
 
   useEffect(() => {
     if (!previewEvent) return;

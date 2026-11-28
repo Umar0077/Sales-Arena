@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, RefreshCw, Sparkles, Square, Trophy, Volume2, VolumeX } from "lucide-react";
+import { Eye, RefreshCw, Scale, Sparkles, Square, Trophy, Volume2, VolumeX } from "lucide-react";
 import { adminApi } from "@/frontend/components/admin/admin-api";
+import { useAdminSync } from "@/frontend/components/admin/AdminLiveSync";
 import { Section, PrimaryButton, GhostButton } from "@/frontend/components/admin/ui";
 import { Notice } from "@/frontend/components/admin/spins/shared";
 import { AgentEmoji } from "@/frontend/components/celebrations/AgentEmoji";
@@ -10,6 +11,7 @@ import { useWeeklyTopMotion } from "@/frontend/components/celebrations/WeeklyTop
 import { WeeklyTopTeamCelebration } from "@/frontend/components/celebrations/WeeklyTopTeamCelebration";
 import { audioEngine } from "@/frontend/audio/engine";
 import { playCelebrationSound } from "@/frontend/audio/celebration-sounds";
+import { formatSalesCount } from "@/shared/sales/weighting";
 import type { CelebrationEvent } from "@/shared/types";
 
 interface TeamMember {
@@ -17,23 +19,46 @@ interface TeamMember {
   name: string;
   designation: string | null;
   validated: number;
+  creditedValidated?: number;
   submitted: number;
+}
+
+interface TeamInfo {
+  id: string;
+  slug: string | null;
+  name: string;
+  logoUrl: string | null;
+  color: string;
+  accentSecondary: string | null;
+  validated: number;
+  creditedValidated?: number;
+  submitted: number;
+  closeRate: number | null;
+  memberCount?: number;
+  members: TeamMember[];
+}
+
+interface TeamSummary {
+  id: string;
+  slug: string | null;
+  name: string;
+  logoUrl: string | null;
+  color: string;
+  validated: number;
+  creditedValidated: number;
+  submitted: number;
+  closeRate: number | null;
+  memberCount: number;
+  rank: number;
+  tied: boolean;
 }
 
 interface TopTeamState {
   week: { from: string; to: string; label: string };
-  topTeam: {
-    id: string;
-    slug: string | null;
-    name: string;
-    logoUrl: string | null;
-    color: string;
-    accentSecondary: string | null;
-    validated: number;
-    submitted: number;
-    closeRate: number;
-    members: TeamMember[];
-  } | null;
+  topTeam: TeamInfo | null;
+  isTie?: boolean;
+  tiedTeams?: TeamInfo[];
+  teams?: TeamSummary[];
   tiedWith: string | null;
   celebrated: {
     teamId: string;
@@ -56,10 +81,12 @@ export function WeeklyTopTeamSettings() {
   const [msg, setMsg] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [previewEvent, setPreviewEvent] = useState<CelebrationEvent | null>(null);
   const [previewSound, setPreviewSound] = useState(false);
+  const salesRev = useAdminSync((s) => s.salesRev);
+  const teamsRev = useAdminSync((s) => s.teamsRev);
   const motion = useWeeklyTopMotion();
 
   const load = useCallback(async () => {
-    const r = await adminApi<TopTeamState>("/api/admin/celebrations/weekly-top-team");
+    const r = await adminApi<TopTeamState>(`/api/admin/celebrations/weekly-top-team?t=${Date.now()}`);
     if (r.ok) {
       setState(r.data);
       setError(null);
@@ -69,7 +96,7 @@ export function WeeklyTopTeamSettings() {
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, salesRev, teamsRev]);
 
   useEffect(() => {
     if (!previewEvent) return;
@@ -104,7 +131,7 @@ export function WeeklyTopTeamSettings() {
   };
 
   const startPreview = () => {
-    const tm = state?.topTeam;
+    const tm = state?.topTeam ?? state?.tiedTeams?.[0] ?? null;
     const evt: CelebrationEvent = {
       id: `preview_weekly_top_team_${Date.now()}`,
       tier: "weekly-top-team",
@@ -133,6 +160,7 @@ export function WeeklyTopTeamSettings() {
   };
 
   const done = !!state?.celebrated;
+  const isTie = Boolean(state?.isTie && (state?.tiedTeams?.length ?? 0) > 1);
 
   return (
     <Section
@@ -150,7 +178,9 @@ export function WeeklyTopTeamSettings() {
         <div className="space-y-4" data-testid="weekly-top-team-admin">
           <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#FFC857]/30 bg-gradient-to-r from-[#FFC857]/[0.08] to-transparent p-4">
             <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-[#FFC857]/50 bg-black/30 p-1.5">
-              {state.topTeam?.logoUrl ? (
+              {isTie ? (
+                <Scale className="h-7 w-7 text-[#FFC857]" />
+              ) : state.topTeam?.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- official team logo
                 <img
                   src={state.topTeam.logoUrl}
@@ -165,7 +195,22 @@ export function WeeklyTopTeamSettings() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
                 {state.week.label}
               </p>
-              {state.topTeam ? (
+              {isTie && state.tiedTeams ? (
+                <>
+                  <p
+                    className="truncate font-heading text-2xl font-extrabold text-white"
+                    data-testid="weekly-top-team-admin-tie"
+                  >
+                    Tied for #1: {state.tiedTeams.map((t) => t.name).join(" & ")}
+                  </p>
+                  <p className="text-sm text-text-secondary">
+                    <span className="font-semibold text-[#FFC857]" data-testid="weekly-top-team-admin-sales">
+                      {state.tiedTeams[0].validated}
+                    </span>{" "}
+                    approved sale{state.tiedTeams[0].validated === 1 ? "" : "s"} each · level on raw validated sales
+                  </p>
+                </>
+              ) : state.topTeam ? (
                 <>
                   <p
                     className="truncate font-heading text-2xl font-extrabold text-white"
@@ -177,8 +222,11 @@ export function WeeklyTopTeamSettings() {
                     <span className="font-semibold text-[#FFC857]" data-testid="weekly-top-team-admin-sales">
                       {state.topTeam.validated}
                     </span>{" "}
-                    approved sale{state.topTeam.validated === 1 ? "" : "s"} · {state.topTeam.members.length} team member
-                    {state.topTeam.members.length === 1 ? "" : "s"}
+                    approved sale{state.topTeam.validated === 1 ? "" : "s"}
+                    {state.topTeam.creditedValidated !== undefined && state.topTeam.creditedValidated !== state.topTeam.validated
+                      ? ` (${formatSalesCount(state.topTeam.creditedValidated)} weighted credits)`
+                      : ""}{" "}
+                    · {state.topTeam.members.length} team member{state.topTeam.members.length === 1 ? "" : "s"}
                   </p>
                 </>
               ) : (
@@ -188,6 +236,43 @@ export function WeeklyTopTeamSettings() {
               )}
             </div>
           </div>
+
+          {state.teams && state.teams.length > 0 && (
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3" data-testid="weekly-top-team-standings">
+              {state.teams.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs"
+                  data-testid="weekly-top-team-summary"
+                  data-team={t.slug ?? t.id}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    {t.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- official team logo
+                      <img src={t.logoUrl} alt="" className="h-6 w-6 shrink-0 object-contain" />
+                    ) : (
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.color }} />
+                    )}
+                    <span className="truncate font-semibold text-white">{t.name}</span>
+                    {t.tied && t.rank === 1 && t.validated > 0 && (
+                      <span className="rounded bg-[#FFC857]/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#FFC857]">
+                        Tied
+                      </span>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right font-mono">
+                    <span className="font-bold text-[#FFC857]">{t.validated}</span>
+                    <span className="text-text-muted"> sales</span>
+                    {t.creditedValidated !== t.validated && (
+                      <span className="ml-1.5 text-[10px] text-text-muted">
+                        ({formatSalesCount(t.creditedValidated)} cr.)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {state.topTeam && state.topTeam.members.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -211,7 +296,12 @@ export function WeeklyTopTeamSettings() {
             </div>
           )}
 
-          {state.tiedWith && !done && (
+          {isTie && !done && (
+            <Notice kind="info">
+              Competing teams are tied on raw validated sales ({state.tiedTeams?.map((t) => `${t.name}: ${t.validated}`).join(", ")}). A sole winning team celebration unlocks as soon as the tie is broken.
+            </Notice>
+          )}
+          {!isTie && state.tiedWith && !done && (
             <Notice kind="info">
               Tied on approved sales with {state.tiedWith}: weekly team standings order puts {state.topTeam?.name} first.
             </Notice>
@@ -228,11 +318,11 @@ export function WeeklyTopTeamSettings() {
           <div className="flex flex-wrap items-center gap-3">
             <PrimaryButton
               onClick={() => void celebrate()}
-              disabled={busy || done || !state.topTeam}
+              disabled={busy || done || isTie || !state.topTeam}
               data-testid="weekly-top-team-celebrate"
             >
               <Sparkles className="h-4 w-4" />{" "}
-              {busy ? "Sending…" : done ? "Team celebrated this week" : "Celebrate Weekly Top Team"}
+              {busy ? "Sending…" : done ? "Team celebrated this week" : isTie ? "Tied — No Sole Winner Yet" : "Celebrate Weekly Top Team"}
             </PrimaryButton>
             <GhostButton type="button" onClick={startPreview} data-testid="weekly-top-team-preview-btn">
               <Eye className="h-4 w-4" /> Preview Weekly Top Team

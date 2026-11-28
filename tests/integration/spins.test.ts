@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { allocateManualSpins, grantAutomaticSpins, SpinError } from "@/backend/spins/ledger";
-import { executeSpin } from "@/backend/spins/execute";
+import { completeSpin, executeSpin, recoverStaleSpins } from "@/backend/spins/execute";
 import { ingestValidatedSale } from "@/backend/sales/ingest";
 import { POST as spinApi } from "@/app/api/arena/spin/route";
+import { POST as spinCompleteApi } from "@/app/api/arena/spin/complete/route";
+import { POST as historicalPrizeApi } from "@/app/api/admin/spins/historical-prize/route";
 import { GET as pendingApi } from "@/app/api/arena/spin/pending/route";
 import { GET as winnersApi } from "@/app/api/arena/spin/recent-winners/route";
 import { GET as reconcileApi, POST as reconcileApproveApi } from "@/app/api/admin/spins/reconcile/route";
@@ -13,7 +15,7 @@ import { DELETE as revokeDevice } from "@/app/api/admin/devices/[id]/route";
 import { POST as allocateApi } from "@/app/api/admin/spins/allocate/route";
 import { POST as login } from "@/app/api/admin/auth/login/route";
 import { deviceCookieName } from "@/backend/auth/arena-device";
-import { createAdmin, createAgent, pool, req, resetDatabase, sessionFrom } from "./helpers";
+import { createAdmin, createAgent, pool, req, resetDatabase, restartPool, sessionFrom } from "./helpers";
 
 let admin: { id: string };
 const key = (s: string) => `test-key-${s}-${Math.random().toString(36).slice(2, 10)}`;
@@ -320,8 +322,19 @@ describe("spin ledger", () => {
     await addPrize("rw_keep", null, 1);
     await allocateManualSpins(pool(), { userCode: "HAM", quantity: 4, reason: "Legacy manual", idempotencyKey: key("ham_old"), adminId: admin.id });
     await allocateManualSpins(pool(), { userCode: "AL1", quantity: 3, reason: "Legacy manual", idempotencyKey: key("al1_old"), adminId: admin.id });
-    // Consume 1 on AL1 so there is a completed spin_results row to preserve.
+    // Consume 1 on AL1 so there is a completed spin_results row to preserve, plus 1 admin_demo_historical_result and 1 cash bonus_awards row.
     await executeSpin(pool(), { userCode: "AL1", idempotencyKey: key("al1_spin"), actor: "test" });
+    await historicalPrizeApi(req("/api/admin/spins/historical-prize", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { userCode: "HAM", prizeTitle: "KFC" } }));
+    await pool().query(
+      `INSERT INTO reward_programs (id, kind, name, enabled, sales_required, reward_type, amount, currency, headline, message, reward_line)
+       VALUES ('prog_cash_keep', 'daily', 'Daily SPIF', TRUE, 2, 'cash', 3000, 'Rs.', 'SPIF!', 'Great!', 'Rs. 3,000')
+       ON CONFLICT (id) DO NOTHING`,
+    );
+    await pool().query(
+      `INSERT INTO bonus_awards (id, program_id, kind, user_code, agent_id, agent_name, period_key, n, sales_required, validated_at_award, amount, increment_amount, payable_amount, prize_label, program_name, status)
+       VALUES ('aw_keep_1', 'prog_cash_keep', 'daily', 'HAM', 'agt_HAM', 'Hamna Nasir', 'D:2026-11-26', 1, 2, 2, 3000, 3000, 3000, 'Rs. 3,000', 'Daily SPIF', 'paid')
+       ON CONFLICT (id) DO NOTHING`,
+    );
 
     // Seed Nov 27 NY sales for HAM (2) and URW2 (2).
     await pool().query(
@@ -365,9 +378,11 @@ describe("spin ledger", () => {
     ).json();
     expect(r2.alreadyExecuted).toBe(true);
 
-    // Non-spin tables, completed spin_results, and shared reward_activation_cutoff are untouched.
+    // Non-spin tables, completed spin_results (including admin_demo_historical_result), cash bonus_awards, and shared reward_activation_cutoff are untouched.
     expect((await pool().query(`SELECT COUNT(*)::int AS n FROM validated_sales`)).rows[0].n).toBe(salesCountBefore);
     expect((await pool().query(`SELECT COUNT(*)::int AS n FROM spin_results`)).rows[0].n).toBe(spinResultsBefore);
+    expect((await pool().query(`SELECT COUNT(*)::int AS n FROM spin_results WHERE mode = 'admin_demo_historical_result' AND reward_title = 'KFC'`)).rows[0].n).toBe(1);
+    expect((await pool().query(`SELECT status, amount::int AS amount FROM bonus_awards WHERE id = 'aw_keep_1'`)).rows[0]).toEqual({ status: "paid", amount: 3000 });
     expect((await pool().query(`SELECT value FROM admin_settings WHERE key = 'reward_activation_cutoff'`)).rows[0].value).toBe(cutoffBefore);
 
     // Find Missing Spins finds HAM (1 missing) and URW2 (1 missing) post-reset.
@@ -380,5 +395,54 @@ describe("spin ledger", () => {
     expect(await balance("HAM")).toBe(1);
     expect(await balance("URW2")).toBe(1);
     expect(await balance("AL1")).toBe(0);
+  });
+
+  it("2-phase claim & recovery: claimOnly creates in-progress spin, prevents 2nd claim, completes idempotently; historical-prize records without credits", async () => {
+    const sess = sessionFrom(await login(req("/api/admin/auth/login", { method: "POST", body: { email: "owner@example.com", password: "Correct-Horse-Battery-9" } })));
+    await addPrize("rw_one", null, 1);
+    await allocateManualSpins(pool(), { userCode: "AL1", quantity: 1, reason: "2-phase", idempotencyKey: key("2p"), adminId: admin.id });
+
+    // Two simultaneous claimOnly requests for 1 credit → 1 succeeds, 1 gets 409 insufficient_credits.
+    const [c1, c2] = await Promise.all([
+      spinApi(req("/api/arena/spin", { method: "POST", cookie: sess.cookie, body: { userCode: "AL1", idempotencyKey: key("c1"), claimOnly: true } })),
+      spinApi(req("/api/arena/spin", { method: "POST", cookie: sess.cookie, body: { userCode: "AL1", idempotencyKey: key("c2"), claimOnly: true } })),
+    ]);
+    const statuses = [c1.status, c2.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    const okClaim = c1.status === 200 ? await c1.json() : await c2.json();
+    expect(await balance("AL1")).toBe(0);
+
+    // Pending API lists the in-progress spin for other TVs.
+    const pend = await (await pendingApi(req("/api/arena/spin/pending"))).json();
+    expect(pend.inProgress).toEqual([expect.objectContaining({ spin_id: okClaim.spinId, user_code: "AL1" })]);
+
+    // Interrupted spin recovery: completing twice is idempotent and yields 1 completed spin_results row.
+    const fin1 = await (await spinCompleteApi(req("/api/arena/spin/complete", { method: "POST", cookie: sess.cookie, body: { spinId: okClaim.spinId } }))).json();
+    const fin2 = await completeSpin(pool(), { spinId: okClaim.spinId });
+    expect(fin1).toMatchObject({ ok: true, replayed: false, spinId: okClaim.spinId });
+    expect(fin2).toMatchObject({ replayed: true, spinId: okClaim.spinId });
+    expect((await pool().query(`SELECT COUNT(*)::int AS n FROM spin_results WHERE status = 'completed'`)).rows[0].n).toBe(1);
+
+    // Historical admin-recorded prize (e.g. Hamna Nasir — KFC) stores mode='admin-historical', zero credit impact, idempotent.
+    const hp1 = await (await historicalPrizeApi(req("/api/admin/spins/historical-prize", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { userCode: "BO2", prizeTitle: "KFC" } }))).json();
+    const hp2 = await (await historicalPrizeApi(req("/api/admin/spins/historical-prize", { method: "POST", cookie: sess.cookie, csrf: sess.csrf, body: { userCode: "BO2", prizeTitle: "KFC" } }))).json();
+    expect(hp1).toMatchObject({ ok: true, replayed: false });
+    expect(hp2).toMatchObject({ ok: true, replayed: true, spinId: hp1.spinId });
+    expect(await balance("BO2")).toBe(0);
+    expect((await pool().query(`SELECT mode, reward_title FROM spin_results WHERE id = $1`, [hp1.spinId])).rows[0]).toEqual({
+      mode: "admin_demo_historical_result",
+      reward_title: "KFC",
+    });
+
+    // Simulate browser crash + application restart leaving an in-progress spin older than 90s:
+    await allocateManualSpins(pool(), { userCode: "BO2", quantity: 1, reason: "Crash recovery test", idempotencyKey: key("cr"), adminId: admin.id });
+    const crashed = await executeSpin(pool(), { userCode: "BO2", idempotencyKey: key("crash1"), actor: "device:tv1", claimOnly: true });
+    await pool().query(`UPDATE spin_results SET created_at = NOW() - INTERVAL '2 minutes' WHERE id = $1`, [crashed.spinId]);
+    await restartPool(); // simulate application restart
+    const recovered = await recoverStaleSpins(pool(), 90);
+    expect(recovered).toEqual([expect.objectContaining({ spinId: crashed.spinId, userCode: "BO2", availableLeft: 0 })]);
+    expect((await pool().query(`SELECT status FROM spin_results WHERE id = $1`, [crashed.spinId])).rows[0].status).toBe("completed");
+    // Calling recoverStaleSpins again is a no-op (never duplicates).
+    expect(await recoverStaleSpins(pool(), 90)).toEqual([]);
   });
 });

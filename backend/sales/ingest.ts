@@ -8,6 +8,8 @@ import { grantAutomaticSpins, readSpinSettings, type AutoGrant } from "../spins/
 import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { evaluateBonusAwards, type BonusAwardRecord } from "../rewards/engine";
 import { teamForSale } from "../teams/attribution";
+import { invalidateStandingsCache } from "../teams/standings";
+import { __resetSyncState } from "../live/sync-state";
 import type { BusinessClock } from "@/shared/time/business";
 
 /**
@@ -153,8 +155,8 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
           announceCash: cfg.announceCash !== false,
           announcePrizes: cfg.announcePrizes !== false,
         };
-        // Spin credits: isolated from cash-bonus reward_activation_cutoff; governed by auto_spins_enabled + spin_campaign_start_at.
-        spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar, allowCurrentRuleFallback: true });
+        // Spin credits: isolated from cash-bonus reward_activation_cutoff once spin campaign is active.
+        spinGrants = await grantAutomaticSpins(client, { userCode, triggerSaleId: saleId, validatedAt, calendar, allowCurrentRuleFallback: settings.spinCampaignIsolated });
         bonuses = await evaluateBonusAwards(client, { userCode, agentId, closerName, saleId, caseId, validatedAt, cutoff, calendar, config });
       }
     }
@@ -172,6 +174,9 @@ export async function ingestValidatedSale(pool: Pool, input: IngestSaleInput, so
 
   // Broadcast only after the data is committed.
   if (result.status === "inserted") {
+    // Invalidate memoized team standings and sync fingerprints immediately so displays & Celebration Settings read fresh figures.
+    invalidateStandingsCache();
+    __resetSyncState();
     // `source` lets displays tell a live sale from a historical import (Arena Cub never celebrates imports).
     // Delivery timeline: validatedAt (Safe Quote) → firstSeenAt (received here) → storedAt (committed) → broadcastAt.
     const storedAt = new Date().toISOString();

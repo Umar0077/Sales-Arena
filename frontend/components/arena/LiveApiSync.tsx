@@ -502,6 +502,9 @@ export function LiveApiSync() {
         if (snap.fp.catalog && snap.fp.catalog !== catalogRevRef.current) jobs.push(syncCatalog());
         if (changed.has("programs") && useArenaStore.getState().liveMode) jobs.push(fetchLivePrograms());
         if (changed.has("teams")) arenaBus.emit("teams:updated", {}, { broadcast: false }); // Teams Arena reloads its standings
+        // Fallback polling: keep pending spin invitations & winners synchronized even if an SSE event was missed.
+        jobs.push(useSpinBoardStore.getState().refreshPending());
+        jobs.push(useSpinBoardStore.getState().refreshWinners());
         await Promise.allSettled(jobs);
       },
     });
@@ -724,6 +727,20 @@ export function LiveApiSync() {
             }
           });
 
+          eventSource.addEventListener("spin.in_progress", (e) => {
+            try {
+              const payload = JSON.parse((e as MessageEvent).data);
+              const code = String(payload?.userCode ?? "").toUpperCase();
+              const left = Number(payload?.availableLeft ?? 0);
+              if (code && left <= 0) {
+                useSpinFlowStore.getState().dismissAgent(code);
+              }
+            } catch {
+              /* malformed payload ignored */
+            }
+            void useSpinBoardStore.getState().refreshPending();
+          });
+
           eventSource.addEventListener("spin.completed", (e) => {
             try {
               const payload = JSON.parse((e as MessageEvent).data);
@@ -769,8 +786,19 @@ export function LiveApiSync() {
       console.warn("[LiveApiSync] Could not establish EventSource", err);
     }
 
+    const onWake = () => {
+      if (document.visibilityState === "visible") {
+        void useSpinBoardStore.getState().refreshPending();
+        void useSpinBoardStore.getState().refreshWinners();
+      }
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+
     return () => {
       isMountedRef.current = false;
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
       clearTimeout(initialCheck);
       if (programsTimer) clearTimeout(programsTimer);
       if (awardsTimer) clearTimeout(awardsTimer);

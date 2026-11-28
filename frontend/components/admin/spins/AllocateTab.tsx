@@ -8,6 +8,7 @@ import { newRequestKey, Notice } from "./shared";
 import { cn } from "@/shared/utils";
 
 export interface AgentRow {
+  agent_id?: string;
   user_code: string;
   name: string;
   spin_eligible: boolean;
@@ -16,6 +17,7 @@ export interface AgentRow {
   manual_earned: number;
   consumed: number;
   last_spin_at: string | null;
+  last_allocated_at?: string | null;
   validated_sales: number;
   eligible_sales: number;
 }

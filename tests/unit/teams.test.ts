@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closeRateOf, leaderOf, rankMembers, rankTeams, topPerformers, type MemberStats, type TeamInput } from "@/shared/teams/ranking";
+import { closeRateOf, leaderOf, rankMembers, rankTeams, rankTeamsByRaw, topPerformers, type MemberStats, type TeamInput } from "@/shared/teams/ranking";
 import { matchRosterName, normalizeName, type Candidate } from "@/shared/teams/matching";
 import { INITIAL_ROSTER } from "@/shared/teams/initial-roster";
 import { audienceOk } from "@/backend/rewards/engine";
@@ -49,6 +49,21 @@ describe("team ranking (genuine data only, deterministic)", () => {
   it("close rate is null without submitted leads (never a fake 0 % / 100 %)", () => {
     expect(closeRateOf(0, 0)).toBeNull();
     expect(closeRateOf(1, 3)).toBe(33.3);
+  });
+  it("rankTeamsByRaw ties teams with identical raw validated counts (30 vs 30) while preserving weighted credits separately", () => {
+    const base = rankTeams([
+      team("panthers", [m("P1", 27, 120)], 1),
+      team("sigma", [m("S1", 26.5, 110)], 2),
+    ]);
+    const withRaw = rankTeamsByRaw([
+      { ...base.find((t) => t.id === "panthers")!, rawValidated: 30 },
+      { ...base.find((t) => t.id === "sigma")!, rawValidated: 30 },
+    ]);
+    expect(withRaw.map((t) => [t.id, t.rank, t.tied, t.rawValidated, t.validated])).toEqual([
+      ["panthers", 1, true, 30, 27],
+      ["sigma", 1, true, 30, 26.5],
+    ]);
+    expect(leaderOf(withRaw)).toBeNull();
   });
 });
 

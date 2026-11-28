@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     const d = new Date(String(v));
     if (!v || Number.isNaN(d.getTime())) return jsonError(400, "Spin campaign start date/time is not valid.");
     updates.push(["spin_campaign_start_at", d.toISOString()]);
+    updates.push(["spin_campaign_isolated", true]);
   }
   if ("manualMaxPerGrant" in body) {
     const n = Number(body.manualMaxPerGrant);

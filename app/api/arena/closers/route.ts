@@ -1,6 +1,8 @@
 import { creditClosers } from "@/backend/sales/credited-metrics";
 import { NextRequest, NextResponse } from "next/server";
+import { getDbPool } from "@/database/client";
 import { getSafeQuoteClient } from "@/backend/safequote/client";
+import { syncVerifiedClosers } from "@/backend/safequote/agent-sync";
 import { mapClosersToCloserRows } from "@/backend/safequote/mapper";
 import { SafeQuoteApiError } from "@/backend/safequote/errors";
 
@@ -25,6 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     const response = await client.getClosers({ from, to }, bypass);
     const mappedRows = mapClosersToCloserRows(await creditClosers(response.closers, { from, to }));
+    void syncVerifiedClosers(getDbPool(), { closers: response.closers }).catch(() => {});
 
     return NextResponse.json({
       ok: true,

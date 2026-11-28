@@ -78,6 +78,7 @@ export async function weeklyTopPerformer(pool: Pool, opts: { now?: Date; fresh?:
            JOIN teams t ON t.id = m.team_id
           WHERE m.user_code = $1
             AND t.active = TRUE
+            AND m.effective_from <= $2::date
             AND (m.effective_to IS NULL OR m.effective_to > $2::date)
           ORDER BY m.effective_from DESC
           LIMIT 1`,

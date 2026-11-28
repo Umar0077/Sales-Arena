@@ -17,6 +17,8 @@ export interface MemberStats {
   designation: Designation | null;
   submitted: number;
   validated: number;
+  /** Raw unique validated transaction count for this member in the team's date segment. */
+  rawValidated?: number;
   /** Safe Quote policy close rate for the period (%), null when there were no submitted leads. */
   closeRate: number | null;
   /** Membership ended inside the selected period (shown for the days they counted). */
@@ -102,6 +104,31 @@ export function rankTeams(teams: TeamInput[]): RankedTeam[] {
   return assignRanks(totals);
 }
 
+/**
+ * Ranks teams by authoritative raw validated transaction count (`rawValidated`), while preserving
+ * carrier-weighted `validated` credits and weighted `closeRate` separately.
+ * Teams with identical `rawValidated` counts share the same placement (`tied = true`) so a tie
+ * never reports a misleading sole winner.
+ */
+export function rankTeamsByRaw(teams: RankedTeam[]): RankedTeam[] {
+  const sorted = [...teams].sort(
+    (a, b) =>
+      (b.rawValidated ?? b.validated) - (a.rawValidated ?? a.validated) ||
+      b.validated - a.validated ||
+      b.submitted - a.submitted ||
+      a.displayOrder - b.displayOrder ||
+      a.name.localeCompare(b.name),
+  );
+  const out: RankedTeam[] = [];
+  sorted.forEach((x, i) => {
+    const prev = out[i - 1];
+    const sameRaw = prev && (prev.rawValidated ?? prev.validated) === (x.rawValidated ?? x.validated);
+    out.push({ ...x, rank: sameRaw ? prev.rank : i + 1, tied: false });
+  });
+  for (const x of out) x.tied = out.filter((y) => y.rank === x.rank).length > 1;
+  return out;
+}
+
 /** Overall top performers across all teams (only members with at least one validated sale qualify). */
 export function topPerformers(teams: RankedTeam[], n = 3): TopPerformer[] {
   const all = teams.flatMap((t) =>
@@ -112,8 +139,9 @@ export function topPerformers(teams: RankedTeam[], n = 3): TopPerformer[] {
 }
 
 /** The leading team id, or null when there is no data or the lead is shared. */
-export function leaderOf(teams: Pick<RankedTeam, "id" | "rank" | "tied" | "validated">[]): string | null {
+export function leaderOf(teams: Pick<RankedTeam, "id" | "rank" | "tied" | "validated" | "rawValidated">[]): string | null {
   const first = teams.find((t) => t.rank === 1);
-  if (!first || first.tied || first.validated === 0) return null;
+  const score = first ? (first.rawValidated ?? first.validated) : 0;
+  if (!first || first.tied || score === 0) return null;
   return first.id;
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, jsonError } from "@/backend/auth/guard";
 import { saveEmoji, normalizeEmojiName, matchAgentForEmoji } from "@/backend/emojis/media";
+import { syncVerifiedClosers } from "@/backend/safequote/agent-sync";
 import { calendarFrom, readArenaConfig } from "@/backend/settings/arena-config";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -8,6 +9,7 @@ export async function GET(req: NextRequest) {
     const a = await requireAdmin(req);
     if (!a.ok)
         return a.response;
+    await syncVerifiedClosers(a.pool, { fresh: req.nextUrl.searchParams.get("fresh") === "true" }).catch(() => null);
     const timezone = calendarFrom((await readArenaConfig(a.pool)).values).timezone;
     const agents = await a.pool.query(`SELECT a.id, a.user_code, a.name, e.asset_id,
  (SELECT jsonb_build_object('id',t.id,'slug',t.slug,'name',t.name,'active',t.active,'logoUrl',t.logo_url,'color',t.color,'accentSecondary',t.accent_secondary,'businessDate',(NOW() AT TIME ZONE $1)::date)

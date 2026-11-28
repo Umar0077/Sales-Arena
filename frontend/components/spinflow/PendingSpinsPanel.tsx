@@ -27,6 +27,7 @@ const initialsOf = (name: string) =>
 export function PendingSpinsPanel() {
   const { isChristmas } = useArenaTheme();
   const pending = useSpinBoardStore((s) => s.pending);
+  const inProgress = useSpinBoardStore((s) => s.inProgress);
   const pendingLoaded = useSpinBoardStore((s) => s.pendingLoaded);
   const refreshPending = useSpinBoardStore((s) => s.refreshPending);
   const spinFeatureEnabled = useSettingsStore((s) => s.spinFeatureEnabled);
@@ -41,7 +42,7 @@ export function PendingSpinsPanel() {
   }, [pendingLoaded, arenaEnabled, spinFeatureEnabled, refreshPending]);
 
   if (!arenaEnabled || !spinFeatureEnabled) return null;
-  if (stage !== "idle" || pending.length === 0) return null;
+  if (stage !== "idle" || (pending.length === 0 && inProgress.length === 0)) return null;
 
   const launchSpin = (item: (typeof pending)[number]) => {
     const matched = agents.find((a) => a.userCode === item.user_code);
@@ -117,6 +118,16 @@ export function PendingSpinsPanel() {
               </div>
             );
           })}
+          {inProgress.map((sp) => (
+            <div
+              key={sp.spin_id}
+              data-testid={`in-progress-spin-${sp.user_code}`}
+              className="flex items-center gap-2 rounded-xl border border-secondary/35 bg-secondary/10 px-3 py-1.5 text-xs font-semibold text-secondary"
+            >
+              <Disc3 className="h-3.5 w-3.5 animate-spin" />
+              <span>{sp.name} · Spin in Progress</span>
+            </div>
+          ))}
         </div>
       </div>
     </aside>

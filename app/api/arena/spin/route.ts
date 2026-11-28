@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { userCode?: unknown; idempotencyKey?: unknown };
+  let body: { userCode?: unknown; idempotencyKey?: unknown; claimOnly?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -49,23 +49,28 @@ export async function POST(req: NextRequest) {
   }
   const userCode = typeof body.userCode === "string" ? body.userCode.trim().toUpperCase() : "";
   const key = typeof body.idempotencyKey === "string" ? body.idempotencyKey : "";
+  const claimOnly = body.claimOnly === true;
   if (!/^[A-Z0-9:_.-]{1,64}$/.test(userCode)) return NextResponse.json({ ok: false, reason: "Invalid agent code." }, { status: 400 });
 
   try {
-    const result = await executeSpin(pool, { userCode, idempotencyKey: key, actor: `${actor.kind}:${actor.id}` });
+    const result = await executeSpin(pool, { userCode, idempotencyKey: key, actor: `${actor.kind}:${actor.id}`, claimOnly });
     if (!result.replayed) {
       await writeAudit(pool, {
         adminId: actor.kind === "admin" ? actor.id : null,
         actor: `${actor.kind}:${actor.label}`.slice(0, 128),
-        action: "spins.execute",
+        action: claimOnly ? "spins.claim" : "spins.execute",
         targetType: "agent",
         targetId: userCode,
         details: { spinId: result.spinId, rewardId: result.reward.id, availableLeft: result.availableLeft },
         ip: requestIp(req),
       });
-      arenaBroadcaster.broadcast("spin.completed", { spinId: result.spinId, userCode, reward: result.reward, availableLeft: result.availableLeft });
-      // Stock may have run out: displays refetch only if the wheel revision actually changed.
-      void publishCatalogUpdated(pool);
+      if (claimOnly) {
+        arenaBroadcaster.broadcast("spin.in_progress", { spinId: result.spinId, userCode, availableLeft: result.availableLeft });
+      } else {
+        arenaBroadcaster.broadcast("spin.completed", { spinId: result.spinId, userCode, reward: result.reward, availableLeft: result.availableLeft });
+        // Stock may have run out: displays refetch only if the wheel revision actually changed.
+        void publishCatalogUpdated(pool);
+      }
     }
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {

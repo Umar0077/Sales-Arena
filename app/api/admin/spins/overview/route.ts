@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/backend/auth/guard";
 import { readSpinSettings } from "@/backend/spins/ledger";
+import { recoverStaleSpins } from "@/backend/spins/execute";
 import { errorResponse } from "@/backend/spins/http";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
   try {
     const db = auth.pool;
+    await recoverStaleSpins(db, 90).catch(() => []);
     const [settings, rules, teams, campaigns, totals] = await Promise.all([
       readSpinSettings(db),
       db.query(
@@ -25,7 +27,11 @@ export async function GET(req: NextRequest) {
         `SELECT COALESCE(SUM(quantity) FILTER (WHERE kind = 'automatic'), 0)::int AS automatic,
                 COALESCE(SUM(quantity) FILTER (WHERE kind = 'manual'), 0)::int AS manual,
                 COALESCE(-SUM(quantity) FILTER (WHERE kind = 'consume'), 0)::int AS consumed,
-                (SELECT COALESCE(SUM(available), 0)::int FROM spin_credits) AS available
+                COALESCE(-SUM(quantity) FILTER (WHERE kind = 'expire'), 0)::int AS expired,
+                (SELECT COALESCE(SUM(available), 0)::int FROM spin_credits) AS available,
+                (SELECT COUNT(*)::int FROM spin_results WHERE status = 'in-progress' AND created_at > NOW() - INTERVAL '10 minutes') AS in_progress,
+                (SELECT COUNT(*)::int FROM spin_results WHERE status = 'completed') AS completed_prizes,
+                (SELECT COUNT(*)::int FROM arena_devices WHERE paired_at IS NOT NULL AND revoked_at IS NULL AND last_seen_at > NOW() - INTERVAL '15 minutes') AS connected_tvs
            FROM spin_credit_transactions`,
       ),
     ]);
@@ -36,8 +42,10 @@ export async function GET(req: NextRequest) {
           ...settings,
           activationCutoff: settings.activationCutoff?.toISOString() ?? null,
           spinCampaignStartAt: settings.spinCampaignStartAt.toISOString(),
+          spinCampaignResetAt: settings.spinCampaignResetAt?.toISOString() ?? null,
         },
         timezone: process.env.SALES_ARENA_TIMEZONE || "America/New_York",
+        serverTime: new Date().toISOString(),
         rules: rules.rows,
         teams: teams.rows,
         campaigns: campaigns.rows,

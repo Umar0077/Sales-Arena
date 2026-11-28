@@ -1,6 +1,8 @@
 import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import { arenaBroadcaster } from "../events/broadcaster";
+import { __resetSyncState } from "../live/sync-state";
+import { invalidateStandingsCache } from "./standings";
 import { calendarFrom, readArenaConfig } from "../settings/arena-config";
 import { businessToday } from "@/shared/time/business";
 import type { Designation } from "@/shared/teams/ranking";
@@ -157,7 +159,11 @@ async function tx<T>(pool: Pool, fn: (c: PoolClient) => Promise<T>): Promise<T> 
   }
 }
 const uniqueViolation = (e: unknown) => (e as { code?: string })?.code === "23505";
-export const broadcastTeams = (reason: string) => arenaBroadcaster.broadcast("teams.updated", { reason, at: new Date().toISOString() });
+export const broadcastTeams = (reason: string) => {
+  invalidateStandingsCache();
+  __resetSyncState();
+  arenaBroadcaster.broadcast("teams.updated", { reason, at: new Date().toISOString() });
+};
 
 async function checkLeader(c: Db, code: unknown) {
   if (code === null || code === undefined) return;

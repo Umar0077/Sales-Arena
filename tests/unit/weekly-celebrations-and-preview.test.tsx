@@ -298,4 +298,41 @@ describe("Weekly Top Performer, Weekly Top Team & Appearance Preview Fix", () =>
       expect(el.querySelector('[data-testid="weekly-top-team-preview-stage"]')).toBeTruthy();
     });
   });
+
+  it("displays an explicit tie state and disables sole-winner celebration when two teams have identical raw validated counts", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          week: { from: "2026-11-23", to: "2026-11-28", label: "Nov 23 – Nov 28" },
+          topTeam: null,
+          isTie: true,
+          tiedTeams: [
+            { id: "team_panthers", slug: "panthers", name: "Team Panthers", logoUrl: "/teams/team-panthers.webp", color: "#A855F7", accentSecondary: null, validated: 30, creditedValidated: 27, submitted: 100, closeRate: 27, members: [] },
+            { id: "team_sigma", slug: "sigma", name: "Team Sigma", logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", accentSecondary: null, validated: 30, creditedValidated: 27, submitted: 95, closeRate: 28.4, members: [] },
+          ],
+          teams: [
+            { id: "team_panthers", slug: "panthers", name: "Team Panthers", logoUrl: "/teams/team-panthers.webp", color: "#A855F7", validated: 30, creditedValidated: 27, submitted: 100, closeRate: 27, memberCount: 10, rank: 1, tied: true },
+            { id: "team_sigma", slug: "sigma", name: "Team Sigma", logoUrl: "/teams/team-sigma.webp", color: "#8B5CF6", validated: 30, creditedValidated: 27, submitted: 95, closeRate: 28.4, memberCount: 9, rank: 1, tied: true },
+          ],
+          tiedWith: "Team Panthers & Team Sigma",
+          celebrated: null,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await withMount(<WeeklyTopTeamSettings />, async (el) => {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 25));
+      });
+      expect(el.querySelector('[data-testid="weekly-top-team-admin-tie"]')?.textContent).toContain(
+        "Tied for #1: Team Panthers & Team Sigma",
+      );
+      expect(el.querySelector('[data-testid="weekly-top-team-admin-sales"]')?.textContent).toBe("30");
+      const btn = el.querySelector('[data-testid="weekly-top-team-celebrate"]') as HTMLButtonElement;
+      expect(btn.disabled).toBe(true);
+      expect(btn.textContent).toContain("Tied — No Sole Winner Yet");
+    });
+  });
 });

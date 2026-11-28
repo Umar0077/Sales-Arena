@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
   try {
-    return NextResponse.json({ ok: true, ...(await weeklyTopPerformer(auth.pool)) }, { headers: noStore });
+    return NextResponse.json({ ok: true, ...(await weeklyTopPerformer(auth.pool, { fresh: true })) }, { headers: noStore });
   } catch (err) {
     return errorResponse(err);
   }

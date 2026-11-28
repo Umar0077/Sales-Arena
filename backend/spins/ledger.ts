@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { writeAudit } from "../auth/guard";
 import {
   autoGrantKey,
+  countingStart,
   periodWindow,
   selectRule,
   thresholdsToGrant,
@@ -35,6 +36,8 @@ export interface SpinSettings {
   spinCampaignStartAt: Date;
   /** Timestamp of the one-time fresh campaign reset, if executed. */
   spinCampaignResetAt: Date | null;
+  /** True once a dedicated spin campaign start or fresh reset has been explicitly activated. */
+  spinCampaignIsolated: boolean;
   manualMaxPerGrant: number;
 }
 
@@ -44,7 +47,7 @@ export function businessCalendar(weekStartDay = 1): BusinessCalendar {
 
 export async function readSpinSettings(db: Pool | PoolClient): Promise<SpinSettings> {
   const { rows } = await db.query(
-    `SELECT key, value FROM admin_settings WHERE key IN ('auto_spins_enabled', 'reward_activation_cutoff', 'spin_campaign_start_at', 'spin_campaign_reset_at', 'manual_spin_max_per_grant')`,
+    `SELECT key, value FROM admin_settings WHERE key IN ('auto_spins_enabled', 'reward_activation_cutoff', 'spin_campaign_start_at', 'spin_campaign_reset_at', 'spin_campaign_isolated', 'manual_spin_max_per_grant')`,
   );
   const m = new Map(rows.map((r) => [r.key, r.value]));
   const cutoffRaw = m.get("reward_activation_cutoff");
@@ -53,12 +56,14 @@ export async function readSpinSettings(db: Pool | PoolClient): Promise<SpinSetti
   const spinStart = typeof spinStartRaw === "string" ? new Date(spinStartRaw) : null;
   const resetRaw = m.get("spin_campaign_reset_at");
   const resetAt = typeof resetRaw === "string" ? new Date(resetRaw) : null;
+  const resolvedResetAt = resetAt && !Number.isNaN(resetAt.getTime()) ? resetAt : null;
   const max = Number(m.get("manual_spin_max_per_grant"));
   return {
     autoEnabled: m.get("auto_spins_enabled") === true,
     activationCutoff: cutoff && !Number.isNaN(cutoff.getTime()) ? cutoff : null,
     spinCampaignStartAt: spinStart && !Number.isNaN(spinStart.getTime()) ? spinStart : DEFAULT_SPIN_CAMPAIGN_START,
-    spinCampaignResetAt: resetAt && !Number.isNaN(resetAt.getTime()) ? resetAt : null,
+    spinCampaignResetAt: resolvedResetAt,
+    spinCampaignIsolated: m.get("spin_campaign_isolated") === true || resolvedResetAt !== null,
     manualMaxPerGrant: Number.isInteger(max) && max > 0 ? max : 50,
   };
 }
@@ -244,11 +249,29 @@ export async function grantAutomaticSpins(
 ): Promise<AutoGrant[]> {
   const settings = await readSpinSettings(client);
   if (!settings.autoEnabled) return [];
-  const campaignStart = settings.spinCampaignStartAt;
-  if (args.validatedAt.getTime() < campaignStart.getTime()) return [];
+  const effectiveCutoff = settings.spinCampaignIsolated ? settings.spinCampaignStartAt : settings.activationCutoff;
+  if (!effectiveCutoff || args.validatedAt.getTime() < effectiveCutoff.getTime()) return [];
 
+  const cal = args.calendar ?? businessCalendar();
   const agent = (
-    await client.query(`SELECT team_id, campaign_id, spin_eligible FROM agents WHERE user_code = $1`, [args.userCode])
+    await client.query(
+      `SELECT COALESCE(
+                (SELECT m.team_id
+                   FROM team_memberships m
+                   JOIN teams t ON t.id = m.team_id AND t.active
+                  WHERE m.user_code = a.user_code
+                    AND m.effective_from <= ($2::timestamptz AT TIME ZONE $3)::date
+                    AND (m.effective_to IS NULL OR m.effective_to > ($2::timestamptz AT TIME ZONE $3)::date)
+                  ORDER BY m.effective_from DESC
+                  LIMIT 1),
+                a.team_id
+              ) AS team_id,
+              a.campaign_id,
+              a.spin_eligible
+         FROM agents a
+        WHERE a.user_code = $1`,
+      [args.userCode, args.validatedAt, cal.timezone],
+    )
   ).rows[0];
   if (!agent || !agent.spin_eligible) return [];
 
@@ -258,23 +281,26 @@ export async function grantAutomaticSpins(
     await client.query(`SELECT * FROM target_rules WHERE effective_from <= $1 AND (superseded_at IS NULL OR superseded_at > $1)`, [args.validatedAt])
   ).rows.map(mapRuleRow);
   let rule = selectRule(rules, { teamId: agent.team_id, campaignId: agent.campaign_id }, args.validatedAt);
+  let usedFallback = false;
   if (!rule && args.allowCurrentRuleFallback) {
     const currentRules = (await client.query(`SELECT * FROM target_rules WHERE superseded_at IS NULL`)).rows.map(mapRuleRow);
     rule = selectRule(currentRules, { teamId: agent.team_id, campaignId: agent.campaign_id }, new Date());
+    usedFallback = Boolean(rule);
   }
   if (!rule || !rule.enabled) return [];
 
-  const cal = args.calendar ?? businessCalendar();
   const win = periodWindow(rule.period, args.validatedAt, cal);
-  const start = win.start ? new Date(Math.max(win.start.getTime(), campaignStart.getTime())) : campaignStart;
+  const start = usedFallback
+    ? (win.start ? new Date(Math.max(win.start.getTime(), effectiveCutoff.getTime())) : effectiveCutoff)
+    : countingStart(rule, win, effectiveCutoff);
   // Raw validated transaction count (not weighted credits) is the spin eligibility metric.
-  // Uses spinCampaignStartAt (independent of cash-bonus reward_activation_cutoff).
+  // Uses isolated spinCampaignStartAt once activated, or activationCutoff before campaign isolation.
   const cnt = await client.query(
     `SELECT COUNT(*)::int AS n FROM validated_sales
       WHERE user_code = $1 AND status = 'validated' AND source <> 'backfill'
         AND validated_at >= $2 AND ($3::timestamptz IS NULL OR validated_at < $3)
         AND ($4::timestamptz IS NULL OR validated_at < $4)`,
-    [args.userCode, start, win.end, args.allowCurrentRuleFallback ? null : rule.supersededAt],
+    [args.userCode, start, win.end, usedFallback ? null : rule.supersededAt],
   );
   const granted = await client.query(
     `SELECT COALESCE(MAX(threshold_n), 0)::int AS n FROM automatic_spin_awards WHERE rule_id = $1 AND user_code = $2 AND period_key = $3`,

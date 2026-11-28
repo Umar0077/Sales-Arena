@@ -79,15 +79,15 @@ export function AchievementPopup({ agent, team, periodSales, available, reason, 
         <div className="pointer-events-none absolute -top-24 left-1/2 h-48 w-72 -translate-x-1/2 rounded-full bg-gold/30 blur-3xl" />
 
         <motion.div
-          className="relative mx-auto mb-5 grid h-28 w-28 place-items-center overflow-hidden rounded-3xl border border-gold/50 bg-gradient-to-br from-gold/30 to-orange-500/10"
+          className="relative mx-auto mb-5 grid h-32 w-32 place-items-center overflow-hidden rounded-3xl border border-gold/55 bg-gradient-to-br from-gold/30 via-[#591326]/40 to-orange-500/10 shadow-[0_0_40px_-8px_rgba(255,200,87,0.55)] sm:h-40 sm:w-40"
           animate={reducedMotion ? undefined : { rotate: [0, -4, 4, -2, 0], scale: [1, 1.06, 1] }}
           transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 1.2 }}
         >
           <AgentEmoji
             agentId={agent.id}
             name={agent.name}
-            className="h-24 w-24 object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.6)]"
-            fallback={<Trophy className="h-12 w-12 text-gold drop-shadow-[0_0_14px_rgba(255,200,87,0.8)]" />}
+            className="h-28 w-28 object-contain drop-shadow-[0_10px_22px_rgba(0,0,0,0.7)] sm:h-36 sm:w-36"
+            fallback={<Trophy className="h-14 w-14 text-gold drop-shadow-[0_0_16px_rgba(255,200,87,0.85)]" />}
           />
           <Sparkles className="absolute -right-2 -top-2 h-6 w-6 text-secondary" />
         </motion.div>
